@@ -1,0 +1,44 @@
+[project]
+name = "synthval"
+version = "0.1.0"
+description = "Critic-based two-sample testing of synthetic financial data, with likelihood benchmarks for Markov models and Markowitz portfolio utility"
+authors = [
+    { name = "tejoker", email = "nicnic.bigeard@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.4",
+    "pandas>=3.1.1",
+    "scipy>=1.18.1",
+    "statsmodels>=0.15.0",
+    "tabulate>=0.10.0",
+    "torch>=2.15.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["slow: long-running statistical checks"]
+
+[dependency-groups]
+dev = [
+    "arch>=9.0.0",
+    "pytest>=9.2.0",
+    "scikit-learn>=1.9.1",
+]
+
+[tool.uv]
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]

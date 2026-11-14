@@ -7,7 +7,7 @@ import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 EXCEL_FILENAME = "sp500_price_volume.csv"
 EXCEL_FILENAME2 = "sp500_price_volume_sorted.csv"
-EXCEL_PATH = os.path.join(BASE_DIR, EXCEL_FILENAME)
+EXCEL_PATH = os.path.join(BASE_DIR, "..", "data", EXCEL_FILENAME)  # data moved to data/
 CSV_PATH = EXCEL_PATH
 HIST_TICKER = "MMM"
 EXCEL_EXIT = os.path.join(BASE_DIR, EXCEL_FILENAME2)
