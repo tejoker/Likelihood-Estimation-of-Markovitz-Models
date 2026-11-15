@@ -1,0 +1,1419 @@
+% references.bib -- verified bibliography for
+% "Is Synthetic Financial Data Good Enough? A Wasserstein-Critic Two-Sample Test,
+%  Likelihood Benchmarks for Markov Models, and Markowitz Portfolio Utility"
+%
+% Every entry below was checked on 2026-11-14 against an authoritative record:
+%   Crossref (api.crossref.org/works/<DOI>) for all entries with a DOI;
+%   proceedings.neurips.cc, proceedings.mlr.press, iclr.cc (accepted-paper lists),
+%   jmlr.org and the arXiv API for conference / JMLR / preprint entries;
+%   the journal's own index for the one journal article without a DOI (liu1995ml);
+%   Semantic Scholar, RePEc/IDEAS or the publisher page only to complete page ranges
+%   that Crossref truncates to the first page.
+% Year convention: the print (issue) year when online and print years differ.
+% Fields that could not be confirmed (e.g. NeurIPS page numbers before 2020) are omitted
+% rather than guessed. See docs/literature.md for the review, the citation map and the list
+% of unverified candidates that were excluded.
+%
+% Keys: lowercase firstauthorYEARfirstword (stop words skipped).
+
+% ---------------------------------------------------------------------------
+% 1. GANs, integral probability metrics, optimal transport
+% ---------------------------------------------------------------------------
+
+@inproceedings{goodfellow2014generative,
+  author    = {Goodfellow, Ian J. and Pouget-Abadie, Jean and Mirza, Mehdi and Xu, Bing and Warde-Farley, David and Ozair, Sherjil and Courville, Aaron and Bengio, Yoshua},
+  title     = {Generative Adversarial Nets},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {27},
+  year      = {2014},
+  url       = {https://proceedings.neurips.cc/paper_files/paper/2014/hash/f033ed80deb0234979a61f95710dbe25-Abstract.html}
+}
+
+@inproceedings{arjovsky2017wasserstein,
+  author    = {Arjovsky, Martin and Chintala, Soumith and Bottou, L{\'e}on},
+  title     = {{Wasserstein} Generative Adversarial Networks},
+  booktitle = {Proceedings of the 34th International Conference on Machine Learning},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {70},
+  pages     = {214--223},
+  year      = {2017},
+  url       = {https://proceedings.mlr.press/v70/arjovsky17a.html}
+}
+
+@inproceedings{gulrajani2017improved,
+  author    = {Gulrajani, Ishaan and Ahmed, Faruk and Arjovsky, Martin and Dumoulin, Vincent and Courville, Aaron C.},
+  title     = {Improved Training of {Wasserstein} {GANs}},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {30},
+  year      = {2017},
+  url       = {https://proceedings.neurips.cc/paper_files/paper/2017/hash/892c3b1c6dccd52936e27cbd0ff683d6-Abstract.html}
+}
+
+@article{muller1997integral,
+  author  = {M{\"u}ller, Alfred},
+  title   = {Integral Probability Metrics and Their Generating Classes of Functions},
+  journal = {Advances in Applied Probability},
+  volume  = {29},
+  number  = {2},
+  pages   = {429--443},
+  year    = {1997},
+  doi     = {10.2307/1428011}
+}
+
+@article{sriperumbudur2012empirical,
+  author  = {Sriperumbudur, Bharath K. and Fukumizu, Kenji and Gretton, Arthur and Sch{\"o}lkopf, Bernhard and Lanckriet, Gert R. G.},
+  title   = {On the Empirical Estimation of Integral Probability Metrics},
+  journal = {Electronic Journal of Statistics},
+  volume  = {6},
+  pages   = {1550--1599},
+  year    = {2012},
+  doi     = {10.1214/12-EJS722}
+}
+
+@book{villani2009optimal,
+  author    = {Villani, C{\'e}dric},
+  title     = {Optimal Transport: Old and New},
+  series    = {Grundlehren der mathematischen Wissenschaften},
+  volume    = {338},
+  publisher = {Springer},
+  address   = {Berlin, Heidelberg},
+  year      = {2009},
+  doi       = {10.1007/978-3-540-71050-9}
+}
+
+@article{nguyen2010estimating,
+  author  = {Nguyen, XuanLong and Wainwright, Martin J. and Jordan, Michael I.},
+  title   = {Estimating Divergence Functionals and the Likelihood Ratio by Convex Risk Minimization},
+  journal = {IEEE Transactions on Information Theory},
+  volume  = {56},
+  number  = {11},
+  pages   = {5847--5861},
+  year    = {2010},
+  doi     = {10.1109/TIT.2010.2068870}
+}
+
+@inproceedings{arora2017generalization,
+  author    = {Arora, Sanjeev and Ge, Rong and Liang, Yingyu and Ma, Tengyu and Zhang, Yi},
+  title     = {Generalization and Equilibrium in Generative Adversarial Nets ({GANs})},
+  booktitle = {Proceedings of the 34th International Conference on Machine Learning},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {70},
+  pages     = {224--232},
+  year      = {2017},
+  url       = {https://proceedings.mlr.press/v70/arora17a.html}
+}
+
+@article{fournier2015rate,
+  author  = {Fournier, Nicolas and Guillin, Arnaud},
+  title   = {On the Rate of Convergence in {Wasserstein} Distance of the Empirical Measure},
+  journal = {Probability Theory and Related Fields},
+  volume  = {162},
+  number  = {3--4},
+  pages   = {707--738},
+  year    = {2015},
+  doi     = {10.1007/s00440-014-0583-7}
+}
+
+@article{ramdas2017wasserstein,
+  author  = {Ramdas, Aaditya and Garc{\'\i}a Trillos, Nicol{\'a}s and Cuturi, Marco},
+  title   = {On {Wasserstein} Two-Sample Testing and Related Families of Nonparametric Tests},
+  journal = {Entropy},
+  volume  = {19},
+  number  = {2},
+  pages   = {47},
+  year    = {2017},
+  doi     = {10.3390/e19020047}
+}
+
+@misc{mallasto2019well,
+  author        = {Mallasto, Anton and Mont{\'u}far, Guido and Gerolin, Augusto},
+  title         = {How Well Do {WGANs} Estimate the {Wasserstein} Metric?},
+  year          = {2019},
+  eprint        = {1910.03875},
+  archiveprefix = {arXiv},
+  howpublished  = {arXiv preprint arXiv:1910.03875}
+}
+
+% ---------------------------------------------------------------------------
+% 2. Two-sample testing, permutation inference, multiple testing, HAC
+% ---------------------------------------------------------------------------
+
+@article{gretton2012kernel,
+  author  = {Gretton, Arthur and Borgwardt, Karsten M. and Rasch, Malte J. and Sch{\"o}lkopf, Bernhard and Smola, Alexander},
+  title   = {A Kernel Two-Sample Test},
+  journal = {Journal of Machine Learning Research},
+  volume  = {13},
+  number  = {25},
+  pages   = {723--773},
+  year    = {2012},
+  url     = {https://www.jmlr.org/papers/v13/gretton12a.html}
+}
+
+@inproceedings{lopezpaz2017revisiting,
+  author        = {Lopez-Paz, David and Oquab, Maxime},
+  title         = {Revisiting Classifier Two-Sample Tests},
+  booktitle     = {International Conference on Learning Representations ({ICLR})},
+  year          = {2017},
+  eprint        = {1610.06545},
+  archiveprefix = {arXiv},
+  url           = {https://openreview.net/forum?id=SJkXfE5xx}
+}
+
+@inproceedings{liu2020learning,
+  author    = {Liu, Feng and Xu, Wenkai and Lu, Jie and Zhang, Guangquan and Gretton, Arthur and Sutherland, Danica J.},
+  title     = {Learning Deep Kernels for Non-Parametric Two-Sample Tests},
+  booktitle = {Proceedings of the 37th International Conference on Machine Learning},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {119},
+  pages     = {6316--6326},
+  year      = {2020},
+  url       = {https://proceedings.mlr.press/v119/liu20m.html}
+}
+
+@article{cheng2022classification,
+  author  = {Cheng, Xiuyuan and Cloninger, Alexander},
+  title   = {Classification Logit Two-Sample Testing by Neural Networks for Differentiating Near Manifold Densities},
+  journal = {IEEE Transactions on Information Theory},
+  volume  = {68},
+  number  = {10},
+  pages   = {6631--6662},
+  year    = {2022},
+  doi     = {10.1109/TIT.2022.3175691}
+}
+
+@article{kim2021classification,
+  author  = {Kim, Ilmun and Ramdas, Aaditya and Singh, Aarti and Wasserman, Larry},
+  title   = {Classification Accuracy as a Proxy for Two-Sample Testing},
+  journal = {The Annals of Statistics},
+  volume  = {49},
+  number  = {1},
+  pages   = {411--434},
+  year    = {2021},
+  doi     = {10.1214/20-AOS1962}
+}
+
+@inproceedings{bounliphone2016test,
+  author        = {Bounliphone, Wacha and Belilovsky, Eugene and Blaschko, Matthew B. and Antonoglou, Ioannis and Gretton, Arthur},
+  title         = {A Test of Relative Similarity for Model Selection in Generative Models},
+  booktitle     = {International Conference on Learning Representations ({ICLR})},
+  year          = {2016},
+  eprint        = {1511.04581},
+  archiveprefix = {arXiv}
+}
+
+@article{chung2013exact,
+  author  = {Chung, EunYi and Romano, Joseph P.},
+  title   = {Exact and Asymptotically Robust Permutation Tests},
+  journal = {The Annals of Statistics},
+  volume  = {41},
+  number  = {2},
+  pages   = {484--507},
+  year    = {2013},
+  doi     = {10.1214/13-AOS1090}
+}
+
+@article{janssen1997studentized,
+  author  = {Janssen, Arnold},
+  title   = {Studentized Permutation Tests for Non-i.i.d. Hypotheses and the Generalized {Behrens}--{Fisher} Problem},
+  journal = {Statistics \& Probability Letters},
+  volume  = {36},
+  number  = {1},
+  pages   = {9--21},
+  year    = {1997},
+  doi     = {10.1016/S0167-7152(97)00043-6}
+}
+
+@article{romano2022permutation,
+  author  = {Romano, Joseph P. and Tirlea, Marius A.},
+  title   = {Permutation Testing for Dependence in Time Series},
+  journal = {Journal of Time Series Analysis},
+  volume  = {43},
+  number  = {5},
+  pages   = {781--807},
+  year    = {2022},
+  doi     = {10.1111/jtsa.12638}
+}
+
+@book{lehmann2022testing,
+  author    = {Lehmann, Erich L. and Romano, Joseph P.},
+  title     = {Testing Statistical Hypotheses},
+  edition   = {Fourth},
+  series    = {Springer Texts in Statistics},
+  publisher = {Springer},
+  address   = {Cham},
+  year      = {2022},
+  doi       = {10.1007/978-3-030-70578-7}
+}
+
+@article{hemerik2018exact,
+  author  = {Hemerik, Jesse and Goeman, Jelle},
+  title   = {Exact Testing with Random Permutations},
+  journal = {TEST},
+  volume  = {27},
+  number  = {4},
+  pages   = {811--825},
+  year    = {2018},
+  doi     = {10.1007/s11749-017-0571-1}
+}
+
+@article{benjamini1995controlling,
+  author  = {Benjamini, Yoav and Hochberg, Yosef},
+  title   = {Controlling the False Discovery Rate: A Practical and Powerful Approach to Multiple Testing},
+  journal = {Journal of the Royal Statistical Society: Series B (Methodological)},
+  volume  = {57},
+  number  = {1},
+  pages   = {289--300},
+  year    = {1995},
+  doi     = {10.1111/j.2517-6161.1995.tb02031.x}
+}
+
+@article{benjamini2001control,
+  author  = {Benjamini, Yoav and Yekutieli, Daniel},
+  title   = {The Control of the False Discovery Rate in Multiple Testing under Dependency},
+  journal = {The Annals of Statistics},
+  volume  = {29},
+  number  = {4},
+  pages   = {1165--1188},
+  year    = {2001},
+  doi     = {10.1214/aos/1013699998}
+}
+
+@article{phipson2010permutation,
+  author  = {Phipson, Belinda and Smyth, Gordon K.},
+  title   = {Permutation {P}-values Should Never Be Zero: Calculating Exact {P}-values When Permutations Are Randomly Drawn},
+  journal = {Statistical Applications in Genetics and Molecular Biology},
+  volume  = {9},
+  number  = {1},
+  pages   = {Article 39},
+  year    = {2010},
+  doi     = {10.2202/1544-6115.1585}
+}
+
+@inproceedings{kirchler2020two,
+  author    = {Kirchler, Matthias and Khorasani, Shahryar and Kloft, Marius and Lippert, Christoph},
+  title     = {Two-sample Testing Using Deep Learning},
+  booktitle = {Proceedings of the Twenty Third International Conference on Artificial Intelligence and Statistics},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {108},
+  pages     = {1387--1398},
+  year      = {2020},
+  url       = {https://proceedings.mlr.press/v108/kirchler20a.html}
+}
+
+@inproceedings{kubler2022witness,
+  author    = {K{\"u}bler, Jonas M. and Jitkrittum, Wittawat and Sch{\"o}lkopf, Bernhard and Muandet, Krikamol},
+  title     = {A Witness Two-Sample Test},
+  booktitle = {Proceedings of the 25th International Conference on Artificial Intelligence and Statistics},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {151},
+  pages     = {1403--1419},
+  year      = {2022},
+  url       = {https://proceedings.mlr.press/v151/kubler22a.html}
+}
+
+@misc{hu2026neural,
+  author        = {Hu, Xiaoyu and Lin, Zhenhua},
+  title         = {Neural {Wasserstein} Two-Sample Tests},
+  year          = {2026},
+  eprint        = {2601.21732},
+  archiveprefix = {arXiv},
+  howpublished  = {arXiv preprint arXiv:2601.21732}
+}
+
+@inproceedings{wang2021two,
+  author    = {Wang, Jie and Gao, Rui and Xie, Yao},
+  title     = {Two-sample Test using Projected {Wasserstein} Distance},
+  booktitle = {2021 IEEE International Symposium on Information Theory ({ISIT})},
+  publisher = {IEEE},
+  pages     = {3320--3325},
+  year      = {2021},
+  doi       = {10.1109/ISIT45174.2021.9518186}
+}
+
+@inproceedings{wang2022two,
+  author    = {Wang, Jie and Gao, Rui and Xie, Yao},
+  title     = {Two-Sample Test with Kernel Projected {Wasserstein} Distance},
+  booktitle = {Proceedings of the 25th International Conference on Artificial Intelligence and Statistics},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {151},
+  pages     = {8022--8055},
+  year      = {2022},
+  url       = {https://proceedings.mlr.press/v151/wang22f.html}
+}
+
+@inproceedings{lloyd2015statistical,
+  author    = {Lloyd, James R. and Ghahramani, Zoubin},
+  title     = {Statistical Model Criticism using Kernel Two Sample Tests},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {28},
+  year      = {2015},
+  url       = {https://proceedings.neurips.cc/paper_files/paper/2015/hash/0fcbc61acd0479dc77e3cccc0f5ffca7-Abstract.html}
+}
+
+@inproceedings{chwialkowski2014wild,
+  author    = {Chwialkowski, Kacper and Sejdinovic, Dino and Gretton, Arthur},
+  title     = {A Wild Bootstrap for Degenerate Kernel Tests},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {27},
+  year      = {2014},
+  url       = {https://proceedings.neurips.cc/paper_files/paper/2014/hash/4e382cb49370f64415df2672b19fb1f2-Abstract.html}
+}
+
+@inproceedings{jitkrittum2018informative,
+  author    = {Jitkrittum, Wittawat and Kanagawa, Heishiro and Sangkloy, Patsorn and Hays, James and Sch{\"o}lkopf, Bernhard and Gretton, Arthur},
+  title     = {Informative Features for Model Comparison},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {31},
+  year      = {2018},
+  eprint        = {1810.11630},
+  archiveprefix = {arXiv}
+}
+
+@article{gerber2024likelihood,
+  author  = {Gerber, Patrik R{\'o}bert and Polyanskiy, Yury},
+  title   = {Likelihood-Free Hypothesis Testing},
+  journal = {IEEE Transactions on Information Theory},
+  volume  = {70},
+  number  = {11},
+  pages   = {7971--8000},
+  year    = {2024},
+  doi     = {10.1109/TIT.2024.3412107}
+}
+
+@article{newey1987simple,
+  author  = {Newey, Whitney K. and West, Kenneth D.},
+  title   = {A Simple, Positive Semi-Definite, Heteroskedasticity and Autocorrelation Consistent Covariance Matrix},
+  journal = {Econometrica},
+  volume  = {55},
+  number  = {3},
+  pages   = {703--708},
+  year    = {1987},
+  doi     = {10.2307/1913610}
+}
+
+@article{andrews1991heteroskedasticity,
+  author  = {Andrews, Donald W. K.},
+  title   = {Heteroskedasticity and Autocorrelation Consistent Covariance Matrix Estimation},
+  journal = {Econometrica},
+  volume  = {59},
+  number  = {3},
+  pages   = {817--858},
+  year    = {1991},
+  doi     = {10.2307/2938229}
+}
+
+@article{newey1994automatic,
+  author  = {Newey, Whitney K. and West, Kenneth D.},
+  title   = {Automatic Lag Selection in Covariance Matrix Estimation},
+  journal = {The Review of Economic Studies},
+  volume  = {61},
+  number  = {4},
+  pages   = {631--653},
+  year    = {1994},
+  doi     = {10.2307/2297912}
+}
+
+@article{driscoll1998consistent,
+  author  = {Driscoll, John C. and Kraay, Aart C.},
+  title   = {Consistent Covariance Matrix Estimation with Spatially Dependent Panel Data},
+  journal = {The Review of Economics and Statistics},
+  volume  = {80},
+  number  = {4},
+  pages   = {549--560},
+  year    = {1998},
+  doi     = {10.1162/003465398557825}
+}
+
+@article{herrndorf1984functional,
+  author  = {Herrndorf, Norbert},
+  title   = {A Functional Central Limit Theorem for Weakly Dependent Sequences of Random Variables},
+  journal = {The Annals of Probability},
+  volume  = {12},
+  number  = {1},
+  pages   = {141--153},
+  year    = {1984},
+  doi     = {10.1214/aop/1176993379}
+}
+
+@article{hall1991two,
+  author  = {Hall, Peter and Wilson, Susan R.},
+  title   = {Two Guidelines for Bootstrap Hypothesis Testing},
+  journal = {Biometrics},
+  volume  = {47},
+  number  = {2},
+  pages   = {757--762},
+  year    = {1991},
+  doi     = {10.2307/2532163}
+}
+
+@article{diebold1995comparing,
+  author  = {Diebold, Francis X. and Mariano, Roberto S.},
+  title   = {Comparing Predictive Accuracy},
+  journal = {Journal of Business \& Economic Statistics},
+  volume  = {13},
+  number  = {3},
+  pages   = {253--263},
+  year    = {1995},
+  doi     = {10.1080/07350015.1995.10524599}
+}
+
+% ---------------------------------------------------------------------------
+% 3. Path signatures
+% ---------------------------------------------------------------------------
+
+@article{lyons1998differential,
+  author  = {Lyons, Terry J.},
+  title   = {Differential Equations Driven by Rough Signals},
+  journal = {Revista Matem{\'a}tica Iberoamericana},
+  volume  = {14},
+  number  = {2},
+  pages   = {215--310},
+  year    = {1998},
+  doi     = {10.4171/RMI/240}
+}
+
+@misc{chevyrev2016primer,
+  author        = {Chevyrev, Ilya and Kormilitzin, Andrey},
+  title         = {A Primer on the Signature Method in Machine Learning},
+  year          = {2016},
+  eprint        = {1603.03788},
+  archiveprefix = {arXiv},
+  howpublished  = {arXiv preprint arXiv:1603.03788},
+  note          = {Revised version published in \emph{Signature Methods in Finance}, Springer Finance, Springer, 2025, pp.~3--64, doi:10.1007/978-3-031-97239-3\_1}
+}
+
+@article{kiraly2019kernels,
+  author  = {Kir{\'a}ly, Franz J. and Oberhauser, Harald},
+  title   = {Kernels for Sequentially Ordered Data},
+  journal = {Journal of Machine Learning Research},
+  volume  = {20},
+  number  = {31},
+  pages   = {1--45},
+  year    = {2019},
+  url     = {https://www.jmlr.org/papers/v20/16-314.html}
+}
+
+@article{chevyrev2022signature,
+  author  = {Chevyrev, Ilya and Oberhauser, Harald},
+  title   = {Signature Moments to Characterize Laws of Stochastic Processes},
+  journal = {Journal of Machine Learning Research},
+  volume  = {23},
+  number  = {176},
+  pages   = {1--42},
+  year    = {2022},
+  url     = {https://www.jmlr.org/papers/v23/20-1466.html}
+}
+
+@inproceedings{issa2023nonadversarial,
+  author    = {Issa, Zacharia and Horvath, Blanka and Lemercier, Maud and Salvi, Cristopher},
+  title     = {Non-adversarial Training of Neural {SDEs} with Signature Kernel Scores},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {36},
+  pages     = {11102--11126},
+  year      = {2023},
+  url       = {https://proceedings.neurips.cc/paper_files/paper/2023/hash/2460396f2d0d421885997dd1612ac56b-Abstract-Conference.html}
+}
+
+% ---------------------------------------------------------------------------
+% 4. Synthetic financial data, market generators, evaluation of generative models
+% ---------------------------------------------------------------------------
+
+@article{wiese2020quant,
+  author  = {Wiese, Magnus and Knobloch, Robert and Korn, Ralf and Kretschmer, Peter},
+  title   = {Quant {GANs}: Deep Generation of Financial Time Series},
+  journal = {Quantitative Finance},
+  volume  = {20},
+  number  = {9},
+  pages   = {1419--1440},
+  year    = {2020},
+  doi     = {10.1080/14697688.2020.1730426}
+}
+
+@article{takahashi2019modeling,
+  author  = {Takahashi, Shuntaro and Chen, Yu and Tanaka-Ishii, Kumiko},
+  title   = {Modeling Financial Time-Series with Generative Adversarial Networks},
+  journal = {Physica A: Statistical Mechanics and its Applications},
+  volume  = {527},
+  pages   = {121261},
+  year    = {2019},
+  doi     = {10.1016/j.physa.2019.121261}
+}
+
+@misc{kondratyev2019market,
+  author       = {Kondratyev, Alexei and Schwarz, Christian},
+  title        = {The Market Generator},
+  year         = {2019},
+  howpublished = {SSRN Working Paper 3384948},
+  doi          = {10.2139/ssrn.3384948},
+  note         = {Also published in \emph{Risk} (Cutting Edge), February 2020}
+}
+
+@misc{buehler2020data,
+  author        = {B{\"u}hler, Hans and Horvath, Blanka and Lyons, Terry and Perez Arribas, Imanol and Wood, Ben},
+  title         = {A Data-driven Market Simulator for Small Data Environments},
+  year          = {2020},
+  eprint        = {2006.14498},
+  archiveprefix = {arXiv},
+  howpublished  = {arXiv preprint arXiv:2006.14498}
+}
+
+@article{bai2026calibrating,
+  author  = {Bai, Yuanlu and Balch, Tucker and Chen, Haoxian and Dervovic, Danial and Lam, Henry and Vyetrenko, Svitlana},
+  title   = {Calibrating Non-Identifiable High-Dimensional Simulation Models: A Framework via Eligibility Set},
+  journal = {ACM Transactions on Modeling and Computer Simulation},
+  volume  = {36},
+  number  = {1},
+  pages   = {1--50},
+  year    = {2026},
+  doi     = {10.1145/3742427},
+  note    = {Published online October 2025. Earlier version: arXiv:2105.12893 (2021), ``Calibrating Over-Parametrized Simulation Models: A Framework via Eligibility Set''}
+}
+
+@misc{francopedroso2018ets,
+  author        = {Franco-Pedroso, Javier and Gonzalez-Rodriguez, Joaquin and Planas, Maria and Cubero, Jorge and Cobo, Rafael and Pablos, Fernando},
+  title         = {The {ETS} Challenges: A Machine Learning Approach to the Evaluation of Simulated Financial Time Series for Improving Generation Processes},
+  year          = {2018},
+  eprint        = {1811.07792},
+  archiveprefix = {arXiv},
+  howpublished  = {arXiv preprint arXiv:1811.07792}
+}
+
+@misc{storchan2021learning,
+  author        = {Storchan, Victor and Vyetrenko, Svitlana and Balch, Tucker},
+  title         = {Learning Who Is in the Market from Time Series: Market Participant Discovery through Adversarial Calibration of Multi-Agent Simulators},
+  year          = {2021},
+  eprint        = {2108.00664},
+  archiveprefix = {arXiv},
+  howpublished  = {arXiv preprint arXiv:2108.00664}
+}
+
+@inproceedings{vyetrenko2020get,
+  author    = {Vyetrenko, Svitlana and Byrd, David and Petosa, Nick and Mahfouz, Mahmoud and Dervovic, Danial and Veloso, Manuela and Balch, Tucker},
+  title     = {Get Real: Realism Metrics for Robust Limit Order Book Market Simulations},
+  booktitle = {Proceedings of the First ACM International Conference on AI in Finance ({ICAIF '20})},
+  publisher = {ACM},
+  pages     = {1--8},
+  year      = {2020},
+  doi       = {10.1145/3383455.3422561}
+}
+
+@inproceedings{ni2021sig,
+  author    = {Ni, Hao and Szpruch, Lukasz and Sabate-Vidales, Marc and Xiao, Baoren and Wiese, Magnus and Liao, Shujian},
+  title     = {Sig-{Wasserstein} {GANs} for Time Series Generation},
+  booktitle = {Proceedings of the Second ACM International Conference on AI in Finance ({ICAIF '21})},
+  publisher = {ACM},
+  pages     = {1--8},
+  year      = {2021},
+  doi       = {10.1145/3490354.3494393}
+}
+
+@article{liao2024sig,
+  author  = {Liao, Shujian and Ni, Hao and Sabate-Vidales, Marc and Szpruch, Lukasz and Wiese, Magnus and Xiao, Baoren},
+  title   = {Sig-{Wasserstein} {GANs} for Conditional Time Series Generation},
+  journal = {Mathematical Finance},
+  volume  = {34},
+  number  = {2},
+  pages   = {622--670},
+  year    = {2024},
+  doi     = {10.1111/mafi.12423}
+}
+
+@inproceedings{yoon2019time,
+  author    = {Yoon, Jinsung and Jarrett, Daniel and van der Schaar, Mihaela},
+  title     = {Time-series Generative Adversarial Networks},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {32},
+  year      = {2019},
+  url       = {https://proceedings.neurips.cc/paper_files/paper/2019/hash/c9efe5f26cd17ba6216bbe2a7d26d490-Abstract.html}
+}
+
+@misc{esteban2017real,
+  author        = {Esteban, Crist{\'o}bal and Hyland, Stephanie L. and R{\"a}tsch, Gunnar},
+  title         = {Real-valued (Medical) Time Series Generation with Recurrent Conditional {GANs}},
+  year          = {2017},
+  eprint        = {1706.02633},
+  archiveprefix = {arXiv},
+  howpublished  = {arXiv preprint arXiv:1706.02633}
+}
+
+@inproceedings{assefa2020generating,
+  author    = {Assefa, Samuel A. and Dervovic, Danial and Mahfouz, Mahmoud and Tillman, Robert E. and Reddy, Prashant and Veloso, Manuela},
+  title     = {Generating Synthetic Data in Finance: Opportunities, Challenges and Pitfalls},
+  booktitle = {Proceedings of the First ACM International Conference on AI in Finance ({ICAIF '20})},
+  publisher = {ACM},
+  pages     = {1--8},
+  year      = {2020},
+  doi       = {10.1145/3383455.3422554}
+}
+
+@inproceedings{alaa2022faithful,
+  author    = {Alaa, Ahmed and van Breugel, Boris and Saveliev, Evgeny S. and van der Schaar, Mihaela},
+  title     = {How Faithful is your Synthetic Data? Sample-level Metrics for Evaluating and Auditing Generative Models},
+  booktitle = {Proceedings of the 39th International Conference on Machine Learning},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {162},
+  pages     = {290--306},
+  year      = {2022},
+  url       = {https://proceedings.mlr.press/v162/alaa22a.html}
+}
+
+@inproceedings{theis2016note,
+  author        = {Theis, Lucas and van den Oord, A{\"a}ron and Bethge, Matthias},
+  title         = {A Note on the Evaluation of Generative Models},
+  booktitle     = {International Conference on Learning Representations ({ICLR})},
+  year          = {2016},
+  eprint        = {1511.01844},
+  archiveprefix = {arXiv}
+}
+
+@article{cont2026tail,
+  author  = {Cont, Rama and Cucuringu, Mihai and Xu, Renyuan and Zhang, Chao},
+  title   = {Tail-{GAN}: Learning to Simulate Tail Risk Scenarios},
+  journal = {Management Science},
+  volume  = {72},
+  number  = {4},
+  pages   = {2917--2936},
+  year    = {2026},
+  doi     = {10.1287/mnsc.2023.00936}
+}
+
+@article{athey2024using,
+  author  = {Athey, Susan and Imbens, Guido W. and Metzger, Jonas and Munro, Evan},
+  title   = {Using {Wasserstein} Generative Adversarial Networks for the Design of {Monte Carlo} Simulations},
+  journal = {Journal of Econometrics},
+  volume  = {240},
+  number  = {2},
+  pages   = {105076},
+  year    = {2024},
+  doi     = {10.1016/j.jeconom.2020.09.013}
+}
+
+@article{stenger2024evaluation,
+  author  = {Stenger, Michael and Leppich, Robert and Foster, Ian and Kounev, Samuel and Bauer, Andr{\'e}},
+  title   = {Evaluation is Key: A Survey on Evaluation Measures for Synthetic Time Series},
+  journal = {Journal of Big Data},
+  volume  = {11},
+  number  = {1},
+  pages   = {66},
+  year    = {2024},
+  doi     = {10.1186/s40537-024-00924-7}
+}
+
+@article{buehler2019deep,
+  author  = {Buehler, Hans and Gonon, Lukas and Teichmann, Josef and Wood, Ben},
+  title   = {Deep Hedging},
+  journal = {Quantitative Finance},
+  volume  = {19},
+  number  = {8},
+  pages   = {1271--1291},
+  year    = {2019},
+  doi     = {10.1080/14697688.2019.1571683}
+}
+
+@article{bailey2017probability,
+  author  = {Bailey, David H. and Borwein, Jonathan M. and L{\'o}pez de Prado, Marcos and Zhu, Qiji Jim},
+  title   = {The Probability of Backtest Overfitting},
+  journal = {Journal of Computational Finance},
+  volume  = {20},
+  number  = {4},
+  pages   = {39--69},
+  year    = {2017},
+  doi     = {10.21314/JCF.2016.322}
+}
+
+@article{cetingoz2026synthetic,
+  author  = {Cetingoz, Adil Rengim and Lehalle, Charles-Albert},
+  title   = {Synthetic Data for Portfolios: A Throw of the Dice Will Never Abolish Chance},
+  journal = {Quantitative Finance},
+  volume  = {26},
+  number  = {8},
+  pages   = {1311--1342},
+  year    = {2026},
+  doi     = {10.1080/14697688.2026.2673155}
+}
+
+% ---------------------------------------------------------------------------
+% 5. Stylized facts and return models
+% ---------------------------------------------------------------------------
+
+@article{cont2001empirical,
+  author  = {Cont, Rama},
+  title   = {Empirical Properties of Asset Returns: Stylized Facts and Statistical Issues},
+  journal = {Quantitative Finance},
+  volume  = {1},
+  number  = {2},
+  pages   = {223--236},
+  year    = {2001},
+  doi     = {10.1080/713665670}
+}
+
+@article{mandelbrot1963variation,
+  author  = {Mandelbrot, Benoit},
+  title   = {The Variation of Certain Speculative Prices},
+  journal = {The Journal of Business},
+  volume  = {36},
+  number  = {4},
+  pages   = {394--419},
+  year    = {1963},
+  doi     = {10.1086/294632}
+}
+
+@article{fama1965behavior,
+  author  = {Fama, Eugene F.},
+  title   = {The Behavior of Stock-Market Prices},
+  journal = {The Journal of Business},
+  volume  = {38},
+  number  = {1},
+  pages   = {34--105},
+  year    = {1965},
+  doi     = {10.1086/294743}
+}
+
+@article{black1973pricing,
+  author  = {Black, Fischer and Scholes, Myron},
+  title   = {The Pricing of Options and Corporate Liabilities},
+  journal = {Journal of Political Economy},
+  volume  = {81},
+  number  = {3},
+  pages   = {637--654},
+  year    = {1973},
+  doi     = {10.1086/260062}
+}
+
+@article{merton1976option,
+  author  = {Merton, Robert C.},
+  title   = {Option Pricing when Underlying Stock Returns are Discontinuous},
+  journal = {Journal of Financial Economics},
+  volume  = {3},
+  number  = {1--2},
+  pages   = {125--144},
+  year    = {1976},
+  doi     = {10.1016/0304-405X(76)90022-2}
+}
+
+@article{engle1982autoregressive,
+  author  = {Engle, Robert F.},
+  title   = {Autoregressive Conditional Heteroscedasticity with Estimates of the Variance of {United Kingdom} Inflation},
+  journal = {Econometrica},
+  volume  = {50},
+  number  = {4},
+  pages   = {987--1007},
+  year    = {1982},
+  doi     = {10.2307/1912773}
+}
+
+@article{bollerslev1986generalized,
+  author  = {Bollerslev, Tim},
+  title   = {Generalized Autoregressive Conditional Heteroskedasticity},
+  journal = {Journal of Econometrics},
+  volume  = {31},
+  number  = {3},
+  pages   = {307--327},
+  year    = {1986},
+  doi     = {10.1016/0304-4076(86)90063-1}
+}
+
+@article{bollerslev1987conditionally,
+  author  = {Bollerslev, Tim},
+  title   = {A Conditionally Heteroskedastic Time Series Model for Speculative Prices and Rates of Return},
+  journal = {The Review of Economics and Statistics},
+  volume  = {69},
+  number  = {3},
+  pages   = {542--547},
+  year    = {1987},
+  doi     = {10.2307/1925546}
+}
+
+@article{heston1993closed,
+  author  = {Heston, Steven L.},
+  title   = {A Closed-Form Solution for Options with Stochastic Volatility with Applications to Bond and Currency Options},
+  journal = {The Review of Financial Studies},
+  volume  = {6},
+  number  = {2},
+  pages   = {327--343},
+  year    = {1993},
+  doi     = {10.1093/rfs/6.2.327}
+}
+
+@article{lord2010comparison,
+  author  = {Lord, Roger and Koekkoek, Remmert and van Dijk, Dick},
+  title   = {A Comparison of Biased Simulation Schemes for Stochastic Volatility Models},
+  journal = {Quantitative Finance},
+  volume  = {10},
+  number  = {2},
+  pages   = {177--194},
+  year    = {2010},
+  doi     = {10.1080/14697680802392496}
+}
+
+@article{bollerslev1990modelling,
+  author  = {Bollerslev, Tim},
+  title   = {Modelling the Coherence in Short-Run Nominal Exchange Rates: A Multivariate Generalized {ARCH} Model},
+  journal = {The Review of Economics and Statistics},
+  volume  = {72},
+  number  = {3},
+  pages   = {498--505},
+  year    = {1990},
+  doi     = {10.2307/2109358}
+}
+
+@article{joe2005asymptotic,
+  author  = {Joe, Harry},
+  title   = {Asymptotic Efficiency of the Two-Stage Estimation Method for Copula-Based Models},
+  journal = {Journal of Multivariate Analysis},
+  volume  = {94},
+  number  = {2},
+  pages   = {401--419},
+  year    = {2005},
+  doi     = {10.1016/j.jmva.2004.06.003}
+}
+
+@article{liu1995ml,
+  author  = {Liu, Chuanhai and Rubin, Donald B.},
+  title   = {{ML} Estimation of the $t$ Distribution Using {EM} and Its Extensions, {ECM} and {ECME}},
+  journal = {Statistica Sinica},
+  volume  = {5},
+  number  = {1},
+  pages   = {19--39},
+  year    = {1995},
+  url     = {https://www3.stat.sinica.edu.tw/statistica/j5n1/j5n12/j5n12.htm}
+}
+
+@article{engle2002dynamic,
+  author  = {Engle, Robert},
+  title   = {Dynamic Conditional Correlation: A Simple Class of Multivariate Generalized Autoregressive Conditional Heteroskedasticity Models},
+  journal = {Journal of Business \& Economic Statistics},
+  volume  = {20},
+  number  = {3},
+  pages   = {339--350},
+  year    = {2002},
+  doi     = {10.1198/073500102288618487}
+}
+
+@article{hill1975simple,
+  author  = {Hill, Bruce M.},
+  title   = {A Simple General Approach to Inference About the Tail of a Distribution},
+  journal = {The Annals of Statistics},
+  volume  = {3},
+  number  = {5},
+  pages   = {1163--1174},
+  year    = {1975},
+  doi     = {10.1214/aos/1176343247}
+}
+
+@article{hansen2005forecast,
+  author  = {Hansen, Peter R. and Lunde, Asger},
+  title   = {A Forecast Comparison of Volatility Models: Does Anything Beat a {GARCH}(1,1)?},
+  journal = {Journal of Applied Econometrics},
+  volume  = {20},
+  number  = {7},
+  pages   = {873--889},
+  year    = {2005},
+  doi     = {10.1002/jae.800}
+}
+
+@article{carrasco2002mixing,
+  author  = {Carrasco, Marine and Chen, Xiaohong},
+  title   = {Mixing and Moment Properties of Various {GARCH} and Stochastic Volatility Models},
+  journal = {Econometric Theory},
+  volume  = {18},
+  number  = {1},
+  pages   = {17--39},
+  year    = {2002},
+  doi     = {10.1017/S0266466602181023}
+}
+
+@article{aitsahalia2007maximum,
+  author  = {A{\"\i}t-Sahalia, Yacine and Kimmel, Robert},
+  title   = {Maximum Likelihood Estimation of Stochastic Volatility Models},
+  journal = {Journal of Financial Economics},
+  volume  = {83},
+  number  = {2},
+  pages   = {413--452},
+  year    = {2007},
+  doi     = {10.1016/j.jfineco.2005.10.006}
+}
+
+% ---------------------------------------------------------------------------
+% 6. Likelihood-based evaluation; simulation-based and likelihood-free estimation
+% ---------------------------------------------------------------------------
+
+@article{diebold1998evaluating,
+  author  = {Diebold, Francis X. and Gunther, Todd A. and Tay, Anthony S.},
+  title   = {Evaluating Density Forecasts with Applications to Financial Risk Management},
+  journal = {International Economic Review},
+  volume  = {39},
+  number  = {4},
+  pages   = {863--883},
+  year    = {1998},
+  doi     = {10.2307/2527342}
+}
+
+@article{berkowitz2001testing,
+  author  = {Berkowitz, Jeremy},
+  title   = {Testing Density Forecasts, With Applications to Risk Management},
+  journal = {Journal of Business \& Economic Statistics},
+  volume  = {19},
+  number  = {4},
+  pages   = {465--474},
+  year    = {2001},
+  doi     = {10.1198/07350010152596718}
+}
+
+@article{vuong1989likelihood,
+  author  = {Vuong, Quang H.},
+  title   = {Likelihood Ratio Tests for Model Selection and Non-Nested Hypotheses},
+  journal = {Econometrica},
+  volume  = {57},
+  number  = {2},
+  pages   = {307--333},
+  year    = {1989},
+  doi     = {10.2307/1912557}
+}
+
+@article{amisano2007comparing,
+  author  = {Amisano, Gianni and Giacomini, Raffaella},
+  title   = {Comparing Density Forecasts via Weighted Likelihood Ratio Tests},
+  journal = {Journal of Business \& Economic Statistics},
+  volume  = {25},
+  number  = {2},
+  pages   = {177--190},
+  year    = {2007},
+  doi     = {10.1198/073500106000000332}
+}
+
+@article{giacomini2006tests,
+  author  = {Giacomini, Raffaella and White, Halbert},
+  title   = {Tests of Conditional Predictive Ability},
+  journal = {Econometrica},
+  volume  = {74},
+  number  = {6},
+  pages   = {1545--1578},
+  year    = {2006},
+  doi     = {10.1111/j.1468-0262.2006.00718.x}
+}
+
+@article{gneiting2007strictly,
+  author  = {Gneiting, Tilmann and Raftery, Adrian E.},
+  title   = {Strictly Proper Scoring Rules, Prediction, and Estimation},
+  journal = {Journal of the American Statistical Association},
+  volume  = {102},
+  number  = {477},
+  pages   = {359--378},
+  year    = {2007},
+  doi     = {10.1198/016214506000001437}
+}
+
+@article{mcfadden1989method,
+  author  = {McFadden, Daniel},
+  title   = {A Method of Simulated Moments for Estimation of Discrete Response Models Without Numerical Integration},
+  journal = {Econometrica},
+  volume  = {57},
+  number  = {5},
+  pages   = {995--1026},
+  year    = {1989},
+  doi     = {10.2307/1913621}
+}
+
+@article{duffie1993simulated,
+  author  = {Duffie, Darrell and Singleton, Kenneth J.},
+  title   = {Simulated Moments Estimation of {Markov} Models of Asset Prices},
+  journal = {Econometrica},
+  volume  = {61},
+  number  = {4},
+  pages   = {929--952},
+  year    = {1993},
+  doi     = {10.2307/2951768}
+}
+
+@article{gourieroux1993indirect,
+  author  = {Gouri{\'e}roux, Christian and Monfort, Alain and Renault, Eric},
+  title   = {Indirect Inference},
+  journal = {Journal of Applied Econometrics},
+  volume  = {8},
+  number  = {S1},
+  pages   = {S85--S118},
+  year    = {1993},
+  doi     = {10.1002/jae.3950080507}
+}
+
+@article{smith1993estimating,
+  author  = {Smith, Anthony A.},
+  title   = {Estimating Nonlinear Time-Series Models Using Simulated Vector Autoregressions},
+  journal = {Journal of Applied Econometrics},
+  volume  = {8},
+  number  = {S1},
+  pages   = {S63--S84},
+  year    = {1993},
+  doi     = {10.1002/jae.3950080506}
+}
+
+@article{gallant1996which,
+  author  = {Gallant, A. Ronald and Tauchen, George},
+  title   = {Which Moments to Match?},
+  journal = {Econometric Theory},
+  volume  = {12},
+  number  = {4},
+  pages   = {657--681},
+  year    = {1996},
+  doi     = {10.1017/S0266466600006976}
+}
+
+@book{gourieroux1997simulation,
+  author    = {Gouri{\'e}roux, Christian and Monfort, Alain},
+  title     = {Simulation-based Econometric Methods},
+  publisher = {Oxford University Press},
+  address   = {Oxford},
+  year      = {1997},
+  doi       = {10.1093/0198774753.001.0001}
+}
+
+@article{fermanian2004nonparametric,
+  author  = {Fermanian, Jean-David and Salani{\'e}, Bernard},
+  title   = {A Nonparametric Simulated Maximum Likelihood Estimation Method},
+  journal = {Econometric Theory},
+  volume  = {20},
+  number  = {4},
+  pages   = {701--734},
+  year    = {2004},
+  doi     = {10.1017/S0266466604204054}
+}
+
+@article{gutmann2018likelihood,
+  author  = {Gutmann, Michael U. and Dutta, Ritabrata and Kaski, Samuel and Corander, Jukka},
+  title   = {Likelihood-Free Inference via Classification},
+  journal = {Statistics and Computing},
+  volume  = {28},
+  number  = {2},
+  pages   = {411--425},
+  year    = {2018},
+  doi     = {10.1007/s11222-017-9738-6}
+}
+
+@misc{cranmer2015approximating,
+  author        = {Cranmer, Kyle and Pavez, Juan and Louppe, Gilles},
+  title         = {Approximating Likelihood Ratios with Calibrated Discriminative Classifiers},
+  year          = {2015},
+  eprint        = {1506.02169},
+  archiveprefix = {arXiv},
+  howpublished  = {arXiv preprint arXiv:1506.02169}
+}
+
+@article{cranmer2020frontier,
+  author  = {Cranmer, Kyle and Brehmer, Johann and Louppe, Gilles},
+  title   = {The Frontier of Simulation-Based Inference},
+  journal = {Proceedings of the National Academy of Sciences},
+  volume  = {117},
+  number  = {48},
+  pages   = {30055--30062},
+  year    = {2020},
+  doi     = {10.1073/pnas.1912789117}
+}
+
+@article{kaji2023adversarial,
+  author  = {Kaji, Tetsuya and Manresa, Elena and Pouliot, Guillaume},
+  title   = {An Adversarial Approach to Structural Estimation},
+  journal = {Econometrica},
+  volume  = {91},
+  number  = {6},
+  pages   = {2041--2063},
+  year    = {2023},
+  doi     = {10.3982/ECTA18707}
+}
+
+@article{kaji2023metropolis,
+  author  = {Kaji, Tetsuya and Ro{\v{c}}kov{\'a}, Veronika},
+  title   = {{Metropolis}--{Hastings} via Classification},
+  journal = {Journal of the American Statistical Association},
+  volume  = {118},
+  number  = {544},
+  pages   = {2533--2547},
+  year    = {2023},
+  doi     = {10.1080/01621459.2022.2060836}
+}
+
+@article{bernton2019approximate,
+  author  = {Bernton, Espen and Jacob, Pierre E. and Gerber, Mathieu and Robert, Christian P.},
+  title   = {Approximate {Bayesian} Computation with the {Wasserstein} Distance},
+  journal = {Journal of the Royal Statistical Society: Series B (Statistical Methodology)},
+  volume  = {81},
+  number  = {2},
+  pages   = {235--269},
+  year    = {2019},
+  doi     = {10.1111/rssb.12312}
+}
+
+@article{cherief2022finite,
+  author  = {Ch{\'e}rief-Abdellatif, Badr-Eddine and Alquier, Pierre},
+  title   = {Finite Sample Properties of Parametric {MMD} Estimation: Robustness to Misspecification and Dependence},
+  journal = {Bernoulli},
+  volume  = {28},
+  number  = {1},
+  pages   = {181--213},
+  year    = {2022},
+  doi     = {10.3150/21-BEJ1338}
+}
+
+% ---------------------------------------------------------------------------
+% 6b. Specification tests for financial and econometric models
+% ---------------------------------------------------------------------------
+
+@article{aitsahalia1996testing,
+  author  = {A{\"\i}t-Sahalia, Yacine},
+  title   = {Testing Continuous-Time Models of the Spot Interest Rate},
+  journal = {The Review of Financial Studies},
+  volume  = {9},
+  number  = {2},
+  pages   = {385--426},
+  year    = {1996},
+  doi     = {10.1093/rfs/9.2.385}
+}
+
+@article{corradi2005bootstrap,
+  author  = {Corradi, Valentina and Swanson, Norman R.},
+  title   = {Bootstrap Specification Tests for Diffusion Processes},
+  journal = {Journal of Econometrics},
+  volume  = {124},
+  number  = {1},
+  pages   = {117--148},
+  year    = {2005},
+  doi     = {10.1016/j.jeconom.2004.02.013}
+}
+
+@article{bhardwaj2008simulation,
+  author  = {Bhardwaj, Geetesh and Corradi, Valentina and Swanson, Norman R.},
+  title   = {A Simulation-Based Specification Test for Diffusion Processes},
+  journal = {Journal of Business \& Economic Statistics},
+  volume  = {26},
+  number  = {2},
+  pages   = {176--193},
+  year    = {2008},
+  doi     = {10.1198/073500107000000412}
+}
+
+@article{hong2005nonparametric,
+  author  = {Hong, Yongmiao and Li, Haitao},
+  title   = {Nonparametric Specification Testing for Continuous-Time Models with Applications to Term Structure of Interest Rates},
+  journal = {The Review of Financial Studies},
+  volume  = {18},
+  number  = {1},
+  pages   = {37--84},
+  year    = {2005},
+  doi     = {10.1093/rfs/hhh006}
+}
+
+@article{corradi2011predictive,
+  author  = {Corradi, Valentina and Swanson, Norman R.},
+  title   = {Predictive Density Construction and Accuracy Testing with Multiple Possibly Misspecified Diffusion Models},
+  journal = {Journal of Econometrics},
+  volume  = {161},
+  number  = {2},
+  pages   = {304--324},
+  year    = {2011},
+  doi     = {10.1016/j.jeconom.2010.12.009}
+}
+
+@article{bierens1990consistent,
+  author  = {Bierens, Herman J.},
+  title   = {A Consistent Conditional Moment Test of Functional Form},
+  journal = {Econometrica},
+  volume  = {58},
+  number  = {6},
+  pages   = {1443--1458},
+  year    = {1990},
+  doi     = {10.2307/2938323}
+}
+
+@article{stinchcombe1998consistent,
+  author  = {Stinchcombe, Maxwell B. and White, Halbert},
+  title   = {Consistent Specification Testing with Nuisance Parameters Present Only under the Alternative},
+  journal = {Econometric Theory},
+  volume  = {14},
+  number  = {3},
+  pages   = {295--325},
+  year    = {1998},
+  doi     = {10.1017/S0266466698143013}
+}
+
+@article{lee1993testing,
+  author  = {Lee, Tae-Hwy and White, Halbert and Granger, Clive W. J.},
+  title   = {Testing for Neglected Nonlinearity in Time Series Models: A Comparison of Neural Network Methods and Alternative Tests},
+  journal = {Journal of Econometrics},
+  volume  = {56},
+  number  = {3},
+  pages   = {269--290},
+  year    = {1993},
+  doi     = {10.1016/0304-4076(93)90122-L}
+}
+
+% ---------------------------------------------------------------------------
+% 7. Bootstrap for dependent data
+% ---------------------------------------------------------------------------
+
+@article{kunsch1989jackknife,
+  author  = {K{\"u}nsch, Hans R.},
+  title   = {The Jackknife and the Bootstrap for General Stationary Observations},
+  journal = {The Annals of Statistics},
+  volume  = {17},
+  number  = {3},
+  pages   = {1217--1241},
+  year    = {1989},
+  doi     = {10.1214/aos/1176347265}
+}
+
+@article{politis1994stationary,
+  author  = {Politis, Dimitris N. and Romano, Joseph P.},
+  title   = {The Stationary Bootstrap},
+  journal = {Journal of the American Statistical Association},
+  volume  = {89},
+  number  = {428},
+  pages   = {1303--1313},
+  year    = {1994},
+  doi     = {10.1080/01621459.1994.10476870}
+}
+
+@article{politis2004automatic,
+  author  = {Politis, Dimitris N. and White, Halbert},
+  title   = {Automatic Block-Length Selection for the Dependent Bootstrap},
+  journal = {Econometric Reviews},
+  volume  = {23},
+  number  = {1},
+  pages   = {53--70},
+  year    = {2004},
+  doi     = {10.1081/ETC-120028836}
+}
+
+@article{patton2009correction,
+  author  = {Patton, Andrew and Politis, Dimitris N. and White, Halbert},
+  title   = {Correction to ``{Automatic} Block-Length Selection for the Dependent Bootstrap'' by {D. Politis} and {H. White}},
+  journal = {Econometric Reviews},
+  volume  = {28},
+  number  = {4},
+  pages   = {372--375},
+  year    = {2009},
+  doi     = {10.1080/07474930802459016}
+}
+
+@book{lahiri2003resampling,
+  author    = {Lahiri, S. N.},
+  title     = {Resampling Methods for Dependent Data},
+  series    = {Springer Series in Statistics},
+  publisher = {Springer},
+  address   = {New York},
+  year      = {2003},
+  doi       = {10.1007/978-1-4757-3803-2}
+}
+
+% ---------------------------------------------------------------------------
+% 8. Portfolio choice and estimation risk (and data caveats)
+% ---------------------------------------------------------------------------
+
+@article{brown1992survivorship,
+  author  = {Brown, Stephen J. and Goetzmann, William and Ibbotson, Roger G. and Ross, Stephen A.},
+  title   = {Survivorship Bias in Performance Studies},
+  journal = {The Review of Financial Studies},
+  volume  = {5},
+  number  = {4},
+  pages   = {553--580},
+  year    = {1992},
+  doi     = {10.1093/rfs/5.4.553}
+}
+
+@article{shumway1997delisting,
+  author  = {Shumway, Tyler},
+  title   = {The Delisting Bias in {CRSP} Data},
+  journal = {The Journal of Finance},
+  volume  = {52},
+  number  = {1},
+  pages   = {327--340},
+  year    = {1997},
+  doi     = {10.1111/j.1540-6261.1997.tb03818.x}
+}
+
+@article{markowitz1952portfolio,
+  author  = {Markowitz, Harry},
+  title   = {Portfolio Selection},
+  journal = {The Journal of Finance},
+  volume  = {7},
+  number  = {1},
+  pages   = {77--91},
+  year    = {1952},
+  doi     = {10.1111/j.1540-6261.1952.tb01525.x}
+}
+
+@article{michaud1989markowitz,
+  author  = {Michaud, Richard O.},
+  title   = {The {Markowitz} Optimization Enigma: Is `Optimized' Optimal?},
+  journal = {Financial Analysts Journal},
+  volume  = {45},
+  number  = {1},
+  pages   = {31--42},
+  year    = {1989},
+  doi     = {10.2469/faj.v45.n1.31}
+}
+
+@article{chopra1993effect,
+  author  = {Chopra, Vijay K. and Ziemba, William T.},
+  title   = {The Effect of Errors in Means, Variances, and Covariances on Optimal Portfolio Choice},
+  journal = {The Journal of Portfolio Management},
+  volume  = {19},
+  number  = {2},
+  pages   = {6--11},
+  year    = {1993},
+  doi     = {10.3905/jpm.1993.409440}
+}
+
+@article{ledoit2004well,
+  author  = {Ledoit, Olivier and Wolf, Michael},
+  title   = {A Well-Conditioned Estimator for Large-Dimensional Covariance Matrices},
+  journal = {Journal of Multivariate Analysis},
+  volume  = {88},
+  number  = {2},
+  pages   = {365--411},
+  year    = {2004},
+  doi     = {10.1016/S0047-259X(03)00096-4}
+}
+
+@article{demiguel2009optimal,
+  author  = {DeMiguel, Victor and Garlappi, Lorenzo and Uppal, Raman},
+  title   = {Optimal Versus Naive Diversification: How Inefficient is the {1/N} Portfolio Strategy?},
+  journal = {The Review of Financial Studies},
+  volume  = {22},
+  number  = {5},
+  pages   = {1915--1953},
+  year    = {2009},
+  doi     = {10.1093/rfs/hhm075}
+}
+
+@article{kan2007optimal,
+  author  = {Kan, Raymond and Zhou, Guofu},
+  title   = {Optimal Portfolio Choice with Parameter Uncertainty},
+  journal = {Journal of Financial and Quantitative Analysis},
+  volume  = {42},
+  number  = {3},
+  pages   = {621--656},
+  year    = {2007},
+  doi     = {10.1017/S0022109000004129}
+}
+
+@article{jagannathan2003risk,
+  author  = {Jagannathan, Ravi and Ma, Tongshu},
+  title   = {Risk Reduction in Large Portfolios: Why Imposing the Wrong Constraints Helps},
+  journal = {The Journal of Finance},
+  volume  = {58},
+  number  = {4},
+  pages   = {1651--1683},
+  year    = {2003},
+  doi     = {10.1111/1540-6261.00580}
+}
+
+@article{ledoit2008robust,
+  author  = {Ledoit, Olivier and Wolf, Michael},
+  title   = {Robust Performance Hypothesis Testing with the {Sharpe} Ratio},
+  journal = {Journal of Empirical Finance},
+  volume  = {15},
+  number  = {5},
+  pages   = {850--859},
+  year    = {2008},
+  doi     = {10.1016/j.jempfin.2008.03.002}
+}
