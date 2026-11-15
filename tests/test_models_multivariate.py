@@ -11,6 +11,7 @@ from synthval.models import MULTIVARIATE_MODELS, get_mv_model
 from synthval.models.base import ReturnModel
 from synthval.models.multivariate import (
     CCCGARCHt,
+    FactorGARCHt,
     MVGaussian,
     MVStationaryBootstrap,
     MVStudentT,
@@ -594,3 +595,289 @@ def test_mv_bootstrap_auto_block_keeps_volatility_clustering():
     assert real > 0.1
     assert abs(sims["abs"] - real) < 0.5 * real
     assert sims["r"] < 0.5 * real
+
+
+# ----------------------------------------------------------------------------------------------
+# FactorGARCHt (one-factor GARCH-t panel)
+# ----------------------------------------------------------------------------------------------
+FACTOR_TRUE = dict(mu=4e-4, omega=2e-6, alpha=0.08, beta=0.90, nu=6.0)  # uncond. var 1e-4
+
+
+def _idio_thetas(rng, N, var=2e-4):
+    """Residual GARCH-t parameters with unconditional variance ``var`` and finite kurtosis."""
+    out = []
+    for _ in range(N):
+        a = rng.uniform(0.04, 0.09)
+        b = 0.95 - a
+        out.append(dict(mu=0.0, omega=var * (1 - a - b), alpha=a, beta=b, nu=rng.uniform(6, 12)))
+    return out
+
+
+def simulate_factor_ref(T, a, b, factor, idio, rng, burn=500):
+    """Reference one-factor simulator: r_t = a + b m_t + e_t, GARCH-t factor and residuals,
+    all innovations independent. Returns ``(R, m, E)``."""
+    th = [factor] + list(idio)
+    mu, om, al, be, nu = (np.array([t[k] for t in th])
+                          for k in ("mu", "omega", "alpha", "beta", "nu"))
+    Z = rng.standard_t(nu, size=(T + burn, len(th))) * np.sqrt((nu - 2) / nu)
+    s2 = om / (1 - al - be)
+    X = np.empty_like(Z)
+    for t in range(T + burn):
+        e = np.sqrt(s2) * Z[t]
+        X[t] = mu + e
+        s2 = om + al * e**2 + be * s2
+    X = X[burn:]
+    return a + np.outer(X[:, 0], b) + X[:, 1:], X[:, 0], X[:, 1:]
+
+
+def _true_loadings(rng, N):
+    b = rng.uniform(0.5, 1.5, N)
+    b = b / b.mean()  # mean loading 1: the equal-weight mean is the factor up to mean(e)
+    a = rng.normal(0.0, 2e-4, N)
+    return a - a.mean(), b
+
+
+def _mean_corr(X):
+    C = np.corrcoef(X, rowvar=False)
+    N = C.shape[0]
+    return float((C.sum() - N) / (N * (N - 1)))
+
+
+def _logvol_corr(X, w=20):
+    """Mean pairwise correlation across assets of the rolling ``w``-day log-volatility."""
+    from numpy.lib.stride_tricks import sliding_window_view
+
+    return _mean_corr(np.log(sliding_window_view(X, w, axis=0).std(axis=-1, ddof=1)))
+
+
+@pytest.fixture(scope="module")
+def factor_panel():
+    rng = np.random.default_rng(101)
+    N = 6
+    a, b = _true_loadings(rng, N)
+    idio = _idio_thetas(rng, N)
+    R, m, E = simulate_factor_ref(2500, a, b, FACTOR_TRUE, idio, rng)
+    return dict(R=R, m=m, E=E, a=a, b=b, idio=idio)
+
+
+def test_factor_garch_recovers_loadings_and_garch_params():
+    """N = 40, T = 4000: loadings, factor and residual persistence recovered; OLS identities
+    (mean loading 1, intercepts and daily residuals summing to zero) hold exactly; residual
+    dependence diagnostics at their null values under the model, above them otherwise."""
+    rng = np.random.default_rng(202)
+    N, T = 40, 4000
+    a, b = _true_loadings(rng, N)
+    idio = _idio_thetas(rng, N)
+    R, m, _ = simulate_factor_ref(T, a, b, FACTOR_TRUE, idio, rng)
+    f = FactorGARCHt().fit(R)
+    # errors in variables: the estimated factor is m + mean_i e_i (variance ratio 2e-4/40/1e-4)
+    assert np.max(np.abs(f.loadings_ - b)) < 0.1
+    assert np.corrcoef(f.loadings_, b)[0, 1] > 0.98
+    assert np.mean(f.loadings_) == pytest.approx(1.0, abs=1e-12)
+    assert abs(np.sum(f.a_)) < 1e-12
+    np.testing.assert_allclose(f.resid_.sum(axis=1), 0.0, atol=1e-15)
+    np.testing.assert_allclose(f.factor_, R.mean(axis=1), rtol=1e-14)
+    assert np.corrcoef(f.factor_, m)[0, 1] > 0.97
+    fp = f.factor_params_
+    assert fp["alpha"] + fp["beta"] == pytest.approx(0.98, abs=0.03)
+    assert 4.0 < fp["nu"] < 12.0
+    persist_true = np.array([t["alpha"] + t["beta"] for t in idio])
+    assert np.median(f.persistence_[1:]) == pytest.approx(np.median(persist_true), abs=0.03)
+    info = f.fit_info_
+    assert info["resid_corr_baseline"] == pytest.approx(-1.0 / 39)
+    assert abs(info["resid_corr_mean"] - info["resid_corr_baseline"]) < 0.01
+    assert abs(info["std_resid_corr_mean"] - info["resid_corr_baseline"]) < 0.01
+    assert info["corr_mean_implied"] == pytest.approx(info["corr_mean_data"], abs=0.03)
+    np.testing.assert_allclose(info["r2"], b**2 * 1e-4 / (b**2 * 1e-4 + 2e-4), atol=0.08)
+    # variance targeting: model variances = sample variances of the panel (OLS decomposition)
+    np.testing.assert_allclose(np.diag(f.unconditional_cov()), R.var(axis=0), rtol=1e-6)
+    # under the model the rms and top-eigenvalue diagnostics sit at their null values
+    assert info["resid_corr_rms"] == pytest.approx(info["resid_corr_rms_null"], rel=0.15)
+    assert info["resid_top_eig_share"] < 1.15 * info["resid_top_eig_share_null"]
+    assert abs(info["resid_logvol_corr_mean"]) < 0.03
+    # An omitted "sector" shock on half of the assets: the mean residual correlation stays at
+    # the adding-up baseline (identity), the rms and top-eigenvalue diagnostics reveal it.
+    R2 = R.copy()
+    R2[:, :20] += 0.01 * rng.standard_normal((T, 1))
+    i2 = FactorGARCHt().fit(R2).fit_info_
+    assert abs(i2["resid_corr_mean"] - i2["resid_corr_baseline"]) < 0.01
+    assert i2["resid_corr_rms"] > 3.0 * i2["resid_corr_rms_null"]
+    assert i2["resid_top_eig_share"] > 3.0 * i2["resid_top_eig_share_null"]
+
+
+def test_factor_garch_shapes_determinism_and_errors(factor_panel):
+    R = factor_panel["R"]
+    f = FactorGARCHt().fit(R)
+    a = f.simulate(300, rng=np.random.default_rng(42))
+    b = f.simulate(300, rng=np.random.default_rng(42))
+    assert a.shape == (300, 6) and a.dtype == np.float64 and np.all(np.isfinite(a))
+    np.testing.assert_array_equal(a, b)
+    assert not np.array_equal(a, f.simulate(300, rng=np.random.default_rng(43)))
+    Rs, ms = f.simulate(300, rng=np.random.default_rng(42), return_factor=True)
+    np.testing.assert_array_equal(Rs, a)
+    assert ms.shape == (300,)
+    resid = Rs - f.a_ - np.outer(ms, f.loadings_)  # returns = a + b m + idiosyncratic part
+    assert abs(_mean_corr(resid)) < 0.15
+    np.testing.assert_array_equal(f.simulate(1, rng=np.random.default_rng(0), burn_in=0).shape,
+                                  (1, 6))
+    f2 = pickle.loads(pickle.dumps(f))  # fitted models travel through parallel_map
+    np.testing.assert_array_equal(f2.simulate(300, rng=np.random.default_rng(42)), a)
+    p = f.params()
+    assert set(p) >= {"a", "loadings", "factor", "idio", "sigma2_init", "sigma2_next",
+                      "resid_corr_mean"}
+    assert p["idio"]["nu"].shape == (6,) and isinstance(p["factor"]["nu"], float)
+    assert f.n_params() == 2 * 6 + 5 * 7
+    assert get_mv_model("FactorGARCHt").name == "FactorGARCHt"
+    assert "FactorGARCHt" in MULTIVARIATE_MODELS and not FactorGARCHt.has_likelihood
+    with pytest.raises(ValueError):
+        f.simulate(0, rng=np.random.default_rng(0))
+    with pytest.raises(RuntimeError):
+        FactorGARCHt().simulate(5, rng=np.random.default_rng(0))
+    with pytest.raises(ValueError):
+        FactorGARCHt().fit(R[:, :1])
+    with pytest.raises(NotImplementedError):
+        f.loglik_obs(R)
+
+
+def test_factor_garch_start_from_end(factor_panel):
+    """End state = each GARCHt's forecast_variance (= our params() filter); start_from_end
+    continues every recursion from it; burn-in starts at the unconditional variances."""
+    R = factor_panel["R"].copy()
+    R[-1] += np.array([-0.15, -0.06, -0.13, -0.05, -0.14, -0.07])  # crash on the last day
+    f = FactorGARCHt().fit(R)
+    models = [f.factor_model_] + f.idio_models_
+    np.testing.assert_allclose(f.sigma2_next_, [g.forecast_variance() for g in models],
+                               rtol=1e-12)
+    X = np.column_stack([f.factor_, f.resid_])
+    for j, g in enumerate(models):
+        th = g.params()
+        s2 = _garch_filter_ref(X[:, j] - th["mu"], th["omega"], th["alpha"], th["beta"],
+                               np.var(X[:, j]))
+        np.testing.assert_allclose(f.sigma2_fit_[:, j], s2, rtol=1e-10)
+        nxt = th["omega"] + th["alpha"] * (X[-1, j] - th["mu"]) ** 2 + th["beta"] * s2[-1]
+        assert f.sigma2_next_[j] == pytest.approx(nxt, rel=1e-10)
+    assert f.fit_info_["end_state_gap"] < 1e-10
+    v = f.unconditional_variance()
+    np.testing.assert_allclose(v, f.sigma2_init_, rtol=1e-8)  # variance targeting
+    assert f.sigma2_next_[0] > 3 * v[0]
+
+    mu = np.r_[f.factor_params_["mu"], f.idio_params_["mu"]]
+    om = np.r_[f.factor_params_["omega"], f.idio_params_["omega"]]
+    al = np.r_[f.factor_params_["alpha"], f.idio_params_["alpha"]]
+    be = np.r_[f.factor_params_["beta"], f.idio_params_["beta"]]
+
+    def replay(n, burn, s2):
+        Z = f.innovations(n + burn, rng=np.random.default_rng(9))
+        out = []
+        for t in range(n + burn):
+            e = np.sqrt(s2) * Z[t]
+            out.append(mu + e)
+            s2 = om + al * e**2 + be * s2
+        Xs = np.array(out[burn:])
+        return f.a_ + np.outer(Xs[:, 0], f.loadings_) + Xs[:, 1:]
+
+    r = f.simulate(5, rng=np.random.default_rng(9), start_from_end=True)
+    np.testing.assert_allclose(r, replay(5, 0, f.sigma2_next_.copy()), rtol=1e-12)
+    r_b = f.simulate(5, rng=np.random.default_rng(9), burn_in=11)
+    np.testing.assert_allclose(r_b, replay(5, 11, v.copy()), rtol=1e-12)
+    # first simulated day: variance b_i^2 s2_0 + s2_i from the end state
+    rng = np.random.default_rng(10)
+    first = np.array([f.simulate(1, rng=rng, start_from_end=True)[0] for _ in range(6000)])
+    target = f.loadings_**2 * f.sigma2_next_[0] + f.sigma2_next_[1:]
+    np.testing.assert_allclose(first.var(axis=0), target, rtol=0.12)
+    assert np.all(target > 1.5 * np.diag(f.unconditional_cov()))  # the crash raises every asset
+
+
+def test_factor_garch_long_path_and_volatility_comovement(factor_panel):
+    """Long path: model variances and correlations reproduced; on data from a factor model,
+    FactorGARCHt reproduces the co-movement of volatilities that CCCGARCHt misses."""
+    R = factor_panel["R"]
+    f = FactorGARCHt().fit(R)
+    S = f.simulate(50_000, rng=np.random.default_rng(13))
+    np.testing.assert_allclose(S.var(axis=0), np.diag(f.unconditional_cov()), rtol=0.08)
+    assert _mean_corr(S) == pytest.approx(f.fit_info_["corr_mean_implied"], abs=0.03)
+    # Refit: the equal-weight mean of simulated returns is m + mean_i e_i (latent factor), so
+    # the refitted loadings are the errors-in-variables limit
+    # (b_i V_m + v_i / N) / (V_m + sum_j v_j / N^2), close to b_i only for large N.
+    V, N = f.unconditional_variance(), f.n_assets_
+    eiv = (f.loadings_ * V[0] + V[1:] / N) / (V[0] + V[1:].sum() / N**2)
+    f_back = FactorGARCHt().fit(S)
+    np.testing.assert_allclose(f_back.loadings_, eiv, atol=0.02)
+    assert np.max(np.abs(f_back.loadings_ - eiv)) < 0.5 * np.max(np.abs(f_back.loadings_
+                                                                       - f.loadings_))
+    # volatility co-movement on TRAIN-length paths
+    T = R.shape[0]
+    rng = np.random.default_rng(14)
+    real = _logvol_corr(R)
+    fac = np.mean([_logvol_corr(f.simulate(T, rng=rng)) for _ in range(10)])
+    c = CCCGARCHt().fit(R)
+    ccc = np.mean([_logvol_corr(c.simulate(T, rng=rng)) for _ in range(10)])
+    assert real > 0.15
+    assert abs(fac - real) < 0.1
+    assert ccc < fac - 0.08
+
+
+# ----------------------------------------------------------------------------------------------
+# FactorGARCHt on the S&P 500 panel (needs the raw data file)
+# ----------------------------------------------------------------------------------------------
+def _have_data():
+    from synthval import config
+
+    return config.DATA_CSV.exists()
+
+
+@pytest.mark.skipif(not _have_data(), reason="raw data file not available")
+def test_factor_garch_real_panel_dependence(capsys):
+    """30-stock panel (``panel_tickers(30)``, TRAIN): mean pairwise return correlation and
+    log-volatility correlation (rolling 20-day log-vol, mean pairwise across assets), real vs
+    FactorGARCHt vs CCCGARCHt, averaged over 20 TRAIN-length paths (burn-in 250)."""
+    from synthval import data
+
+    R = data.load_panel(data.panel_tickers(30))[0].to_numpy()
+    T = R.shape[0]
+    f = FactorGARCHt().fit(R)
+    c = CCCGARCHt().fit(R)
+    rng = np.random.default_rng(2025)
+    stats_ = {"real": np.array([_mean_corr(R), _logvol_corr(R)])}
+    for name, mod in (("FactorGARCHt", f), ("CCCGARCHt", c)):
+        sims = [mod.simulate(T, rng=rng) for _ in range(20)]
+        stats_[name] = np.mean([[_mean_corr(S), _logvol_corr(S)] for S in sims], axis=0)
+    with capsys.disabled():
+        print("\n30-stock TRAIN panel: mean corr / log-vol corr")
+        for k, (cr, lv) in stats_.items():
+            print(f"  {k:13s} {cr:.3f} / {lv:.3f}")
+        info = f.fit_info_
+        print(f"  FactorGARCHt resid corr {info['resid_corr_mean']:.4f} "
+              f"(baseline {info['resid_corr_baseline']:.4f}), rms {info['resid_corr_rms']:.3f} "
+              f"(null {info['resid_corr_rms_null']:.3f}), top eig share "
+              f"{info['resid_top_eig_share']:.3f} (null {info['resid_top_eig_share_null']:.3f}), "
+              f"resid log-vol corr {info['resid_logvol_corr_mean']:.3f}, "
+              f"R2 mean {info['r2_mean']:.3f}, implied corr {info['corr_mean_implied']:.3f}")
+    real, fac, ccc = stats_["real"], stats_["FactorGARCHt"], stats_["CCCGARCHt"]
+    assert abs(fac[0] - real[0]) < 0.08
+    assert abs(fac[0] - real[0]) < abs(ccc[0] - real[0])
+    assert fac[1] > ccc[1] + 0.1
+    assert f.fit_info_["resid_corr_mean"] < 0.05  # the market factor takes the mean dependence
+
+
+@pytest.mark.skipif(not _have_data(), reason="raw data file not available")
+def test_factor_garch_timing_100_tickers(capsys):
+    """Default panel (100 tickers x 1258 TRAIN days): fit well under 60 s, simulation of the
+    TEST horizon (615 days) in milliseconds."""
+    import time
+
+    from synthval import data
+
+    R = data.load_panel()[0].to_numpy()
+    assert R.shape == (1258, 100)
+    t0 = time.perf_counter()
+    f = FactorGARCHt().fit(R)
+    t_fit = time.perf_counter() - t0
+    t0 = time.perf_counter()
+    S = f.simulate(615, rng=np.random.default_rng(0), start_from_end=True)
+    t_sim = time.perf_counter() - t0
+    with capsys.disabled():
+        print(f"\nFactorGARCHt 100 x 1258: fit {t_fit:.2f} s, simulate 100 x 615 {t_sim:.4f} s")
+    assert S.shape == (615, 100) and np.all(np.isfinite(S))
+    assert t_fit < 60.0
+    assert t_sim < 2.0

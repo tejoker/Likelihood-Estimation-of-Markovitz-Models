@@ -399,3 +399,27 @@ Compile with `latexmk -pdf main.tex` from `paper/`.
   - Likelihood: out-of-sample Vuong with k=0 and HAC = Amisano-Giacomini (2007); GARCH LR oracle is
     approximate (fixed initial variance), not a strict power bound.
   - z_hac citation: CLT under mixing + Driscoll-Kraay/Newey-West, not Chung & Romano (2013).
+- 2026-11-15 (lead): C2ST/lrcritic early stopping keeps the first checkpoint (step 50) at n=500 because
+  the MLP classifier overfits within ~16 epochs. Pilot (40 reps, alternatives outside the E2 grid:
+  GARCH persistence 0.92, nu=8; configs lr 1e-4 / weight decay 1e-2 / no early stopping / min_steps=100)
+  found no configuration with higher power at valid size, so the C2ST defaults are kept and the
+  behaviour is reported (E2 records best_step) rather than tuned.
+- 2026-11-15 (integration; deviations reported by the module and experiment owners, one line each):
+  - Heston: vol-of-variance c bounded by sqrt(psi_c) = sqrt(1.5) ~ 1.2247 so QE stays in its quadratic branch (no zero-variance days; c > sqrt(psi_c) re-creates sticking at v = 0); `n_substeps` removed; simulated kurtosis stays below the data (sim/data median 0.37).
+  - Heston SMM tail moment = quantile ratio (q99 - q01)/(q75 - q25) (`tail_quantile_ratio`, weight floored: sd capped at 10% of its value); log-kurtosis and MAD ratio dropped; moment list = var, tail_qr, ACF(r^2) lags 1/5/10/20, lev_1.
+  - GARCHt: `persist_max` (default 0.995) is a constructor argument next to `variance_targeting=True`; `loglik_windows` integrates over K stationary initial-variance draws, and the E2 family (c) oracle uses that Monte Carlo density (K = 512), replacing the fixed-start approximation noted above.
+  - `optimal_block_length` follows arch's Politis-White implementation exactly; GBM and the stationary bootstrap now report `fit_info_` (at_bound, fallback, block-length rule).
+  - `relative_test` default `method="anchored"`; MMD/SigMMD bases ignore `method` (always Bounliphone); pool weights are applied by weighted mini-batch sampling, so the 1/2-1/2 G/R_past balance inside early-stopping train/val subsets is approximate; `relative_test_two_critic` alias.
+  - New MV model `FactorGARCHt` (GARCHt factor = equal-weight panel return + GARCHt residuals, no likelihood) for E1(a) and as the fifth E4 generator; rolling log-vol correlation 0.32 vs 0.60 real (limitation); mean residual correlation is pinned near -1/(N-1), so rms and top-eigenvalue residual diagnostics are reported instead.
+  - New module `synthval.pipeline` (not in section 3): shared real-data pipeline of E1/E3/E4/E5 (panel windows with TRAIN/TEST date ranks, fit_panel, simulate_panel, dependent/iid protocols, power_check, verdict, median_pvalue).
+  - E1(a): R_past* and R_new* are one contiguous stationary factor path, G* an independent stationary draw (E3 starts G from the end of TRAIN); cells `joint` and `indep` (independent tickers, same margins).
+  - E1: fixed-b HAC p-values (`hac_fixedb`, `hac_fixedb_eq`) computed post hoc as comparison rows (primary `hac` unchanged); the E1(b) table shows rates only (splits are dependent, no Wilson CIs).
+  - E2(e): the resample generator runs with a source-grouped split (`resample`, the size row) and a random split (`resample_naive`, leakage demonstration, not a size); shifted cells (P_past = 0.95) kept beside the all-equal cell.
+  - E2(f): LR-critic fitted with three training budgets (defaults with early stopping, 1000 steps, 3000 steps at lr 1e-4); calibration slope reported instead of R^2. E2: KS in family (c) flagged (oversized by within-window GARCH dependence).
+  - E3: a single-seed anchored p-value is not calibrated on real data (non-stationary R_past); the verdict uses only p = min(1, 2 median) over 10 synthetic seeds, and power and boundary size are estimated for that rule.
+  - E3 power check: 200 replications (DESIGN minimum 50), boundary G0 from stationarity, plus design D2 (`realvol`, real TRAIN volatility path); GOOD needs rule power >= 0.8 under both D1 and D2.
+  - E3 per-ticker L = 5 tests: p-values calibrated against a pooled GARCH-t null (`perticker_null`, 10 pairs per ticker) before BH/BY/Storey.
+  - E3/E5: relative tests are invalid for the stationary bootstrap (G copies R_past windows seen as pool negatives); its verdict is INVALID (E3) / n/a (E5).
+  - E4: new `placebo` part (200 replications per generator) and size-adjusted rejection shares; FactorGARCHt as fifth generator; RealTRAIN reference = last 615 TRAIN days; MMD with a fixed per-universe bandwidth; 10 test seeds; link in four views (pooled, within-universe, within-generator, generator-level with n = 5).
+  - E5 calls E3's power/realvol replication functions and verdict rule; new parts `gridsize` (absolute size per configuration, McNemar vs default), `gridpower`, `gridrealvol`; n_perm moved from the grid to `simpower`.
+  - Compute: full-settings workers peak at 0.46-0.6 GB (critic-only) to 0.9 GB (kernel matrices: E1, E3 pooled, E5 split battery), so 12 workers do not fit in ~5 GB free RAM; E3/E5 cap workers from MemAvailable; E5 gridpower (4.35 h) and gridrealvol (2.86 h) exceed 2.5 h at 12 workers; schedule in experiments/README.md.

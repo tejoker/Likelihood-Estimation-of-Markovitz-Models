@@ -47,7 +47,7 @@ import torch
 from scipy import stats
 
 from ..config import N_PERM
-from .critic import HacLags, LearnedTest, TieBreak
+from .critic import HacLags, LearnedTest, TieBreak, _draw_indices
 from .nets import Arch
 
 __all__ = ["C2ST"]
@@ -118,16 +118,28 @@ class C2ST(LearnedTest):
 
     # -- training ---------------------------------------------------------------------------
     @staticmethod
-    def _balanced_bce(net: torch.nn.Module, xb: torch.Tensor, yb: torch.Tensor) -> torch.Tensor:
-        """Class-balanced binary cross-entropy (real = 1, synthetic = 0)."""
+    def _balanced_bce(net: torch.nn.Module, xb: torch.Tensor, yb: torch.Tensor,
+                      wx: torch.Tensor | None = None,
+                      wy: torch.Tensor | None = None) -> torch.Tensor:
+        """Class-balanced binary cross-entropy (real = 1, synthetic = 0).
+
+        ``wx`` / ``wy`` (optional, each summing to one) replace the within-class means by
+        weighted means (weighted BCE; used on the full validation set in weighted training).
+        """
         out = net(torch.cat([xb, yb], dim=0))
         s_x, s_y = out[:xb.shape[0]], out[xb.shape[0]:]
         # BCE(label 1) = softplus(-s), BCE(label 0) = softplus(s).
-        return 0.5 * (torch.nn.functional.softplus(-s_x).mean()
-                      + torch.nn.functional.softplus(s_y).mean())
+        lx = torch.nn.functional.softplus(-s_x)
+        ly = torch.nn.functional.softplus(s_y)
+        mx = lx.mean() if wx is None else (wx.to(lx.dtype) * lx).sum()
+        my = ly.mean() if wy is None else (wy.to(ly.dtype) * ly).sum()
+        return 0.5 * (mx + my)
 
     def _train(self, net: torch.nn.Module, Xt: torch.Tensor, Yt: torch.Tensor,
-               Xv: torch.Tensor | None, Yv: torch.Tensor | None) -> dict[str, Any]:
+               Xv: torch.Tensor | None, Yv: torch.Tensor | None, *,
+               wx: torch.Tensor | None = None, wy: torch.Tensor | None = None,
+               wxv: torch.Tensor | None = None,
+               wyv: torch.Tensor | None = None) -> dict[str, Any]:
         opt = torch.optim.Adam(net.parameters(), lr=self.lr, betas=self.betas,
                                weight_decay=self.weight_decay)
         nx, ny, b = Xt.shape[0], Yt.shape[0], self.batch_size
@@ -139,8 +151,10 @@ class C2ST(LearnedTest):
         step = 0
         net.train()
         for step in range(1, self.n_steps + 1):
-            ix = torch.randint(0, nx, (b,))
-            iy = torch.randint(0, ny, (b,))
+            # Weighted training (wx / wy given): indices drawn with those probabilities, so the
+            # mini-batch loss is an unbiased estimate of the weighted BCE.
+            ix = _draw_indices(nx, b, wx)
+            iy = _draw_indices(ny, b, wy)
             loss = self._balanced_bce(net, Xt[ix], Yt[iy])
             opt.zero_grad(set_to_none=True)
             loss.backward()
@@ -153,7 +167,7 @@ class C2ST(LearnedTest):
                 acc, acc_n = 0.0, 0
             if Xv is not None and Yv is not None and step % self.eval_every == 0:
                 with torch.no_grad():
-                    v = float(self._balanced_bce(net, Xv, Yv))
+                    v = float(self._balanced_bce(net, Xv, Yv, wxv, wyv))
                 val_curve["step"].append(step)
                 val_curve["bce"].append(v)
                 if step < self.min_steps:

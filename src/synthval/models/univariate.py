@@ -13,10 +13,9 @@ GARCHt
     with variance targeting (Engle and Mezrich 1996); exact filtered likelihood
     (Bollerslev 1987).
 Heston
-    Heston (1993) stochastic volatility; variance simulated by full-truncation Euler with
-    ``n_substeps`` (default 20) sub-steps per day (Lord, Koekkoek and van Dijk 2010) and daily
-    returns generated from the integrated variance; calibrated by simulated method of moments
-    (Duffie and Singleton 1993); likelihood intractable.
+    Heston (1993) stochastic volatility; simulated with Andersen's (2008) quadratic-exponential
+    (QE) scheme with a daily step and the matching log-price step; calibrated by simulated
+    method of moments (Duffie and Singleton 1993); likelihood intractable.
 StationaryBootstrap
     Politis and Romano (1994) stationary bootstrap of the training returns, mean block length
     from the Politis and White (2004) rule with the Patton, Politis and White (2009) correction;
@@ -52,6 +51,7 @@ __all__ = [
     "optimal_block_length",
     "stationary_bootstrap_indices",
     "smm_moments",
+    "tail_quantile_ratio",
 ]
 
 _LOG_2PI = math.log(2.0 * math.pi)
@@ -152,6 +152,7 @@ class GBM(_ParamMixin, ReturnModel):
     _PARAM_NAMES = ("mu", "sigma")
 
     def __init__(self, mu: float | None = None, sigma: float | None = None) -> None:
+        self.fit_info_: dict[str, Any] = {}
         self._init_params({"mu": mu, "sigma": sigma})
 
     def _validate(self) -> None:
@@ -165,6 +166,8 @@ class GBM(_ParamMixin, ReturnModel):
         if sigma <= 0:
             raise ValueError("GBM.fit: constant series")
         self._p = {"mu": float(x.mean()), "sigma": sigma}
+        self.fit_info_ = {"success": True, "at_bound": [],  # no bounds: closed form
+                          "loglik": float(np.sum(self.loglik_obs(x)))}
         return self
 
     def simulate(self, n_steps: int, n_paths: int, *, rng: np.random.Generator,
@@ -302,9 +305,12 @@ class Merton(_ParamMixin, ReturnModel):
     def fit(self, r: np.ndarray) -> "Merton":
         """Maximum likelihood with bounds and multistart (L-BFGS-B, analytic gradient).
 
-        Bounds: ``lam in [1e-4, 0.5]`` per day, ``sigma >= 1e-5``, ``sJ >= 1e-4``. The optimiser
-        works on standardised returns ``z = (r - mean) / sd``; parameters are mapped back exactly
-        (location-scale equivariance of the model).
+        Bounds: ``lam in [1e-4, 0.5]`` per day, ``sigma >= 1e-5``, ``sJ >= 1e-4`` (and wide
+        bounds on the standardised ``mu``, ``muJ``). The optimiser works on standardised returns
+        ``z = (r - mean) / sd``; parameters are mapped back exactly (location-scale equivariance
+        of the model). Parameters that end at a bound are listed in ``fit_info_["at_bound"]``
+        (e.g. ``["lam"]`` when the intensity sits at 0.5 per day, as for GOOG, MTB and NVDA on
+        2018-2022: frequent small jumps, i.e. a near-Gaussian mixture).
         """
         t0 = time.perf_counter()
         x = _as_series(r, min_len=10)
@@ -356,6 +362,8 @@ class Merton(_ParamMixin, ReturnModel):
             "at_bound": at_bound,
             "seconds": time.perf_counter() - t0,
         }
+        if at_bound:
+            logger.info("Merton.fit: parameters at a bound: %s", at_bound)
         return self
 
     def simulate(self, n_steps: int, n_paths: int, *, rng: np.random.Generator,
@@ -395,8 +403,10 @@ class Merton(_ParamMixin, ReturnModel):
 # --------------------------------------------------------------------------------------------
 # GARCH(1,1) with standardised Student-t innovations
 # --------------------------------------------------------------------------------------------
-_GARCH_PERSIST_MAX = 0.9999
+_GARCH_PERSIST_MAX = 0.9999   # hard upper limit of persist_max
+_GARCH_PERSIST_DEFAULT = 0.995  # default cap used by fit (DESIGN 3.5)
 _GARCH_NU_BOUNDS = (2.05, 100.0)
+_GARCH_OMEGA_BOUNDS = (1e-8, 10.0)  # on standardised returns (unit sample variance)
 
 
 def _std_t_const(nu: float) -> float:
@@ -473,16 +483,24 @@ class GARCHt(_ParamMixin, ReturnModel):
     ``r_t = mu + eps_t``, ``eps_t = s_t z_t``, ``s_t^2 = omega + alpha eps_{t-1}^2 + beta s_{t-1}^2``,
     ``z_t ~ t(nu) * sqrt((nu - 2) / nu)`` i.i.d.
 
-    Estimation. By default (``variance_targeting=True``) the intercept is tied to the sample
-    variance, ``omega = (1 - alpha - beta) * var(r)`` (variance targeting: Engle and Mezrich
-    1996; asymptotic theory in Francq, Horvath and Zakoian 2011), and ``(mu, alpha, beta, nu)``
-    maximise the Student-t likelihood. The unconditional variance of the fitted model then
-    equals the sample variance, so simulated paths have the right volatility level. The
-    unrestricted MLE (``variance_targeting=False``) can reach the persistence bound
-    ``alpha + beta = 0.9999`` on samples with a volatility regime shift (e.g. 2020 for cruise
-    lines), where ``omega / (1 - alpha - beta)`` is not identified and was 70-260 times the
-    sample variance on S&P 500 stocks, which makes simulated paths explode. Either way, a fit at
-    the persistence bound is logged as a warning and listed in ``fit_info_["at_bound"]``.
+    Estimation. By default (``variance_targeting=True``, ``persist_max=0.995``; DESIGN 3.5)
+    the intercept is tied to the sample variance, ``omega = (1 - alpha - beta) * var(r)``
+    (variance targeting: Engle and Mezrich 1996; asymptotic theory in Francq, Horvath and
+    Zakoian 2011), ``(mu, alpha, beta, nu)`` maximise the Student-t likelihood, and the
+    persistence is capped, ``alpha + beta <= 0.995``. The unconditional variance of the fitted
+    model then equals the sample variance, so simulated paths have the right volatility level.
+    The unrestricted MLE (``variance_targeting=False, persist_max=0.9999``, the estimator of
+    the ``arch`` package) can reach the persistence bound on samples with a volatility regime
+    shift (e.g. 2020 for cruise lines), where ``omega / (1 - alpha - beta)`` is not identified
+    and was 70-260 times the sample variance on S&P 500 stocks, and its simulated paths
+    explode (RCL: 5.6-5.9% of 615-day paths reach ``|r| > 1``). Variance targeting removes
+    that level effect (RCL: 0.7-1.4% of paths, depending on the seed); what remains is the
+    power-law tail of a stationary GARCH-t (Kesten 1973): with ``alpha = 0.10`` and
+    ``nu = 4.6`` the fourth moment is infinite (return tail index about 2.5) and rare simulated
+    days are extreme. Lowering ``persist_max`` does not help (the likelihood then raises
+    ``alpha``). Parameters at a bound (``persistence``, ``alpha``, ``beta``,
+    ``nu``, ``mu``, ``omega``) are listed in ``fit_info_["at_bound"]``; a fit at the
+    persistence cap is also logged as a warning.
 
     Filter initialisation (documented convention):
 
@@ -503,6 +521,10 @@ class GARCHt(_ParamMixin, ReturnModel):
     variance_targeting : bool, default True
         Tie ``omega`` to the sample variance in :meth:`fit` (see above); ``False`` gives the
         unrestricted maximum likelihood estimator.
+    persist_max : float, default 0.995
+        Upper bound of ``alpha + beta`` in :meth:`fit`, in ``(0, 0.9999]``. Cross-checks against
+        ``arch`` use ``variance_targeting=False, persist_max=0.9999`` (exact MLE).
+        Construction from known parameters is not restricted (only ``alpha + beta < 1``).
     """
 
     name = "GARCHt"
@@ -513,9 +535,14 @@ class GARCHt(_ParamMixin, ReturnModel):
 
     def __init__(self, mu: float | None = None, omega: float | None = None,
                  alpha: float | None = None, beta: float | None = None, nu: float | None = None,
-                 *, n_starts: int = 5, variance_targeting: bool = True) -> None:
+                 *, n_starts: int = 5, variance_targeting: bool = True,
+                 persist_max: float = _GARCH_PERSIST_DEFAULT) -> None:
+        if not 0.0 < float(persist_max) <= _GARCH_PERSIST_MAX:
+            raise ValueError(f"persist_max must be in (0, {_GARCH_PERSIST_MAX}]")
         self.n_starts = int(n_starts)
         self.variance_targeting = bool(variance_targeting)
+        self.persist_max = float(persist_max)
+        self._s2init_cache: dict[tuple, np.ndarray] = {}
         self.fit_info_: dict[str, Any] = {}
         self._end: tuple[float, float] | None = None  # (eps_T, s2_T) at the end of the fit sample
         self._init_params({"mu": mu, "omega": omega, "alpha": alpha, "beta": beta, "nu": nu})
@@ -533,8 +560,8 @@ class GARCHt(_ParamMixin, ReturnModel):
     def fit(self, r: np.ndarray) -> "GARCHt":
         """Maximum likelihood (SLSQP, analytic gradient) with multistart.
 
-        Constraints: ``omega > 0``, ``alpha, beta >= 0``, ``alpha + beta <= 0.9999``,
-        ``nu in [2.05, 100]``; with ``variance_targeting=True`` (default) also
+        Constraints: ``omega > 0``, ``alpha, beta >= 0``, ``alpha + beta <= persist_max``
+        (default 0.995), ``nu in [2.05, 100]``; with ``variance_targeting=True`` (default) also
         ``omega = (1 - alpha - beta) var(r)`` (sample variance, divisor ``T``). The optimiser runs
         on ``r / sd(r)`` (scale equivariance: ``mu`` and ``sqrt(omega)`` scale with the data,
         ``alpha, beta, nu`` are invariant).
@@ -549,21 +576,24 @@ class GARCHt(_ParamMixin, ReturnModel):
         T = x.size
         m0 = float(x.mean())
         vt = self.variance_targeting
+        pmax = self.persist_max
+        mu_bounds = (m0 - 1.0, m0 + 1.0)
         if vt:  # theta = (mu, alpha, beta, nu)
             fun, args = _garch_nll_grad_vt, (x, s2_0, s2_0)
-            bounds = [(m0 - 1.0, m0 + 1.0), (0.0, _GARCH_PERSIST_MAX), (0.0, _GARCH_PERSIST_MAX),
-                      _GARCH_NU_BOUNDS]
+            bounds = [mu_bounds, (0.0, pmax), (0.0, pmax), _GARCH_NU_BOUNDS]
             ia, ib, jac = 1, 2, np.array([0.0, -1.0, -1.0, 0.0])
         else:  # theta = (mu, omega, alpha, beta, nu)
             fun, args = _garch_nll_grad, (x, s2_0)
-            bounds = [(m0 - 1.0, m0 + 1.0), (1e-8, 10.0), (0.0, _GARCH_PERSIST_MAX),
-                      (0.0, _GARCH_PERSIST_MAX), _GARCH_NU_BOUNDS]
+            bounds = [mu_bounds, _GARCH_OMEGA_BOUNDS, (0.0, pmax), (0.0, pmax), _GARCH_NU_BOUNDS]
             ia, ib, jac = 2, 3, np.array([0.0, 0.0, -1.0, -1.0, 0.0])
-        cons = ({"type": "ineq", "fun": lambda th: _GARCH_PERSIST_MAX - th[ia] - th[ib],
+        cons = ({"type": "ineq", "fun": lambda th: pmax - th[ia] - th[ib],
                  "jac": lambda th: jac},)
         best = None
         n_used = 0
         for a0, b0, nu0 in self._STARTS[: max(1, self.n_starts)]:
+            if a0 + b0 > pmax:  # keep the start feasible under a low cap
+                f = 0.98 * pmax / (a0 + b0)
+                a0, b0 = a0 * f, b0 * f
             th0 = (np.array([m0, a0, b0, nu0]) if vt
                    else np.array([m0, s2_0 * (1.0 - a0 - b0), a0, b0, nu0]))
             n_used += 1
@@ -583,8 +613,8 @@ class GARCHt(_ParamMixin, ReturnModel):
         else:
             mu_x, om_x, a, b, nu = best.x
         a, b = max(float(a), 0.0), max(float(b), 0.0)
-        if a + b > _GARCH_PERSIST_MAX:  # SLSQP may violate the linear constraint by rounding
-            f = _GARCH_PERSIST_MAX / (a + b)
+        if a + b > pmax:  # SLSQP may violate the linear constraint by rounding
+            f = pmax / (a + b)
             a, b = a * f, b * f
         if vt:
             om_x = s2_0 * (1.0 - a - b)
@@ -593,22 +623,27 @@ class GARCHt(_ParamMixin, ReturnModel):
         s2 = self.conditional_variance(r)
         self._end = (float(r[-1] - self._p["mu"]), float(s2[-1]))
         at_bound = [nm for nm, hit in (
-            ("persistence", a + b >= _GARCH_PERSIST_MAX - 1e-6),
+            ("persistence", a + b >= pmax - 1e-6),
             ("alpha", a <= 1e-8), ("beta", b <= 1e-8),
             ("nu", self._p["nu"] <= _GARCH_NU_BOUNDS[0] + 1e-6
-             or self._p["nu"] >= _GARCH_NU_BOUNDS[1] - 1e-6)) if hit]
+             or self._p["nu"] >= _GARCH_NU_BOUNDS[1] - 1e-6),
+            ("mu", min(abs(mu_x - mu_bounds[0]), abs(mu_x - mu_bounds[1])) <= 1e-8),
+            ("omega", not vt and (om_x <= _GARCH_OMEGA_BOUNDS[0] * (1 + 1e-6)
+                                  or om_x >= _GARCH_OMEGA_BOUNDS[1] * (1 - 1e-6)))) if hit]
         uncond_ratio = self.unconditional_variance() / float(r.var())
         if "persistence" in at_bound:
             logger.warning(
                 "GARCHt.fit: alpha + beta at the bound %.4f (unconditional / sample variance = "
-                "%.3g, variance_targeting=%s); simulated paths are close to integrated GARCH",
-                _GARCH_PERSIST_MAX, uncond_ratio, vt)
+                "%.3g, variance_targeting=%s)", pmax, uncond_ratio, vt)
+        elif at_bound:
+            logger.info("GARCHt.fit: parameters at a bound: %s", at_bound)
         self.fit_info_ = {
             "success": bool(best.success),
             "message": str(best.message),
             "loglik": float(np.sum(self.loglik_obs(r))),
             "n_starts": n_used,
             "variance_targeting": vt,
+            "persist_max": pmax,
             "persistence": a + b,
             "uncond_ratio": float(uncond_ratio),
             "at_bound": at_bound,
@@ -686,8 +721,8 @@ class GARCHt(_ParamMixin, ReturnModel):
         z = self.std_resid(r, r_history, sigma2_0=sigma2_0)
         return _clip_unit(stats.t.cdf(z * math.sqrt(nu / (nu - 2.0)), nu))
 
-    def loglik_windows(self, windows: np.ndarray,
-                       sigma2_init: np.ndarray | None = None) -> np.ndarray:
+    def loglik_windows(self, windows: np.ndarray, sigma2_init: np.ndarray | None = None, *,
+                       n_init: int = 0, seed: int = 20251114) -> np.ndarray:
         """Log-density of each window of a stationary path, shape ``(n,)``.
 
         The exact density of a window ``(x_1, ..., x_L)`` cut from a stationary path is
@@ -702,10 +737,20 @@ class GARCHt(_ParamMixin, ReturnModel):
           :meth:`stationary_variance_draws`): Monte Carlo integration,
           ``log((1/K) sum_k prod_t f(x_t | s_t^2; s_1^2 = sigma2_init[k]))``, which converges
           to the exact log-density as ``K`` grows.
+        * ``n_init = K > 0`` (and ``sigma2_init=None``): the same with
+          ``sigma2_init = stationary_variance_draws(K, rng=default_rng(seed))``; the draws are
+          cached per ``(K, seed)``, so repeated calls use the same draws and the result is a
+          fixed function of the window.
         """
         p = self._require_fit()
         w = _as_windows(windows)
         mu, om, a, b, nu = (p[k] for k in self._PARAM_NAMES)
+        if sigma2_init is None and int(n_init) > 0:
+            key = (int(n_init), int(seed), tuple(p[k] for k in self._PARAM_NAMES))
+            if key not in self._s2init_cache:
+                self._s2init_cache[key] = self.stationary_variance_draws(
+                    int(n_init), rng=np.random.default_rng(int(seed)))
+            sigma2_init = self._s2init_cache[key]
         if sigma2_init is None:
             s2 = np.full(w.shape[0], self.unconditional_variance())
             ll = np.zeros(w.shape[0])
@@ -787,17 +832,65 @@ class GARCHt(_ParamMixin, ReturnModel):
 # --------------------------------------------------------------------------------------------
 # Stationary bootstrap and block length selection
 # --------------------------------------------------------------------------------------------
+def _block_length_rule(x: np.ndarray, kind: str = "stationary") -> dict[str, Any]:
+    """Politis-White block length exactly as ``arch.bootstrap.optimal_block_length`` (arch 9).
+
+    Returns a dict with ``b`` (the rule's value, capped at ``b_max``; may be below 1 or
+    non-finite), ``b_max``, ``m`` (bandwidth of the flat-top kernel) and ``m_hat``.
+    """
+    n = x.size
+    eps = x - x.mean()
+    b_max = float(math.ceil(min(3.0 * math.sqrt(n), n / 3.0)))
+    kn = max(5, int(math.log10(n)))
+    m_max = int(math.ceil(math.sqrt(n))) + kn
+    cv = 2.0 * math.sqrt(math.log10(n) / n)
+    acv = np.zeros(m_max + 1)
+    abs_acorr = np.zeros(m_max + 1)
+    m_hat: int | None = None
+    with np.errstate(divide="ignore", invalid="ignore"):
+        for i in range(m_max + 1):
+            v1 = eps[i + 1:] @ eps[i + 1:]
+            v2 = eps[: -(i + 1)] @ eps[: -(i + 1)]
+            cross = eps[i:] @ eps[: n - i]
+            acv[i] = cross / n
+            abs_acorr[i] = abs(cross) / math.sqrt(v1 * v2) if v1 * v2 > 0 else np.inf
+            if i >= kn and m_hat is None and np.all(abs_acorr[i - kn: i] < cv):
+                m_hat = i - kn
+    m = min(2 * max(m_hat, 1) if m_hat is not None else m_max, m_max)
+    G = 0.0
+    g = acv[0]
+    for k in range(1, m + 1):
+        lam = 1.0 if k / m <= 0.5 else 2.0 * (1.0 - k / m)
+        G += 2.0 * lam * k * acv[k]
+        g += 2.0 * lam * acv[k]
+    D = (2.0 if kind == "stationary" else 4.0 / 3.0) * g * g
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        b = ((2.0 * G * G) / D) ** (1.0 / 3.0) * n ** (1.0 / 3.0)
+    return {"b": float(min(b, b_max)) if np.isfinite(b) else float("nan"), "b_max": b_max,
+            "m": m, "m_hat": m_hat}
+
+
 def optimal_block_length(x: np.ndarray, *, kind: str = "stationary",
                          fallback: float = 20.0) -> float:
     """Politis-White (2004) automatic block length with the Patton-Politis-White (2009) correction.
 
+    Implemented exactly as ``arch.bootstrap.optimal_block_length`` (arch 9, which follows
+    Patton's MATLAB code; cross-checked on the 479 S&P 500 series in the tests):
     ``b = (2 G^2 / D)^{1/3} n^{1/3}`` with ``G = sum_{|k|<=M} lambda(k/M) |k| R(k)``,
     ``g = sum_{|k|<=M} lambda(k/M) R(k)``, ``D_SB = 2 g^2`` (stationary bootstrap, corrected
     constant) or ``D_CB = 4/3 g^2`` (circular block bootstrap), flat-top kernel
-    ``lambda(t) = min(1, 2(1 - |t|))_+``, and ``M = 2 m_hat`` where ``m_hat`` is the smallest
-    lag after which ``K_n = max(5, ceil(sqrt(log10 n)))`` consecutive sample autocorrelations lie
-    inside ``+-2 sqrt(log10(n) / n)`` (``M <= m_max = ceil(sqrt(n)) + K_n``). The result is
-    capped at ``ceil(min(3 sqrt(n), n / 3))``.
+    ``lambda(t) = min(1, 2(1 - |t|))``, autocovariances ``R(k)`` with divisor ``n``, and
+    ``M = min(2 max(m_hat, 1), m_max)``. ``m_hat`` is the first lag ``j`` such that the
+    ``K_n = max(5, floor(log10 n))`` absolute autocorrelations at lags ``j, ..., j + K_n - 1``
+    are all below ``2 sqrt(log10(n) / n)``, the lag-``k`` autocorrelation being
+    ``|sum_t e_t e_{t-k}| / sqrt(sum_{t > k} e_t^2 sum_{t < n-k-1} e_t^2)`` (arch's
+    normalisation); ``M = m_max = ceil(sqrt(n)) + K_n`` when there is no such run. The result
+    is capped at ``ceil(min(3 sqrt(n), n / 3))``.
+
+    Two deliberate differences from arch: the value is floored at 1 (a mean block length
+    below one day is meaningless; arch returns it as is, e.g. on 57 of the 479 S&P 500 return
+    series), and ``fallback`` is returned when the rule is degenerate (fewer than 20
+    observations, a constant series or a non-finite value; arch raises or returns NaN).
 
     Parameters
     ----------
@@ -805,8 +898,7 @@ def optimal_block_length(x: np.ndarray, *, kind: str = "stationary",
         Series whose dependence the bootstrap must preserve.
     kind : {"stationary", "circular"}
     fallback : float
-        Returned when the rule is degenerate (too few observations, ``g <= 0``, ``G = 0`` or a
-        non-finite value).
+        Returned when the rule is degenerate.
 
     Returns
     -------
@@ -814,38 +906,14 @@ def optimal_block_length(x: np.ndarray, *, kind: str = "stationary",
         Mean (stationary) or fixed (circular) block length, at least 1.
     """
     x = _as_series(x, name="x")
-    n = x.size
     if kind not in ("stationary", "circular"):
         raise ValueError("kind must be 'stationary' or 'circular'")
-    if n < 20:
+    if x.size < 20 or not np.var(x) > 0:
         return float(fallback)
-    e = x - x.mean()
-    kn = max(5, int(math.ceil(math.sqrt(math.log10(n)))))
-    m_max = min(int(math.ceil(math.sqrt(n))) + kn, n - 1)
-    b_max = math.ceil(min(3.0 * math.sqrt(n), n / 3.0))
-    acov = np.array([e[k:] @ e[: n - k] / n for k in range(m_max + 1)])
-    if not acov[0] > 0:
-        return float(fallback)
-    rho = acov / acov[0]
-    crit = 2.0 * math.sqrt(math.log10(n) / n)
-    insig = np.abs(rho[1:]) < crit  # lags 1..m_max
-    m_hat = None
-    for j in range(1, m_max - kn + 2):  # run of kn insignificant lags starting at lag j
-        if np.all(insig[j - 1: j - 1 + kn]):
-            m_hat = j - 1
-            break
-    M = m_max if m_hat is None else min(2 * max(m_hat, 1), m_max)
-    k = np.arange(1, M + 1)
-    lam = np.minimum(1.0, 2.0 * (1.0 - k / M))
-    G = 2.0 * np.sum(lam * k * acov[1: M + 1])
-    g = acov[0] + 2.0 * np.sum(lam * acov[1: M + 1])
-    D = 2.0 * g * g if kind == "stationary" else (4.0 / 3.0) * g * g
-    if not (g > 0 and G != 0 and np.isfinite(G) and np.isfinite(D)):
-        return float(fallback)
-    b = (2.0 * G * G / D) ** (1.0 / 3.0) * n ** (1.0 / 3.0)
+    b = _block_length_rule(x, kind)["b"]
     if not np.isfinite(b):
         return float(fallback)
-    return float(min(max(b, 1.0), b_max))
+    return float(max(b, 1.0))
 
 
 def stationary_bootstrap_indices(T: int, n_steps: int, n_paths: int, mean_block: float, *,
@@ -911,16 +979,38 @@ class StationaryBootstrap(ReturnModel):
         self.min_block, self.max_block = float(min_block), float(max_block)
         self._r: np.ndarray | None = None
         self.block_length_: float | None = None
+        self.fit_info_: dict[str, Any] = {}
 
     def fit(self, r: np.ndarray) -> "StationaryBootstrap":
+        """Store the training returns and choose the mean block length.
+
+        ``fit_info_["at_bound"]`` is ``["block_length"]`` when the automatic length sits at
+        the rule's cap ``ceil(min(3 sqrt(T), T / 3))``, at its floor of 1, or at
+        ``min_block``/``max_block``; ``fit_info_["fallback"]`` says whether the degenerate-rule
+        fallback (20) was used.
+        """
         r = _as_series(r, min_len=2)
         self._r = r.copy()
+        info: dict[str, Any] = {"at_bound": [], "fallback": False}
         if self.block_length is not None:
             b = self.block_length
         else:
-            b = optimal_block_length(_block_series(r, self.block_series), kind="stationary")
-            b = float(np.clip(b, self.min_block, self.max_block))
+            x = _block_series(r, self.block_series)
+            b = optimal_block_length(x, kind="stationary")
+            if x.size >= 20 and np.var(x) > 0:
+                rule = _block_length_rule(x, "stationary")
+                info["fallback"] = not np.isfinite(rule["b"])
+                info["block_length_rule"] = rule["b"]
+                if np.isfinite(rule["b"]) and (rule["b"] >= rule["b_max"] or rule["b"] <= 1.0):
+                    info["at_bound"] = ["block_length"]
+            else:
+                info["fallback"] = True
+            bc = float(np.clip(b, self.min_block, self.max_block))
+            if bc != b:
+                info["at_bound"] = ["block_length"]
+            b = bc
         self.block_length_ = float(min(max(b, 1.0), r.size))
+        self.fit_info_ = info
         return self
 
     def simulate(self, n_steps: int, n_paths: int, *, rng: np.random.Generator,
@@ -944,11 +1034,26 @@ class StationaryBootstrap(ReturnModel):
 
 
 # --------------------------------------------------------------------------------------------
-# Heston: sub-stepped full-truncation Euler, simulated method of moments
+# Heston: Andersen (2008) QE scheme with a daily step, simulated method of moments
 # --------------------------------------------------------------------------------------------
-SMM_MOMENT_NAMES = ("var", "mad_ratio", "log_kurt", "acf_sq_1", "acf_sq_5", "acf_sq_10",
-                    "acf_sq_20", "lev_1")
+#: Switching level of Andersen's QE scheme (quadratic branch for psi <= psi_c).
+QE_PSI_C = 1.5
+
+SMM_MOMENT_NAMES = ("var", "tail_qr", "acf_sq_1", "acf_sq_5", "acf_sq_10", "acf_sq_20", "lev_1")
 _ACF_LAGS = (1, 5, 10, 20)
+_TAIL_Q = (0.01, 0.25, 0.75, 0.99)
+
+
+def tail_quantile_ratio(R: np.ndarray) -> np.ndarray:
+    """Robust tail moment ``(q_0.99 - q_0.01) / (q_0.75 - q_0.25)`` of each row of ``R``.
+
+    3.45 for a Gaussian, 5.0 for a Student-t(4); sample quantiles use linear interpolation
+    (numpy's default), so the ratio is a continuous function of the data.
+    """
+    R = np.atleast_2d(np.asarray(R, dtype=np.float64))
+    q = np.quantile(R, _TAIL_Q, axis=1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return (q[3] - q[0]) / (q[2] - q[1])
 
 
 def smm_moments(R: np.ndarray) -> np.ndarray:
@@ -957,18 +1062,16 @@ def smm_moments(R: np.ndarray) -> np.ndarray:
     For each row of ``R`` (shape ``(S, T)`` or ``(T,)``), with ``x = r - mean(r)``:
 
     * ``var``: ``mean(x^2)``;
-    * ``mad_ratio``: ``mean|x| / sd(x)`` (``sqrt(2 / pi) = 0.798`` under normality). It measures
-      the mass in the centre of the distribution and so identifies the share of quiet days,
-      which kurtosis does not: for a Gaussian scale mixture ``r = sqrt(V) Z`` it depends on
-      ``E[V^{1/2}] / E[V]^{1/2}``, the kurtosis on ``E[V^2] / E[V]^2``;
-    * ``log_kurt``: log of the (non-excess) kurtosis ``mean(x^4) / var^2``. On heavy-tailed
-      series the raw kurtosis has a bootstrap standard deviation of the order of its value
-      (a few extreme days dominate it), so a ``1 / Var*`` weight would all but ignore it; the
-      log has a much less skewed sampling distribution;
+    * ``tail_qr``: the robust tail moment :func:`tail_quantile_ratio`,
+      ``(q_0.99 - q_0.01) / (q_0.75 - q_0.25)``. It replaces the kurtosis: on daily stock
+      returns the sample kurtosis (13-32 on many S&P 500 stocks over 2018-2022) is driven by a
+      handful of crash days, its bootstrap standard deviation is of the order of its value,
+      and a ``1 / Var*`` weight all but ignores it; the quantile ratio has a bootstrap relative
+      standard deviation of 11-25% on the same series and is attainable by the Heston model;
     * ``acf_sq_k``: autocorrelation of ``x^2`` at lags 1, 5, 10, 20;
     * ``lev_1``: leverage correlation ``corr(x_t, x_{t+1}^2)``.
 
-    Returns shape ``(S, 8)`` (or ``(8,)`` for 1-d input); see ``SMM_MOMENT_NAMES``.
+    Returns shape ``(S, 7)`` (or ``(7,)`` for 1-d input); see ``SMM_MOMENT_NAMES``.
     """
     R = np.asarray(R, dtype=np.float64)
     one = R.ndim == 1
@@ -979,8 +1082,7 @@ def smm_moments(R: np.ndarray) -> np.ndarray:
         x = R - R.mean(axis=1, keepdims=True)
         s = x * x
         var = s.mean(axis=1)
-        mad = np.abs(x).mean(axis=1) / np.sqrt(var)
-        log_kurt = np.log((s * s).mean(axis=1) / var ** 2)
+        tail = tail_quantile_ratio(R)
         sd = s - var[:, None]
         den = np.einsum("ij,ij->i", sd, sd)
         acfs = [np.einsum("ij,ij->i", sd[:, k:], sd[:, :-k]) / den for k in _ACF_LAGS]
@@ -988,77 +1090,129 @@ def smm_moments(R: np.ndarray) -> np.ndarray:
         b = s[:, 1:] - s[:, 1:].mean(axis=1, keepdims=True)
         lev = np.einsum("ij,ij->i", a, b) / np.sqrt(np.einsum("ij,ij->i", a, a)
                                                      * np.einsum("ij,ij->i", b, b))
-    out = np.column_stack([var, mad, log_kurt, *acfs, lev])
+    out = np.column_stack([var, tail, *acfs, lev])
     return out[0] if one else out
 
 
-def _cir_unit_integrals(kappa: float | np.ndarray, c: float | np.ndarray, z: np.ndarray,
-                        v0: float | np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Daily integrals of a unit-mean CIR variance, full-truncation Euler with sub-steps.
+def _qe_unit_variance(kappa: float | np.ndarray, c: float | np.ndarray, z: np.ndarray,
+                      v0: float | np.ndarray, psi_c: float = QE_PSI_C) -> np.ndarray:
+    """Daily variance grid of a unit-mean CIR process by Andersen's (2008) QE scheme.
 
     Unit-mean process ``dv = kappa (1 - v) dt + c sqrt(2 kappa) sqrt(v) dW`` (``c`` is the
-    coefficient of variation of its stationary Gamma law). Each day is split into
-    ``M = z.shape[1]`` steps of length ``h = 1 / M`` with full truncation (Lord, Koekkoek and
-    van Dijk 2010): ``v_{k+1} = v_k + kappa (1 - v_k^+) h + c sqrt(2 kappa h) sqrt(v_k^+) z_k``.
+    coefficient of variation of its stationary Gamma law), one step per day (``dt = 1``).
+    Given ``v_t``, the conditional mean and variance of ``v_{t+1}`` are
+    ``m = 1 + (v_t - 1) e`` and ``s^2 = 2 c^2 [v_t e (1 - e) + (1 - e)^2 / 2]`` with
+    ``e = exp(-kappa)``, and ``psi = s^2 / m^2``:
+
+    * ``psi <= psi_c`` (quadratic branch): ``v_{t+1} = a (b + Z)^2`` with
+      ``b^2 = 2 / psi - 1 + sqrt(2 / psi) sqrt(2 / psi - 1)`` and ``a = m / (1 + b^2)``;
+    * ``psi > psi_c`` (exponential branch): ``v_{t+1} = 0`` if ``U <= p``, otherwise
+      ``log((1 - p) / (1 - U)) / beta``, with ``p = (psi - 1) / (psi + 1)`` and
+      ``beta = (1 - p) / m``.
+
+    One shock per step drives both branches, ``U = Phi(Z)`` (Andersen's formulation with a
+    single uniform), so for fixed shocks the grid is a continuous function of
+    ``(kappa, c)`` within each branch (common random numbers). Since
+    ``psi <= c^2`` for every ``v_t >= 0`` (with equality at ``v_t = 0``), the exponential
+    branch, and with it the point mass of ``v`` at zero, is never used when
+    ``c <= sqrt(psi_c)``.
 
     Parameters
     ----------
     kappa, c : float or ndarray of shape (P,)
         Parameter sets simulated side by side (they share the shocks ``z``).
-    z : ndarray, shape (n_days, M, S)
-        Standard normal variance shocks.
+    z : ndarray, shape (n_days, S)
+        Standard normal shocks.
     v0 : float or ndarray broadcastable to (P, S)
         Initial unit-scale variance.
+    psi_c : float
+        Switching level (Andersen recommends 1.5).
 
     Returns
     -------
-    I : ndarray, shape (n_days, P, S)
-        Integrated variance of each day, ``sum_k v_k^+ h``.
-    J : ndarray, shape (n_days, P, S)
-        ``sum_k sqrt(v_k^+ h) z_k``, the Euler sum for ``int sqrt(v) dW`` over each day.
-    v : ndarray, shape (P, S)
-        Variance at the end of the last day.
+    ndarray, shape (n_days + 1, P, S)
+        ``v_0, ..., v_{n_days}`` (row 0 is ``v0``).
     """
     kappa = np.atleast_1d(np.asarray(kappa, dtype=np.float64)).reshape(-1, 1)
     c = np.atleast_1d(np.asarray(c, dtype=np.float64)).reshape(-1, 1)
-    n_days, M, S = z.shape
+    n_days, S = z.shape
     P = max(kappa.shape[0], c.shape[0])
-    h = 1.0 / M
-    kh = np.broadcast_to(kappa * h, (P, 1)).copy()
-    xs = np.broadcast_to(c * np.sqrt(2.0 * kappa * h), (P, 1)).copy()
-    v = np.array(np.broadcast_to(np.asarray(v0, dtype=np.float64), (P, S)))
-    I = np.empty((n_days, P, S))
-    J = np.empty((n_days, P, S))
-    vp, sq = np.empty((P, S)), np.empty((P, S))
-    Ia, Ja = np.empty((P, S)), np.empty((P, S))
-    sqrt_h = math.sqrt(h)
+    e = np.broadcast_to(np.exp(-kappa), (P, 1))
+    one_e = 1.0 - e
+    k1 = 2.0 * c * c * e * one_e           # s^2 = k1 v + k2
+    k2 = c * c * one_e * one_e
+    ip_c = 2.0 / psi_c                      # quadratic branch iff 2 / psi >= 2 / psi_c
+    V = np.empty((n_days + 1, P, S))
+    V[0] = np.broadcast_to(np.asarray(v0, dtype=np.float64), (P, S))
+    m, ip, b2 = np.empty((P, S)), np.empty((P, S)), np.empty((P, S))
     for t in range(n_days):
-        Ia.fill(0.0)
-        Ja.fill(0.0)
+        v = V[t]
+        np.multiply(e, v, out=m)
+        m += one_e                          # conditional mean
+        np.multiply(k1, v, out=b2)
+        b2 += k2                            # conditional variance s^2
+        np.multiply(m, m, out=ip)
+        ip *= 2.0
+        np.divide(ip, b2, out=ip, where=b2 > 0.0)
+        ip[b2 <= 0.0] = 2e12                # c = 0: deterministic variance
+        np.minimum(ip, 2e12, out=ip)        # 2 / psi, capped (no overflow when psi -> 0)
+        quad = ip >= ip_c
         zt = z[t]
-        for k in range(M):
-            np.maximum(v, 0.0, out=vp)
-            Ia += vp
-            np.sqrt(vp, out=sq)
-            sq *= zt[k]          # sqrt(v+) z
-            Ja += sq
-            sq *= xs             # xi sqrt(h) sqrt(v+) z (unit scale)
-            vp *= kh             # kappa h v+
-            v -= vp
-            v += sq
-            v += kh              # kappa theta h with theta = 1
-        np.multiply(Ia, h, out=I[t])
-        np.multiply(Ja, sqrt_h, out=J[t])
-    return I, J, v
+        # quadratic branch: b^2 = 2/psi - 1 + sqrt(2/psi) sqrt(2/psi - 1), v' = m (b + Z)^2 / (1 + b^2)
+        all_quad = bool(quad.all())
+        np.subtract(ip, 1.0, out=b2)
+        np.maximum(b2, 0.0, out=b2)
+        np.sqrt(b2, out=b2)
+        b2 *= np.sqrt(ip)
+        b2 += ip
+        b2 -= 1.0
+        if not all_quad:                    # b^2 < 0 where psi > 2 (exponential branch)
+            np.maximum(b2, 0.0, out=b2)
+        vn = V[t + 1]
+        np.sqrt(b2, out=vn)
+        vn += zt
+        vn *= vn
+        vn *= m
+        b2 += 1.0
+        vn /= b2
+        if not all_quad:                    # exponential branch (only when c > sqrt(psi_c))
+            ex = ~quad
+            psi = 2.0 / ip[ex]
+            p = (psi - 1.0) / (psi + 1.0)
+            zx = np.broadcast_to(zt, (P, S))[ex]
+            u_tail = ndtr(-zx)              # 1 - U, accurate for U near 1
+            vn[ex] = np.where(ndtr(zx) <= p, 0.0,
+                              np.log((1.0 - p) / u_tail) * m[ex] / (1.0 - p))
+    return V
+
+
+def _qe_integrals(V: np.ndarray, kappa: float | np.ndarray,
+                  c: float | np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Daily integrals ``(I, J)`` of a unit-mean QE variance grid ``V`` (``(n + 1, P, S)``).
+
+    ``I_t = (v_t + v_{t+1}) / 2`` (Andersen's ``gamma_1 = gamma_2 = 1/2``) approximates
+    ``int v`` over day ``t``, and ``J_t = (v_{t+1} - v_t - kappa (1 - I_t)) / (c sqrt(2 kappa))``
+    is the implied ``int sqrt(v) dW`` (from the variance dynamics). Both have shape
+    ``(n, P, S)``. With these, :func:`_heston_returns` is exactly Andersen's log-price step
+    ``K0 + K1 v_t + K2 v_{t+1} + sqrt(K3 v_t + K4 v_{t+1}) Z`` (plus the drift ``mu``).
+    """
+    kappa = np.atleast_1d(np.asarray(kappa, dtype=np.float64)).reshape(-1, 1)
+    c = np.atleast_1d(np.asarray(c, dtype=np.float64)).reshape(-1, 1)
+    I = 0.5 * (V[:-1] + V[1:])
+    xs = c * np.sqrt(2.0 * kappa)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        J = np.where(xs > 0.0, (V[1:] - V[:-1] - kappa * (1.0 - I)) / np.where(xs > 0, xs, 1.0),
+                     0.0)
+    return I, J
 
 
 def _heston_returns(I: np.ndarray, J: np.ndarray, A: np.ndarray, theta: float, rho: float,
                     mu: float = 0.0) -> np.ndarray:
     """Daily log-returns ``mu - theta I / 2 + sqrt(theta) (rho J + sqrt(1 - rho^2) A)``.
 
-    ``I, J`` are unit-scale integrals from :func:`_cir_unit_integrals` and ``A = sqrt(I) Z``
-    with ``Z`` independent standard normals (the orthogonal Brownian part, which is exactly
-    ``N(0, I)`` given the variance path).
+    ``I, J`` are unit-scale integrals from :func:`_qe_integrals` and ``A = sqrt(I) Z`` with
+    ``Z`` independent standard normals (the part of the return orthogonal to the variance
+    shocks, ``N(0, I)`` given the variance path).
     """
     return mu - 0.5 * theta * I + math.sqrt(theta) * (rho * J + math.sqrt(1.0 - rho * rho) * A)
 
@@ -1087,44 +1241,62 @@ class Heston(_ParamMixin, ReturnModel):
     per-day rate). ``c = xi / sqrt(2 kappa theta)`` is the coefficient of variation of the
     stationary Gamma law of ``v``; the Feller ratio is ``2 kappa theta / xi^2 = 1 / c^2``.
 
-    Simulation (same scheme in :meth:`fit` and :meth:`simulate`). Each day is split into
-    ``n_substeps`` full-truncation Euler steps for the variance (Lord, Koekkoek and van Dijk
-    2010), and the daily log-return is generated from the variance path's integrals,
-    ``r_t = mu - I_t / 2 + rho J_t + sqrt((1 - rho^2) I_t) Z_t`` with ``I_t = int v`` and
-    ``J_t = int sqrt(v) dW2`` over the day (Euler sums) and ``Z_t`` an independent N(0, 1): given
-    the variance path, the orthogonal Brownian part integrates exactly to ``N(0, I_t)``
-    (the decomposition used by Broadie and Kaya 2006). Paths start from the exact stationary
-    Gamma law of ``v``. A one-step daily Euler scheme is **not** used: away from the Feller
-    condition its truncated variance sticks at zero for days or weeks, and the returns are then
-    exactly constant (36-52% of days on fitted S&P 500 models). Against the exact
-    (non-central chi-square) transition, 20 sub-steps give a Kolmogorov distance of 0.01-0.04
-    for the law of the daily integrated variance and a share of days with zero integrated
-    variance of 0.04% at ``c = 2`` and 0.4-0.6% at ``c = 2.5`` (the upper bound of ``c``).
+    Simulation (identical in :meth:`fit` and :meth:`simulate`): Andersen's (2008)
+    quadratic-exponential (QE) scheme for the variance with a daily step and
+    ``psi_c = 1.5`` (:func:`_qe_unit_variance`), and Andersen's matching log-price step with
+    ``gamma_1 = gamma_2 = 1/2``,
+    ``r_t = mu + K0 + K1 v_t + K2 v_{t+1} + sqrt(K3 v_t + K4 v_{t+1}) Z_t``, written as
+    ``r_t = mu - theta I_t / 2 + sqrt(theta) (rho J_t + sqrt((1 - rho^2) I_t) Z_t)``
+    (:func:`_qe_integrals`, :func:`_heston_returns`). Paths start from the exact stationary
+    Gamma law of ``v``.
+
+    Zero-variance days. The QE exponential branch puts a point mass at ``v = 0``; a day with
+    ``v_t = v_{t+1} = 0`` has an exactly constant return. Because ``psi <= c^2`` for every
+    ``v_t``, the exponential branch is never used when ``c <= sqrt(psi_c) = 1.2247``: the
+    variance is then positive on every day and no return is constant. For larger ``c`` it is
+    used near ``v = 0`` and stays at zero with probability ``(c^2 - 1) / (c^2 + 1)`` per day
+    (daily QE gives 11-45% of days with ``v_t = v_{t+1} = 0`` at ``c = 2-2.5``, as many as
+    the one-step full-truncation Euler scheme, which gave 36-53% constant-return days on
+    fitted S&P 500 models). The calibration therefore bounds ``c`` by ``c_max = sqrt(psi_c)``
+    (Feller ratio at least 2/3; the Feller condition itself, ``c <= 1``, is not imposed).
+    Against the exact (non-central chi-square) transition, the daily QE integrated variance
+    has a Kolmogorov distance of 0.005-0.03 at ``c = 1.2`` and ``kappa`` in 0.01-0.5 (the same
+    accuracy as 20 full-truncation Euler sub-steps). Within the bound the model reaches
+    tail quantile ratios of 6-6.5 (data: 4.8-6.6) but a daily kurtosis of only about 5-7:
+    the 13-32 of some stocks comes from a few crash days that a diffusive variance cannot
+    produce.
 
     Calibration: simulated method of moments (Duffie and Singleton 1993) on
-    :func:`smm_moments` (variance, ``mean|x| / sd``, log kurtosis, ACF of ``r^2`` at lags 1, 5,
-    10, 20, ``corr(r_t, r_{t+1}^2)``):
+    :func:`smm_moments` (variance, tail quantile ratio, ACF of ``r^2`` at lags 1, 5, 10, 20,
+    ``corr(r_t, r_{t+1}^2)``):
 
     * simulated moments are averages over ``S`` paths of the same length as the data (so
-      finite-sample biases of the estimators are matched), with common random numbers;
+      finite-sample biases of the estimators are matched), with common random numbers (fixed
+      standard normals drive the QE variance step, its uniforms ``Phi(Z)``, and the returns),
+      so the objective is a deterministic function of the parameters;
     * the weighting matrix is diagonal, ``W = diag(1 / Var*(m_j))``, from stationary-bootstrap
-      variances of the data moments (mean block length ``max(20, PW(|r|))``);
-    * profiling: by the scaling property of the CIR process (``v = theta v1`` with ``v1`` of
-      unit mean), the simulated variance paths depend on ``(kappa, c)`` only, and ``theta`` and
-      ``rho`` enter only when the returns are assembled. The objective is minimised over
-      ``(log theta, rho)`` (bounded Nelder-Mead, cheap) for each ``(kappa, c)``, and the profile
-      over ``(log kappa, log c)``: a batched 8 x 8 grid (``kappa`` 0.003-0.4,
-      ``c`` 0.3-2.5), then bounded Nelder-Mead from the ``n_nm_starts`` best grid points and a
-      restart from the best solution;
+      variances of the data moments (mean block length ``max(20, PW(|r|))``), except that the
+      tail moment's standard deviation is capped at ``tail_rel_sd`` (default 10%) of its
+      value, which floors its weight;
+    * profiling: by the scaling property of the CIR process (and of the QE scheme,
+      ``v = theta v1`` with ``v1`` of unit mean, same shocks), the simulated variance paths
+      depend on ``(kappa, c)`` only, and ``theta`` and ``rho`` enter only when the returns are
+      assembled. The objective is minimised over ``(log theta, rho)`` (bounded Nelder-Mead,
+      cheap) for each ``(kappa, c)``, and the profile over ``(log kappa, log c)``: a batched
+      8 x 8 grid, then bounded Nelder-Mead from the ``n_nm_starts`` best grid points (the best
+      one included) and a restart from the best solution; the reported optimum is the best of
+      all profile evaluations (grid starts included);
     * ``mu`` is then set so that the simulated mean return equals the sample mean.
 
-    Bounds: ``theta in [0.25, 4] var(r)``, ``kappa in [1e-3, 0.5]``, ``c in [0.05, 2.5]``,
-    ``rho in [-0.95, 0.95]``. The Feller condition (``c <= 1``) is not imposed.
-    ``fit_info_`` reports the data and simulated moments (``m_data``, ``m_sim``, and the
-    weighted deviations ``t``), ``frac_zero_var`` (share of simulated days with zero
-    integrated variance, i.e. exactly constant returns: a discretisation artefact that should
-    be ~0) and ``frac_low_var`` (share of days whose integrated variance is below 1% of
-    ``theta``: a property of the fitted model, large when ``c`` is large).
+    Bounds: ``theta in [0.25, 4] var(r)``, ``kappa in [1e-3, 0.5]``,
+    ``c in [0.05, c_max]``, ``rho in [-0.95, 0.95]``. ``fit_info_`` reports the data and
+    simulated moments (``m_data``, ``m_sim``, the weighted deviations ``t``), the data and
+    simulated kurtosis (``kurt_data``, ``kurt_sim``: diagnostics, not fitted), the
+    parameters at a bound (``at_bound``), ``frac_zero_var`` (share of simulated days with
+    ``v_t = 0`` or ``v_{t+1} = 0``; exactly 0 when ``c <= sqrt(psi_c)``), ``frac_const``
+    (share of days with ``v_t = v_{t+1} = 0``, i.e. a constant return) and ``frac_low_var``
+    (share of days whose integrated variance is below 1% of ``theta``: a property of the
+    fitted model).
 
     ``simulate(start_from_end=True)`` starts from a RiskMetrics EWMA (lambda = 0.94) estimate of
     the variance at the end of the fit sample (the Heston variance is latent; this is a
@@ -1133,9 +1305,12 @@ class Heston(_ParamMixin, ReturnModel):
     Parameters
     ----------
     mu, kappa, theta, xi, rho : float, optional
-        Give all five to build a fitted model.
-    n_substeps : int
-        Euler sub-steps per day (fit and simulation).
+        Give all five to build a fitted model (any ``c``; above ``sqrt(psi_c)`` simulated paths
+        have zero-variance days, and a warning is logged).
+    c_max : float
+        Upper bound of ``c`` in :meth:`fit` (default ``sqrt(psi_c)``).
+    tail_rel_sd : float
+        Cap on the relative standard deviation used to weight the tail moment.
     sim_obs : int
         Target number of simulated observations per objective evaluation; the number of
         simulated paths is ``clip(sim_obs // T, min_paths, max_paths)``.
@@ -1155,22 +1330,27 @@ class Heston(_ParamMixin, ReturnModel):
     name = "Heston"
     has_likelihood = False
     _PARAM_NAMES = ("mu", "kappa", "theta", "xi", "rho")
+    PSI_C = QE_PSI_C
     KAPPA_BOUNDS = (1e-3, 0.5)
-    C_BOUNDS = (0.05, 2.5)
+    C_BOUNDS = (0.05, math.sqrt(QE_PSI_C))
     RHO_BOUNDS = (-0.95, 0.95)
     THETA_BOUNDS_REL = (0.25, 4.0)
     _KAPPA_GRID = tuple(np.geomspace(0.003, 0.4, 8))
-    _C_GRID = (0.3, 0.6, 0.9, 1.2, 1.5, 1.8, 2.1, 2.5)
+    _C_GRID_REL = (0.15, 0.3, 0.45, 0.6, 0.72, 0.84, 0.93, 1.0)  # fractions of c_max
     _RHO_SCAN = (-0.8, -0.5, -0.2, 0.1, 0.4)
 
     def __init__(self, mu: float | None = None, kappa: float | None = None,
                  theta: float | None = None, xi: float | None = None, rho: float | None = None,
-                 *, n_substeps: int = 20, sim_obs: int = 50_000, min_paths: int = 10,
-                 max_paths: int = 50, burn_in_smm: int = 0, n_boot: int = 200,
-                 maxfev: int = 120, n_nm_starts: int = 2, seed: int = 20251114) -> None:
-        if int(n_substeps) < 1:
-            raise ValueError("n_substeps must be >= 1")
-        self.n_substeps = int(n_substeps)
+                 *, c_max: float | None = None, tail_rel_sd: float = 0.10,
+                 sim_obs: int = 50_000, min_paths: int = 10, max_paths: int = 50,
+                 burn_in_smm: int = 0, n_boot: int = 200, maxfev: int = 120,
+                 n_nm_starts: int = 2, seed: int = 20251114) -> None:
+        self.c_max = float(self.C_BOUNDS[1] if c_max is None else c_max)
+        if not self.c_max > self.C_BOUNDS[0]:
+            raise ValueError(f"c_max must exceed {self.C_BOUNDS[0]}")
+        if not tail_rel_sd > 0:
+            raise ValueError("tail_rel_sd must be positive")
+        self.tail_rel_sd = float(tail_rel_sd)
         self.n_nm_starts = int(n_nm_starts)
         self.sim_obs, self.min_paths, self.max_paths = int(sim_obs), int(min_paths), int(max_paths)
         self.burn_in_smm, self.n_boot, self.maxfev, self.seed = (int(burn_in_smm), int(n_boot),
@@ -1183,8 +1363,6 @@ class Heston(_ParamMixin, ReturnModel):
         p = self._p
         if not (p["kappa"] > 0 and p["theta"] > 0 and p["xi"] >= 0 and -1 < p["rho"] < 1):
             raise ValueError("Heston: need kappa > 0, theta > 0, xi >= 0, |rho| < 1")
-        if p["kappa"] / self.n_substeps > 0.5:
-            raise ValueError("Heston: need kappa / n_substeps <= 0.5 (Euler stability)")
 
     @staticmethod
     def _xi(theta: float, kappa: float, c: float) -> float:
@@ -1213,7 +1391,8 @@ class Heston(_ParamMixin, ReturnModel):
         prob = self.smm_problem(r, rng=rng)
         lo, hi = prob.lo, prob.hi
         # batched grid over (kappa, c): theta matches the variance, rho from a coarse scan
-        pts = np.clip(np.log([(k, c) for k in self._KAPPA_GRID for c in self._C_GRID]), lo, hi)
+        c_grid = [f * self.c_max for f in self._C_GRID_REL]
+        pts = np.clip(np.log([(k, c) for k in self._KAPPA_GRID for c in c_grid]), lo, hi)
         grid_vals = prob.grid_values(pts)
         steps = np.array([0.35, 0.15])
 
@@ -1233,22 +1412,27 @@ class Heston(_ParamMixin, ReturnModel):
         res_restart = outer_nm(res.x, steps / 3.0)
         if res_restart.fun <= res.fun:
             res = res_restart
-        u = np.clip(res.x, lo, hi)
-        obj, lth, rho = prob.profile_full(u)
+        # the reported optimum is the best profile evaluation (NM results and grid starts)
+        key_best = min(prob.cache, key=lambda k: prob.cache[k][0])
+        u = np.array(key_best)
+        obj, lth, rho = prob.cache[key_best]
         kappa, c, theta = math.exp(u[0]), math.exp(u[1]), math.exp(lth)
         xi = self._xi(theta, kappa, c)
-        I, J = prob.unit_paths(np.array([kappa]), np.array([c]))
-        I, J = I[:, 0], J[:, 0]
+        V = prob.unit_variance(np.array([kappa]), np.array([c]))
+        I, J = _qe_integrals(V, kappa, c)
+        I, J, V = I[:, 0], J[:, 0], V[:, 0]
         ret = _heston_returns(I, J, np.sqrt(I) * prob.zr, theta, rho)
         mu = float(r.mean() - ret.mean())  # ret was simulated with mu = 0
         self._p = {"mu": mu, "kappa": kappa, "theta": theta, "xi": xi, "rho": rho}
         self.v_end_ = _ewma_variance(r)
         m_sim = smm_moments(ret.T).mean(axis=0)
+        tol = 1e-6
         at_bound = [nm for nm, v, a, bb in (
             ("theta", lth, prob.lth_lo, prob.lth_hi), ("kappa", u[0], lo[0], hi[0]),
             ("c", u[1], lo[1], hi[1]), ("rho", rho, *self.RHO_BOUNDS))
-            if abs(v - a) < 1e-6 or abs(v - bb) < 1e-6]
+            if abs(v - a) < tol or abs(v - bb) < tol]
         ib = int(order[0])
+        zero_v = (V[:-1] <= 0.0) | (V[1:] <= 0.0)
         self.fit_info_ = {
             "success": bool(res.success),
             "message": str(res.message),
@@ -1256,17 +1440,23 @@ class Heston(_ParamMixin, ReturnModel):
             "n_eval": len(prob.cache),
             "n_inner_eval": prob.n_inner,
             "n_paths": prob.S,
-            "n_substeps": self.n_substeps,
+            "scheme": "QE",
+            "psi_c": self.PSI_C,
+            "c_max": self.c_max,
             "block_length_boot": prob.block_length,
             "moment_names": SMM_MOMENT_NAMES,
             "m_data": prob.m_data,
             "m_sim": m_sim,
             "weights": prob.w,
+            "tail_weight_floored": prob.tail_floored,
             "t": np.sqrt(prob.w) * (m_sim - prob.m_data),
+            "kurt_data": float(stats.kurtosis(r, fisher=False)),
+            "kurt_sim": float(np.median(stats.kurtosis(ret, axis=0, fisher=False))),
             "c": c,
             "feller_ratio": 1.0 / (c * c),
             "feller_ok": bool(c <= 1.0),
-            "frac_zero_var": float(np.mean(I <= 0.0)),
+            "frac_zero_var": float(np.mean(zero_v)),
+            "frac_const": float(np.mean(I <= 0.0)),
             "frac_low_var": float(np.mean(I < 0.01)),
             "grid_best": {"objective": float(grid_vals[ib]), "kappa": float(np.exp(pts[ib, 0])),
                           "c": float(np.exp(pts[ib, 1]))},
@@ -1275,18 +1465,20 @@ class Heston(_ParamMixin, ReturnModel):
         }
         if at_bound:
             logger.info("Heston.fit: parameters at a bound: %s", at_bound)
-        if self.fit_info_["frac_zero_var"] > 0.005:
-            logger.warning("Heston.fit: %.2f%% of simulated days have zero integrated variance; "
-                           "increase n_substeps", 100 * self.fit_info_["frac_zero_var"])
+        if self.fit_info_["frac_const"] > 0.001:
+            logger.warning("Heston.fit: %.2f%% of simulated days have zero variance (c = %.2f > "
+                           "sqrt(psi_c)); returns are constant on those days",
+                           100 * self.fit_info_["frac_const"], c)
         return self
 
     # -- simulation ----------------------------------------------------------------------
     def simulate(self, n_steps: int, n_paths: int, *, rng: np.random.Generator,
                  burn_in: int = 250, start_from_end: bool = False) -> np.ndarray:
-        """Simulate ``(n_paths, n_steps)`` daily log-returns (sub-stepped scheme, class docstring).
+        """Simulate ``(n_paths, n_steps)`` daily log-returns (QE scheme, class docstring).
 
         Without ``start_from_end`` the variance starts from its stationary Gamma law and the
-        first ``burn_in`` days are discarded.
+        first ``burn_in`` days are discarded; with it, every path starts from the EWMA
+        end-of-sample variance ``v_end_`` and no day is discarded.
         """
         p = self._require_fit()
         _check_sim_args(n_steps, n_paths, rng)
@@ -1297,32 +1489,38 @@ class Heston(_ParamMixin, ReturnModel):
         burn = 0 if from_end else max(int(burn_in), 0)
         theta, kappa, rho = p["theta"], p["kappa"], p["rho"]
         c = self.cv()
-        if from_end:
-            v = np.full((1, n_paths), self.v_end_ / theta)
-        elif c < 1e-6:
-            v = np.ones((1, n_paths))
-        else:
-            v = rng.gamma(1.0 / (c * c), c * c, size=(1, n_paths))
-        n_days, M = burn + n_steps, self.n_substeps
-        I = np.empty((n_days, n_paths))
-        J = np.empty((n_days, n_paths))
-        chunk = max(1, 2_000_000 // (M * n_paths))  # bound the memory of the shocks
-        for s in range(0, n_days, chunk):
-            nd = min(chunk, n_days - s)
-            Ic, Jc, v = _cir_unit_integrals(kappa, c, rng.standard_normal((nd, M, n_paths)), v)
-            I[s: s + nd], J[s: s + nd] = Ic[:, 0], Jc[:, 0]
-        I, J = I[burn:], J[burn:]
-        A = np.sqrt(I) * rng.standard_normal((n_steps, n_paths))
-        return np.ascontiguousarray(_heston_returns(I, J, A, theta, rho, p["mu"]).T)
+        if c > math.sqrt(self.PSI_C) + 1e-12:
+            logger.warning("Heston.simulate: c = %.3f > sqrt(psi_c) = %.3f: the QE exponential "
+                           "branch gives days with zero variance (constant returns)",
+                           c, math.sqrt(self.PSI_C))
+        n_days = burn + n_steps
+        out = np.empty((n_paths, n_steps))
+        chunk = max(1, 2_000_000 // (n_days + 1))  # paths per block (bounded memory)
+        for s in range(0, n_paths, chunk):
+            P = min(chunk, n_paths - s)
+            if from_end:
+                v0 = np.full(P, self.v_end_ / theta)
+            elif c < 1e-6:
+                v0 = np.ones(P)
+            else:
+                v0 = rng.gamma(1.0 / (c * c), c * c, size=P)
+            V = _qe_unit_variance(kappa, c, rng.standard_normal((n_days, P)), v0, self.PSI_C)
+            I, J = _qe_integrals(V[burn:], kappa, c)
+            I, J = I[:, 0], J[:, 0]
+            A = np.sqrt(I) * rng.standard_normal((n_steps, P))
+            out[s: s + P] = _heston_returns(I, J, A, theta, rho, p["mu"]).T
+        return out
 
 
 class _HestonSMM:
     """SMM objective of :class:`Heston` for one series (data moments, weights, common randoms).
 
-    Attributes ``m_data``, ``w`` (diagonal weights), ``S`` (simulated paths), ``zr`` (return
-    shocks), ``lo``/``hi`` (bounds of ``(log kappa, log c)``), ``lth_lo``/``lth_hi`` (bounds of
-    ``log theta``); ``cache`` maps evaluated ``(log kappa, log c)`` to
-    ``(objective, log theta, rho)`` and ``n_inner`` counts objective evaluations.
+    Attributes ``m_data``, ``w`` (diagonal weights), ``tail_floored`` (whether the tail
+    moment's weight was raised to its floor), ``S`` (simulated paths), ``z`` (variance
+    shocks), ``zr`` (return shocks), ``u0`` (uniforms of the stationary start), ``lo``/``hi``
+    (bounds of ``(log kappa, log c)``), ``lth_lo``/``lth_hi`` (bounds of ``log theta``);
+    ``cache`` maps evaluated ``(log kappa, log c)`` to ``(objective, log theta, rho)`` and
+    ``n_inner`` counts objective evaluations.
     """
 
     def __init__(self, model: "Heston", r: np.ndarray, rng: np.random.Generator) -> None:
@@ -1340,12 +1538,18 @@ class _HestonSMM:
         vb = np.var(m_boot, axis=0, ddof=1)
         ok = np.isfinite(vb) & (vb > 0)
         vb = np.where(ok, vb, np.max(vb[ok]) if np.any(ok) else 1.0)
+        j = SMM_MOMENT_NAMES.index("tail_qr")
+        v_cap = (model.tail_rel_sd * abs(float(self.m_data[j]))) ** 2
+        self.tail_floored = bool(vb[j] > v_cap > 0)
+        if self.tail_floored:
+            vb[j] = v_cap
         self.block_length = b
         self.w = 1.0 / vb
-        # common random numbers
+        # common random numbers: QE shocks (normals; the QE uniforms are Phi of them), return
+        # shocks and the uniforms of the stationary initial variance
         self.S = int(np.clip(model.sim_obs // T, model.min_paths, model.max_paths))
         self.nb = model.burn_in_smm
-        self.z = rng.standard_normal((self.nb + T, model.n_substeps, self.S))
+        self.z = rng.standard_normal((self.nb + T, self.S))
         self.zr = rng.standard_normal((T, self.S))
         self.u0 = rng.random(self.S)
         self.var0 = float(r.var())
@@ -1353,14 +1557,19 @@ class _HestonSMM:
         self.lth_hi = math.log(model.THETA_BOUNDS_REL[1] * self.var0)
         self.rho_bounds = model.RHO_BOUNDS
         self.lo = np.log([model.KAPPA_BOUNDS[0], model.C_BOUNDS[0]])
-        self.hi = np.log([model.KAPPA_BOUNDS[1], model.C_BOUNDS[1]])
+        self.hi = np.log([model.KAPPA_BOUNDS[1], model.c_max])
         self.cache: dict[tuple[float, float], tuple[float, float, float]] = {}
         self.n_inner = 0
 
+    def unit_variance(self, kappa: np.ndarray, c: np.ndarray) -> np.ndarray:
+        """Unit-scale QE variance grid after the burn-in, shape ``(T + 1, P, S)``."""
+        V = _qe_unit_variance(kappa, c, self.z, _stationary_unit_variance(c, self.u0),
+                              self.model.PSI_C)
+        return V[self.nb:]
+
     def unit_paths(self, kappa: np.ndarray, c: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Unit-scale daily integrals ``(I, J)``, shape ``(T, P, S)``, for parameter arrays."""
-        I, J, _ = _cir_unit_integrals(kappa, c, self.z, _stationary_unit_variance(c, self.u0))
-        return I[self.nb:], J[self.nb:]
+        return _qe_integrals(self.unit_variance(kappa, c), kappa, c)
 
     def q(self, I: np.ndarray, J: np.ndarray, A: np.ndarray, lth: float, rho: float) -> float:
         """Weighted squared moment distance at ``theta = exp(lth)``, ``rho`` (paths ``(T, S)``)."""
@@ -1382,7 +1591,7 @@ class _HestonSMM:
     def inner(self, I: np.ndarray, J: np.ndarray) -> tuple[float, float, float]:
         """Minimum over ``(log theta, rho)`` for fixed variance paths: ``(value, lth, rho)``."""
         A = np.sqrt(I) * self.zr
-        _, lth0, rho0 = self.start_theta_rho(I, J, A)
+        val0, lth0, rho0 = self.start_theta_rho(I, J, A)
         simplex = np.array([[lth0, rho0], [lth0 + 0.1, rho0],
                             [lth0, rho0 + (0.15 if rho0 < 0.7 else -0.15)]])
         res = optimize.minimize(lambda u: self.q(I, J, A, u[0], u[1]), simplex[0],
@@ -1390,6 +1599,8 @@ class _HestonSMM:
                                 bounds=[(self.lth_lo, self.lth_hi), self.rho_bounds],
                                 options={"initial_simplex": simplex, "xatol": 1e-4,
                                          "fatol": 1e-6, "maxfev": 400})
+        if not res.fun <= val0:  # keep the start if Nelder-Mead did not improve on it
+            return val0, lth0, rho0
         lth = min(max(float(res.x[0]), self.lth_lo), self.lth_hi)
         rho = min(max(float(res.x[1]), self.rho_bounds[0]), self.rho_bounds[1])
         return float(res.fun), lth, rho

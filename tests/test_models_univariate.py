@@ -17,15 +17,17 @@ from synthval.models.univariate import (
     Heston,
     Merton,
     StationaryBootstrap,
-    _cir_unit_integrals,
     _garch_nll_grad,
     _garch_nll_grad_vt,
     _heston_returns,
     _merton_core,
+    _qe_integrals,
+    _qe_unit_variance,
     _stationary_unit_variance,
     optimal_block_length,
     smm_moments,
     stationary_bootstrap_indices,
+    tail_quantile_ratio,
 )
 
 MERTON_TRUE = dict(mu=3e-4, sigma=0.01, lam=0.05, muJ=-0.01, sJ=0.03)
@@ -35,6 +37,19 @@ HESTON_TRUE = dict(mu=3e-4, kappa=0.03, theta=1e-4, xi=Heston._xi(1e-4, 0.03, 1.
 
 def _rng(seed: int) -> np.random.Generator:
     return np.random.default_rng(seed)
+
+
+def _load_train(tickers):
+    """TRAIN returns of real tickers (skips the test when the data file is unavailable)."""
+    from synthval import config
+    if not config.DATA_CSV.exists():
+        pytest.skip("data file not available")
+    from synthval import data
+    try:
+        train, _ = data.load_panel(list(tickers))
+    except (ValueError, KeyError) as exc:
+        pytest.skip(f"{tickers} not loadable: {exc}")
+    return train
 
 
 def _garch_loop(r, mu, omega, alpha, beta, s2_0):
@@ -173,6 +188,18 @@ def test_merton_fit_time_and_bounds():
     assert mg.loglik(g) >= GBM().fit(g).loglik(g) - 1e-6
 
 
+def test_merton_intensity_at_bound_is_reported():
+    """Daily jump intensity above the 0.5 bound (frequent small jumps, as for GOOG/MTB/NVDA):
+    the fit stops at the bound and says so."""
+    r = Merton(mu=0.0, sigma=0.008, lam=2.0, muJ=0.0, sJ=0.006).simulate(2000, 1, rng=_rng(60))[0]
+    m = Merton().fit(r)
+    assert m.params()["lam"] == pytest.approx(0.5, rel=1e-6)
+    assert m.fit_info_["at_bound"] == ["lam"]
+    assert Merton().fit(Merton(**MERTON_TRUE).simulate(3000, 1, rng=_rng(61))[0]).fit_info_[
+        "at_bound"] == []
+    assert GBM().fit(r).fit_info_["at_bound"] == []  # closed form: no bounds
+
+
 def test_merton_simulation_moments_and_pit():
     true = Merton(**MERTON_TRUE)
     x = true.simulate(200_000, 1, rng=_rng(8))[0]
@@ -241,8 +268,8 @@ def test_garch_history_continuation_no_reset_no_offbyone():
 def test_garch_parameter_recovery_and_speed():
     true = GARCHt(**GARCH_TRUE)
     r = true.simulate(5000, 1, rng=_rng(12))[0]
-    m = GARCHt().fit(r)  # default: variance targeting
-    mle = GARCHt(variance_targeting=False).fit(r)
+    m = GARCHt().fit(r)  # default: variance targeting, persistence <= 0.995
+    mle = GARCHt(variance_targeting=False, persist_max=0.9999).fit(r)
     for fitted in (m, mle):
         p = fitted.params()
         assert fitted.fit_info_["success"]
@@ -255,6 +282,8 @@ def test_garch_parameter_recovery_and_speed():
         assert fitted.fit_info_["loglik"] == pytest.approx(fitted.loglik(r), rel=1e-12)
     # variance targeting: the unconditional variance is the sample variance, exactly
     assert m.fit_info_["variance_targeting"] and not mle.fit_info_["variance_targeting"]
+    assert m.fit_info_["persist_max"] == 0.995 and mle.fit_info_["persist_max"] == 0.9999
+    assert m.fit_info_["at_bound"] == [] and mle.fit_info_["at_bound"] == []
     assert m.unconditional_variance() == pytest.approx(r.var(), rel=1e-9)
     assert m.fit_info_["uncond_ratio"] == pytest.approx(1.0, rel=1e-9)
     # each estimator maximises its own (restricted / unrestricted) likelihood
@@ -298,7 +327,7 @@ def test_garch_matches_arch():
     assert arch_model_raw.loglik(r, sigma2_0=s2_0_arch(arch_model_raw)) == pytest.approx(
         ll_arch, abs=1e-6)
     # 2) parameters agree (the two fits differ only through the initial variance)
-    mine = GARCHt(variance_targeting=False).fit(r)  # arch: unrestricted MLE
+    mine = GARCHt(variance_targeting=False, persist_max=0.9999).fit(r)  # arch: unrestricted MLE
     p = mine.params()
     assert abs(p["alpha"] - a) < 0.01
     assert abs(p["beta"] - b) < 0.015
@@ -309,6 +338,47 @@ def test_garch_matches_arch():
     # 3) each optimiser attains the maximum of its own objective
     assert mine.loglik(r) >= arch_model_raw.loglik(r) - 1e-4
     assert ll_arch >= mine.loglik(r, sigma2_0=s2_0_arch(mine)) - 1e-2
+
+
+def test_garch_persist_max_option_and_bounds():
+    r = GARCHt(**GARCH_TRUE).simulate(3000, 1, rng=_rng(62))[0]
+    capped = GARCHt(persist_max=0.9).fit(r)  # binding cap (true persistence 0.98)
+    assert capped.fit_info_["persistence"] == pytest.approx(0.9, abs=1e-6)
+    assert "persistence" in capped.fit_info_["at_bound"]
+    assert capped.unconditional_variance() == pytest.approx(r.var(), rel=1e-9)
+    free = GARCHt(variance_targeting=False, persist_max=0.9).fit(r)
+    assert free.params()["alpha"] + free.params()["beta"] <= 0.9 + 1e-9
+    assert "persistence" in free.fit_info_["at_bound"]
+    with pytest.raises(ValueError):
+        GARCHt(persist_max=1.0)
+    with pytest.raises(ValueError):
+        GARCHt(persist_max=0.0)
+    # construction from known parameters is not restricted by the cap
+    assert GARCHt(mu=0.0, omega=1e-7, alpha=0.05, beta=0.949, nu=5.0).unconditional_variance() > 0
+
+
+def test_garch_rcl_variance_targeting_no_explosive_paths():
+    """RCL (2020 regime shift): the unrestricted MLE sits at alpha + beta = 0.9999 with an
+    unconditional variance about 70 times the sample variance and explosive paths; the default
+    (variance targeting, persistence <= 0.995) keeps the volatility level of the data."""
+    r = _load_train(["RCL"])["RCL"].to_numpy()
+    mle = GARCHt(variance_targeting=False, persist_max=0.9999).fit(r)
+    m = GARCHt().fit(r)
+    assert "persistence" in mle.fit_info_["at_bound"] and mle.fit_info_["uncond_ratio"] > 20
+    assert m.fit_info_["uncond_ratio"] == pytest.approx(1.0, rel=1e-9)
+    assert m.fit_info_["persistence"] <= 0.995 + 1e-9
+    y = m.simulate(615, 2000, rng=_rng(63))
+    y_mle = mle.simulate(615, 2000, rng=_rng(63))
+    mx, mx_mle = np.abs(y).max(axis=1), np.abs(y_mle).max(axis=1)
+    pv = y.var(axis=1) / r.var()
+    assert 0.3 < np.median(pv) < 1.5  # paths at the volatility level of the data
+    assert np.mean(mx > 1.0) < 0.025 < np.mean(mx_mle > 1.0)  # measured 1.35% vs 5.85%
+    assert np.median(mx) < 0.3 and mx.max() < 0.5 * mx_mle.max()
+    # Not tested: max |r| < 1 on every path. 0.7-1.4% of the 615-day paths still exceed 1:
+    # the power-law tail of a stationary GARCH-t with alpha ~ 0.10 and nu ~ 4.6
+    # (E[(alpha z^2 + beta)^2] > 1, infinite fourth moment), which a lower persistence cap
+    # does not remove (the likelihood then raises alpha).
+    assert np.isfinite(y).all()
 
 
 def test_garch_pit_uniform_under_true_model():
@@ -375,7 +445,7 @@ def test_garch_variance_targeting_bounds_near_integrated_fit():
     r = np.concatenate([garch(1).simulate(1000, 1, rng=rng)[0],
                         garch(25).simulate(150, 1, rng=rng)[0],
                         garch(5).simulate(100, 1, rng=rng)[0]])
-    mle = GARCHt(variance_targeting=False).fit(r)
+    mle = GARCHt(variance_targeting=False, persist_max=0.9999).fit(r)
     vt = GARCHt().fit(r)
     assert "persistence" in mle.fit_info_["at_bound"]  # spurious integrated GARCH
     assert mle.fit_info_["uncond_ratio"] > 10.0
@@ -405,35 +475,45 @@ def test_heston_intractable_and_simulation():
     with pytest.raises(NotImplementedError):
         m.pit(np.zeros(10))
     with pytest.raises(ValueError):
-        Heston(mu=0.0, kappa=15.0, theta=1e-4, xi=1e-3, rho=0.0)  # kappa h > 0.5
+        Heston(mu=0.0, kappa=0.03, theta=1e-4, xi=1e-3, rho=1.0)
     x = m.simulate(20_000, 4, rng=_rng(21))
     assert np.all(np.isfinite(x))
     # Var[r] = E[int v] = theta up to the tiny -v/2 drift term
     assert x.var() == pytest.approx(HESTON_TRUE["theta"], rel=0.1)
     # c = 1: Var(v) = theta^2, so the kurtosis of r is about 3 (1 + c^2) = 6
     assert 1.5 < stats.kurtosis(x.ravel()) < 5.0
-    # no day has exactly zero variance (the artefact of a one-step daily Euler scheme)
+    # no day has exactly zero variance (c = 1 <= sqrt(psi_c): QE quadratic branch only)
     assert np.mean(x == HESTON_TRUE["mu"]) == 0.0
+    assert np.mean(np.diff(x, axis=1) == 0.0) == 0.0
     # leverage: corr(r_t, r_{t+1}^2) has the sign of rho
     assert smm_moments(x).mean(axis=0)[-1] < -0.05
+    # simulation in blocks of paths (bounded memory) is stationary in every block
+    y = m.simulate(5, 3000, rng=_rng(22), burn_in=1500)
+    assert y.shape == (3000, 5)
+    assert y[:1000].var() == pytest.approx(y[2000:].var(), rel=0.25)
 
 
 def test_smm_moments_reference():
     x = _rng(22).standard_t(5, 3000) * 0.01
     m = smm_moments(x)
-    assert m.shape == (len(SMM_MOMENT_NAMES),) == (8,)
+    assert m.shape == (len(SMM_MOMENT_NAMES),) == (7,)
+    assert SMM_MOMENT_NAMES[1] == "tail_qr"
     d = x - x.mean()
     s = d ** 2
     sd = s - s.mean()
     assert m[0] == pytest.approx(np.var(x), rel=1e-12)
-    assert m[1] == pytest.approx(np.mean(np.abs(d)) / np.std(x), rel=1e-12)
-    assert m[2] == pytest.approx(math.log(stats.kurtosis(x, fisher=False)), rel=1e-10)
+    q01, q25, q75, q99 = np.quantile(x, [0.01, 0.25, 0.75, 0.99])
+    assert m[1] == pytest.approx((q99 - q01) / (q75 - q25), rel=1e-12)
+    assert m[1] == pytest.approx(tail_quantile_ratio(x)[0], rel=1e-12)
     for j, k in enumerate((1, 5, 10, 20)):
-        assert m[3 + j] == pytest.approx(np.sum(sd[k:] * sd[:-k]) / np.sum(sd ** 2), rel=1e-10)
-    assert m[7] == pytest.approx(np.corrcoef(d[:-1], d[1:] ** 2)[0, 1], rel=1e-10)
+        assert m[2 + j] == pytest.approx(np.sum(sd[k:] * sd[:-k]) / np.sum(sd ** 2), rel=1e-10)
+    assert m[6] == pytest.approx(np.corrcoef(d[:-1], d[1:] ** 2)[0, 1], rel=1e-10)
     np.testing.assert_allclose(smm_moments(np.vstack([x, x]))[1], m)
-    g = _rng(1).standard_normal(20_000)
-    assert smm_moments(g)[1] == pytest.approx(math.sqrt(2 / math.pi), abs=0.02)
+    # tail ratio: 3.45 for a Gaussian, 5.0 for a t(4); scale and location free
+    g = _rng(1).standard_normal((20, 5000))
+    assert tail_quantile_ratio(g).mean() == pytest.approx(3.449, abs=0.05)
+    assert tail_quantile_ratio(_rng(2).standard_t(4, (20, 5000))).mean() == pytest.approx(5.0, abs=0.15)
+    assert tail_quantile_ratio(3.0 * x + 1.0)[0] == pytest.approx(m[1], rel=1e-12)
 
 
 def _exact_cir_daily_integral(kappa, c, n_days, n_paths, n_sub, rng):
@@ -455,47 +535,102 @@ def _exact_cir_daily_integral(kappa, c, n_days, n_paths, n_sub, rng):
     return out.ravel()
 
 
-def test_cir_substep_scheme_against_exact_transition():
-    """20 full-truncation sub-steps reproduce the law of the daily integrated variance far from
-    the Feller condition (c = 2, Feller ratio 0.25); one daily step does not."""
-    kappa, c = 0.05, 2.0
-    ref = _exact_cir_daily_integral(kappa, c, 150, 400, 50, _rng(40))
-    rng = _rng(41)
-    v0 = rng.gamma(1 / c ** 2, c ** 2, size=(1, 400))
-    I20 = _cir_unit_integrals(kappa, c, rng.standard_normal((150, 20, 400)), v0)[0].ravel()
-    I1 = _cir_unit_integrals(kappa, c, rng.standard_normal((150, 1, 400)), v0)[0].ravel()
-    assert np.mean(I20 == 0.0) < 0.002
-    assert stats.ks_2samp(I20, ref).statistic < 0.03
-    assert np.mean(I1 == 0.0) > 0.15  # the daily scheme sticks at zero variance
-    assert stats.ks_2samp(I1, ref).statistic > 0.1
+def _andersen_qe_reference(v0, kappa, theta, xi, z, psi_c=1.5):
+    """Andersen (2008) QE variance step written out for one path and general (theta, xi)."""
+    e = math.exp(-kappa)
+    v = [float(v0)]
+    for zt in z:
+        vt = v[-1]
+        m = theta + (vt - theta) * e
+        s2 = vt * xi ** 2 * e * (1 - e) / kappa + theta * xi ** 2 * (1 - e) ** 2 / (2 * kappa)
+        psi = s2 / m ** 2
+        if psi <= psi_c:
+            b2 = 2 / psi - 1 + math.sqrt(2 / psi) * math.sqrt(2 / psi - 1)
+            v.append(m / (1 + b2) * (math.sqrt(b2) + zt) ** 2)
+        else:
+            p = (psi - 1) / (psi + 1)
+            beta = (1 - p) / m
+            u = stats.norm.cdf(zt)
+            v.append(0.0 if u <= p else math.log((1 - p) / (1 - u)) / beta)
+    return np.array(v)
+
+
+def test_qe_scheme_matches_andersen_and_scales():
+    """The vectorised unit-mean QE step equals Andersen's formulas for general (theta, xi)
+    divided by theta (scaling property), in both branches; the returns are Andersen's
+    log-price step with K0..K4 and gamma1 = gamma2 = 1/2."""
+    rng = _rng(43)
+    kappa, theta = 0.04, 2e-4
+    for c in (0.8, 2.0):  # quadratic branch only / both branches
+        xi = Heston._xi(theta, kappa, c)
+        z = rng.standard_normal((300, 3))
+        v0 = np.array([0.05, 1.0, 3.0])
+        V = _qe_unit_variance(kappa, c, z, v0)
+        assert V.shape == (301, 1, 3)
+        for j in range(3):
+            ref = _andersen_qe_reference(theta * v0[j], kappa, theta, xi, z[:, j])
+            np.testing.assert_allclose(theta * V[:, 0, j], ref, rtol=1e-9, atol=1e-18)
+        if c > math.sqrt(1.5):
+            assert np.mean(V == 0.0) > 0.05  # exponential branch: point mass at zero
+        else:
+            assert np.all(V > 0.0)
+        # Andersen's log-price step with gamma1 = gamma2 = 1/2 (dt = 1)
+        I, J = _qe_integrals(V, kappa, c)
+        Zr = rng.standard_normal(I.shape)
+        rho, mu = -0.6, 3e-4
+        r = _heston_returns(I, J, np.sqrt(I) * Zr, theta, rho, mu)
+        K0 = -rho * kappa * theta / xi
+        K1 = 0.5 * (kappa * rho / xi - 0.5) - rho / xi
+        K2 = 0.5 * (kappa * rho / xi - 0.5) + rho / xi
+        K3 = K4 = 0.5 * (1 - rho ** 2)
+        Vt, Vn = theta * V[:-1], theta * V[1:]
+        r_ref = mu + K0 + K1 * Vt + K2 * Vn + np.sqrt(K3 * Vt + K4 * Vn) * Zr
+        np.testing.assert_allclose(r, r_ref, rtol=1e-9, atol=1e-15)
+    # several parameter sets side by side share the shocks
+    z = rng.standard_normal((50, 4))
+    Vb = _qe_unit_variance(np.array([0.02, 0.3]), np.array([1.1, 0.5]), z, 1.0)
+    np.testing.assert_allclose(Vb[:, 1], _qe_unit_variance(0.3, 0.5, z, 1.0)[:, 0], rtol=1e-14)
+
+
+def test_qe_one_step_moments_and_daily_integral_law():
+    """One QE step has the exact conditional mean and variance of the CIR transition, and the
+    daily QE integrated variance is close in law to the exact one at c = 1.2 (Feller ratio
+    0.69); above sqrt(psi_c) the scheme puts mass at zero (why Heston.fit bounds c)."""
+    rng = _rng(44)
+    for kappa, c, v in ((0.05, 1.2, 0.3), (0.5, 0.7, 2.0), (0.05, 2.0, 0.05)):
+        e = math.exp(-kappa)
+        m = 1 + (v - 1) * e
+        s2 = 2 * c * c * (v * e * (1 - e) + 0.5 * (1 - e) ** 2)
+        x = _qe_unit_variance(kappa, c, rng.standard_normal((1, 400_000)), v)[1, 0]
+        assert x.mean() == pytest.approx(m, rel=0.01)
+        assert x.var() == pytest.approx(s2, rel=0.03)
+    for kappa, c in ((0.05, 1.2), (0.5, 1.2)):
+        ref = _exact_cir_daily_integral(kappa, c, 150, 400, 50, _rng(40))
+        rng = _rng(41)
+        v0 = rng.gamma(1 / c ** 2, c ** 2, size=400)
+        V = _qe_unit_variance(kappa, c, rng.standard_normal((150, 400)), v0)
+        I = _qe_integrals(V, kappa, c)[0].ravel()
+        assert np.all(V > 0.0)
+        assert stats.ks_2samp(I, ref).statistic < 0.05
+    V2 = _qe_unit_variance(0.05, 2.0, _rng(45).standard_normal((300, 400)),
+                           _rng(46).gamma(0.25, 4.0, size=400))
+    I2 = _qe_integrals(V2, 0.05, 2.0)[0]
+    assert np.mean(I2 == 0.0) > 0.1  # constant-return days with c = 2
     # stationary mean 1 and coefficient of variation c of the unit-mean process
     v = _stationary_unit_variance(np.array([0.5, 1.0, 2.0]), _rng(42).random(200_000))
     np.testing.assert_allclose(v.mean(axis=1), 1.0, rtol=0.03)
     np.testing.assert_allclose(v.std(axis=1), [0.5, 1.0, 2.0], rtol=0.05)
 
 
-def test_cir_integrals_identity_and_returns():
-    """Euler bookkeeping: sum of variance increments = kappa (1 - I) + xi1 J over each day."""
-    kappa, c = np.array([0.02, 0.3]), np.array([1.5, 0.7])
-    rng = _rng(43)
-    z = rng.standard_normal((30, 20, 64))
-    v0 = _stationary_unit_variance(c, rng.random(64))
-    I, J, v_end = _cir_unit_integrals(kappa, c, z, v0)
-    assert I.shape == J.shape == (30, 2, 64) and v_end.shape == (2, 64)
-    # rerun day by day to recover the daily start/end variances
-    v = v0
-    for t in range(30):
-        It, Jt, v_next = _cir_unit_integrals(kappa, c, z[t: t + 1], v)
-        np.testing.assert_allclose(It[0], I[t], rtol=1e-12)
-        xi1 = (c * np.sqrt(2 * kappa))[:, None]
-        np.testing.assert_allclose(v_next - v, kappa[:, None] * (1 - I[t]) + xi1 * J[t],
-                                   rtol=1e-9, atol=1e-12)
-        v = v_next
-    np.testing.assert_allclose(v, v_end, rtol=1e-12)
-    # returns: conditional variance given the path is theta I (exact orthogonal part)
-    A = np.sqrt(I[:, 0]) * rng.standard_normal((30, 64))
-    r0 = _heston_returns(I[:, 0], J[:, 0], A, 2e-4, 0.0, mu=1e-3)
-    np.testing.assert_allclose(r0, 1e-3 - 1e-4 * I[:, 0] + math.sqrt(2e-4) * A, rtol=1e-12)
+def test_heston_above_sqrt_psi_c_has_zero_variance_days(caplog):
+    """A model built with c > sqrt(psi_c) (allowed from parameters) simulates days with zero
+    variance, and says so."""
+    theta, kappa = 1e-4, 0.05
+    m = Heston(mu=1e-4, kappa=kappa, theta=theta, xi=Heston._xi(theta, kappa, 2.0), rho=-0.5)
+    with caplog.at_level("WARNING", logger="synthval.models.univariate"):
+        y = m.simulate(1000, 50, rng=_rng(47))
+    assert "zero variance" in caplog.text
+    assert np.mean(np.diff(y, axis=1) == 0.0) > 0.05  # runs of constant returns
 
 
 def _heavy_tailed_series(T: int, seed: int) -> np.ndarray:
@@ -512,32 +647,67 @@ def test_heston_fit_heavy_tailed_no_constant_returns_and_optimum():
     fi = m.fit_info_
     p = m.params()
     assert elapsed < 60.0
-    assert fi["m_sim"].shape == fi["m_data"].shape == fi["t"].shape == (8,)
+    assert fi["m_sim"].shape == fi["m_data"].shape == fi["t"].shape == (7,)
     assert fi["moment_names"] == SMM_MOMENT_NAMES
-    assert Heston.C_BOUNDS[0] <= fi["c"] <= Heston.C_BOUNDS[1]
+    assert fi["scheme"] == "QE" and fi["psi_c"] == 1.5
+    assert Heston.C_BOUNDS[0] <= fi["c"] <= math.sqrt(1.5) + 1e-12
     assert p["xi"] == pytest.approx(Heston._xi(p["theta"], p["kappa"], fi["c"]), rel=1e-12)
     assert fi["feller_ratio"] == pytest.approx(2 * p["kappa"] * p["theta"] / p["xi"] ** 2)
     # the variance moment pins theta near the sample variance
     assert p["theta"] == pytest.approx(r.var(), rel=0.3)
-    # discretisation artefact gone: no day of zero integrated variance, no constant returns
-    assert fi["frac_zero_var"] < 0.002
+    # no day of zero variance, no constant return
+    assert fi["frac_zero_var"] == 0.0 and fi["frac_const"] == 0.0
     y = m.simulate(615, 200, rng=_rng(45))
-    assert np.mean(y == p["mu"]) < 0.002
+    assert np.mean(y == p["mu"]) == 0.0 and np.mean(np.diff(y, axis=1) == 0.0) == 0.0
     assert y.mean() == pytest.approx(r.mean(), abs=3 * r.std() / math.sqrt(y.size) + 2e-4)
-    # tails and bulk: weighted deviations of the shape moments are moderate
-    assert np.all(np.abs(fi["t"][1:3]) < 3.0)
-    # the optimiser beats a brute-force scan of the profile objective (same random numbers)
+    # the tail moment carries weight: its weighted deviation is moderate
+    j = SMM_MOMENT_NAMES.index("tail_qr")
+    assert abs(fi["t"][j]) < 3.0
+    assert fi["weights"][j] >= 1.0 / (0.1 * fi["m_data"][j]) ** 2 * (1 - 1e-12)
+    assert fi["kurt_data"] > 3.0 and fi["kurt_sim"] > 3.0
+    # the reported optimum is the best profile evaluation, and beats a brute-force scan of the
+    # profile objective and the best grid point (same random numbers: deterministic objective)
     prob = m.smm_problem(r)
     assert prob.profile(np.log([p["kappa"], fi["c"]])) == pytest.approx(fi["objective"], rel=1e-9)
-    scan = [prob.profile(np.log([k, c])) for k in (0.01, 0.05, 0.2) for c in (0.5, 1.2, 2.0)]
+    scan = [prob.profile(np.log([k, c])) for k in (0.01, 0.05, 0.2) for c in (0.5, 0.9, 1.2)]
     assert fi["objective"] <= min(scan) + 1e-9
     assert fi["objective"] <= fi["grid_best"]["objective"] + 1e-9
     # start_from_end uses the EWMA end-of-sample variance
     assert m.v_end_ is not None and m.v_end_ > 0
     first = m.simulate(1, 20_000, rng=_rng(46), start_from_end=True)[:, 0]
-    # E[int_0^1 v] = theta + (v_0 - theta) (1 - exp(-kappa)) / kappa from v_0 = v_end
+    # E[(v_0 + v_1) / 2] with E[v_1 | v_0] = theta + (v_0 - theta) e^{-kappa} (trapezoid step)
     k, th = p["kappa"], p["theta"]
-    assert first.var() == pytest.approx(th + (m.v_end_ - th) * (1 - math.exp(-k)) / k, rel=0.1)
+    assert first.var() == pytest.approx(th + (m.v_end_ - th) * (1 + math.exp(-k)) / 2, rel=0.1)
+
+
+def _check_heston_real(ticker, seconds_max=None):
+    r = _load_train([ticker])[ticker].to_numpy()
+    t0 = time.perf_counter()
+    m = Heston().fit(r)
+    elapsed = time.perf_counter() - t0
+    fi = m.fit_info_
+    if seconds_max is not None:
+        assert elapsed < seconds_max
+    # days with v == 0 in the fitted SMM paths, constant returns in simulated paths
+    assert fi["frac_zero_var"] < 0.001 and fi["frac_const"] < 0.001
+    mu = m.params()["mu"]
+    for sfe in (False, True):
+        y = m.simulate(615, 200, rng=_rng(47), start_from_end=sfe)
+        assert np.mean(y == mu) < 0.001
+        assert np.mean(np.diff(y, axis=1) == 0.0) < 0.001
+    return m
+
+
+def test_heston_real_data_no_zero_variance_days():
+    """TDG: the daily full-truncation Euler scheme gave 36-53% constant-return days on this and
+    similar tickers; with QE (c <= sqrt(psi_c)) there are none."""
+    _check_heston_real("TDG", seconds_max=60.0)
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("ticker", ["ORLY", "ROK", "CMS"])
+def test_heston_real_data_no_zero_variance_days_more(ticker):
+    _check_heston_real(ticker)
 
 
 @pytest.mark.slow
@@ -551,7 +721,7 @@ def test_heston_parameter_recovery():
     assert p["theta"] == pytest.approx(r.var(), rel=0.15)
     assert p["theta"] == pytest.approx(HESTON_TRUE["theta"], rel=0.4)
     assert HESTON_TRUE["kappa"] / 3 < p["kappa"] < HESTON_TRUE["kappa"] * 3
-    assert 0.6 < m.fit_info_["c"] < 1.6  # true coefficient of variation of v is 1
+    assert 0.6 < m.fit_info_["c"] <= math.sqrt(1.5) + 1e-12  # true c = 1
     # rho is identified by corr(r_t, r_{t+1}^2) only, whose sampling sd over 5000 days (0.024)
     # is a third of its mean under the truth (-0.064): only the sign is reliably recovered
     assert -0.95 <= p["rho"] < -0.05
@@ -559,28 +729,6 @@ def test_heston_parameter_recovery():
     assert abs(p["mu"] - HESTON_TRUE["mu"]) < 5e-4
     assert m.fit_info_["objective"] < 20.0
     assert m.fit_info_["frac_zero_var"] == 0.0
-
-
-@pytest.mark.slow
-@pytest.mark.parametrize("ticker", ["TDG", "ROK"])
-def test_heston_real_data_no_constant_returns(ticker):
-    """On the S&P 500 tickers where the daily Euler scheme gave 39-53% constant-return days,
-    the fitted model has (almost) no day of zero integrated variance."""
-    from synthval import config
-    if not config.DATA_CSV.exists():
-        pytest.skip("data file not available")
-    data = pytest.importorskip("synthval.data")
-    try:
-        train, _ = data.load_panel([ticker])
-    except (ValueError, KeyError) as exc:
-        pytest.skip(f"{ticker} not loadable: {exc}")
-    r = train[ticker].to_numpy()
-    m = Heston().fit(r)
-    assert m.fit_info_["frac_zero_var"] < 0.002
-    y = m.simulate(615, 200, rng=_rng(47))
-    assert np.mean(y == m.params()["mu"]) < 0.002
-    # windows of 20 days are never constant
-    assert not np.any(np.all(np.diff(y[:, :600].reshape(-1, 20), axis=1) == 0, axis=1))
 
 
 # --------------------------------------------------------------------------------------------
@@ -594,19 +742,52 @@ def _ar1(phi: float, n: int, rng: np.random.Generator) -> np.ndarray:
     return x[200:]
 
 
+def _arch_block_lengths(X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    arch_bs = pytest.importorskip("arch.bootstrap")
+    ref = arch_bs.optimal_block_length(np.asarray(X).reshape(len(X), -1))
+    return ref["stationary"].to_numpy(), ref["circular"].to_numpy()
+
+
 def test_optimal_block_length_ar1_theory_and_arch():
     x = _ar1(0.5, 5000, _rng(25))
     b = optimal_block_length(x)
     # theory for AR(1): b_SB = (2 phi / (1 - phi^2))^{2/3} n^{1/3} = 20.7 at phi = 0.5, n = 5000
     theory = (2 * 0.5 / (1 - 0.25)) ** (2 / 3) * 5000 ** (1 / 3)
     assert theory * 0.65 < b < theory * 1.5
-    arch_bs = pytest.importorskip("arch.bootstrap")
-    ref = arch_bs.optimal_block_length(x)
-    assert b == pytest.approx(float(ref["stationary"].iloc[0]), rel=0.15)
-    assert optimal_block_length(x, kind="circular") == pytest.approx(
-        float(ref["circular"].iloc[0]), rel=0.15)
     # circular blocks are longer than stationary mean blocks by (3/2)^{1/3}
     assert optimal_block_length(x, kind="circular") / b == pytest.approx(1.5 ** (1 / 3), rel=1e-9)
+    # identical to arch (same lag cut-off, same autocorrelation normalisation), for series with
+    # short, long and no dependence, and for |x| and x^2 transforms
+    rng = _rng(64)
+    g = GARCHt(**GARCH_TRUE).simulate(1258, 1, rng=rng)[0]
+    series = [x, _ar1(0.9, 1258, rng), _ar1(-0.4, 800, rng), rng.standard_normal(615), g,
+              np.abs(g - g.mean()), (g - g.mean()) ** 2, rng.standard_t(3, 2000)]
+    for s in series:
+        sb, cb = _arch_block_lengths(s)
+        assert optimal_block_length(s) == pytest.approx(max(sb[0], 1.0), rel=1e-12)
+        assert optimal_block_length(s, kind="circular") == pytest.approx(max(cb[0], 1.0),
+                                                                         rel=1e-12)
+
+
+def test_optimal_block_length_matches_arch_on_sp500():
+    """Exact agreement with arch on every series of the 479-ticker universe (TRAIN), for
+    |r - mean| (the StationaryBootstrap default) and r; arch's values below 1 are floored."""
+    from synthval import config
+    if not config.DATA_CSV.exists():
+        pytest.skip("data file not available")
+    from synthval import data
+    prices = data.load_prices()
+    tickers = data.complete_universe(prices)
+    train = data.split(data.log_returns(data.clean_prices(prices, tickers)), config.TRAIN)
+    R = train.to_numpy()
+    assert R.shape[1] == 479
+    for X in (np.abs(R - R.mean(axis=0)), R):
+        sb, cb = _arch_block_lengths(X)
+        mine = np.array([optimal_block_length(X[:, i]) for i in range(X.shape[1])])
+        np.testing.assert_allclose(mine, np.maximum(sb, 1.0), rtol=1e-12, atol=0)
+        mine_c = np.array([optimal_block_length(X[:, i], kind="circular")
+                           for i in range(X.shape[1])])
+        np.testing.assert_allclose(mine_c, np.maximum(cb, 1.0), rtol=1e-12, atol=0)
 
 
 def test_optimal_block_length_degenerate_fallback():
@@ -638,6 +819,15 @@ def test_stationary_bootstrap_model():
     b = m.params()["block_length"]
     assert 1.0 <= b <= math.ceil(min(3 * math.sqrt(1250), 1250 / 3))
     assert b == pytest.approx(optimal_block_length(np.abs(r - r.mean())), rel=1e-12)
+    assert m.fit_info_["at_bound"] == [] and m.fit_info_["fallback"] is False
+    assert m.fit_info_["block_length_rule"] == pytest.approx(b, rel=1e-12)
+    # a bound is reported: the floor of 1 (white noise for which the rule gives 0.85) and a
+    # user bound
+    floored = StationaryBootstrap(block_series="r").fit(_rng(68).standard_normal(600))
+    assert floored.block_length_ == 1.0 and floored.fit_info_["at_bound"] == ["block_length"]
+    assert floored.fit_info_["block_length_rule"] < 1.0
+    assert StationaryBootstrap(max_block=5.0).fit(r).fit_info_["at_bound"] == ["block_length"]
+    assert StationaryBootstrap().fit(r[:10]).fit_info_["fallback"] is True
     y = m.simulate(500, 20, rng=_rng(29))
     assert y.shape == (20, 500)
     assert np.isin(y, r).all()

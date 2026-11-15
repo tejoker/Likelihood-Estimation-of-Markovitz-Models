@@ -110,6 +110,37 @@ def _check_aux(a: np.ndarray | None, n: int, what: str) -> np.ndarray | None:
     return a
 
 
+def _check_weights(w: np.ndarray | None, n: int, what: str) -> np.ndarray | None:
+    """Validate per-observation sampling weights and normalise them to sum to one."""
+    if w is None:
+        return None
+    w = np.asarray(w, dtype=np.float64).ravel()
+    if w.shape[0] != n:
+        raise ValueError(f"{what} has length {w.shape[0]}, expected {n}")
+    if not np.all(np.isfinite(w)) or np.any(w < 0) or w.sum() <= 0:
+        raise ValueError(f"{what} must be finite, non-negative and not all zero")
+    return w / w.sum()
+
+
+def _subset_weights(w: np.ndarray | None, idx: np.ndarray) -> np.ndarray | None:
+    """Restrict normalised weights to ``idx`` and renormalise (``None`` stays ``None``)."""
+    if w is None:
+        return None
+    ws = w[idx]
+    if ws.sum() <= 0:
+        raise ValueError("a weighted sample has zero total weight in its training or "
+                         "validation subset")
+    return ws / ws.sum()
+
+
+def _draw_indices(n: int, b: int, w: torch.Tensor | None) -> torch.Tensor:
+    """Mini-batch indices: uniform (``torch.randint``, the default) or drawn with replacement
+    with sampling probabilities ``w`` (weighted training)."""
+    if w is None:
+        return torch.randint(0, n, (b,))
+    return torch.multinomial(w, b, replacement=True)
+
+
 # ----------------------------------------------------------------------------------------------
 # Train / evaluation split
 # ----------------------------------------------------------------------------------------------
@@ -722,8 +753,16 @@ class LearnedTest(TwoSampleTest):
 
     # -- hooks ------------------------------------------------------------------------------
     def _train(self, net: torch.nn.Module, Xt: torch.Tensor, Yt: torch.Tensor,
-               Xv: torch.Tensor | None, Yv: torch.Tensor | None) -> dict[str, Any]:
-        """Train ``net`` in place on standardised tensors; return curve information."""
+               Xv: torch.Tensor | None, Yv: torch.Tensor | None, *,
+               wx: torch.Tensor | None = None, wy: torch.Tensor | None = None,
+               wxv: torch.Tensor | None = None,
+               wyv: torch.Tensor | None = None) -> dict[str, Any]:
+        """Train ``net`` in place on standardised tensors; return curve information.
+
+        ``wx``, ``wy`` (``wxv``, ``wyv``) are optional sampling probabilities of the training
+        (validation) points of each sample; ``None`` means uniform. They are only passed when
+        :meth:`fit_witness` receives weights, so subclasses that ignore weighting may omit them.
+        """
         raise NotImplementedError
 
     def _witness_values(self, out: np.ndarray) -> np.ndarray:
@@ -744,7 +783,8 @@ class LearnedTest(TwoSampleTest):
         return {k: [v[i] for i in idx] for k, v in curve.items()}
 
     def fit_witness(self, X_tr: np.ndarray, Y_tr: np.ndarray, *,
-                    rng: np.random.Generator) -> tuple[Witness, dict[str, Any]]:
+                    rng: np.random.Generator, weights_x: np.ndarray | None = None,
+                    weights_y: np.ndarray | None = None) -> tuple[Witness, dict[str, Any]]:
         """Fit the network on training samples and return the frozen witness.
 
         Inputs are standardised with statistics of the pooled ``X_tr`` and ``Y_tr``; the returned
@@ -756,6 +796,16 @@ class LearnedTest(TwoSampleTest):
             Real and synthetic training samples (same per-sample shape).
         rng : numpy.random.Generator
             Random generator (network initialisation, mini-batches, validation split).
+        weights_x, weights_y : arrays, optional
+            Non-negative per-observation weights within each sample (normalised to sum to one
+            inside each sample; ``None``: uniform, the default behaviour, unchanged). Mini-batch
+            points are then drawn with replacement with these probabilities, so every
+            mini-batch objective (WGAN-GP difference of means and its gradient-penalty
+            interpolates, or the balanced BCE) is an unbiased estimate of its weighted version;
+            the two samples keep equal total weight (balanced batches). Validation objectives
+            (early stopping) use the weights of the validation points, renormalised; the
+            training points' weights are renormalised likewise. Used by the anchored relative
+            test (:func:`synthval.twosample.relative.relative_test_anchored`).
 
         Returns
         -------
@@ -763,9 +813,13 @@ class LearnedTest(TwoSampleTest):
             Numpy callable returning the raw network output (critic value / logit).
         info : dict
             ``train_curve``, ``val_curve`` (if early stopping), ``steps_run``, ``train_time_s``,
-            ``arch``.
+            ``arch`` (and ``weighted=True`` when weights were given).
         """
         X_tr, Y_tr = check_samples(X_tr, Y_tr)
+        wx = _check_weights(weights_x, X_tr.shape[0], "weights_x")
+        wy = _check_weights(weights_y, Y_tr.shape[0], "weights_y")
+        weighted = wx is not None or wy is not None
+        wxv = wyv = None
         t0 = time.perf_counter()
         std = Standardizer().fit(np.concatenate([X_tr, Y_tr], axis=0))
         Xs, Ys = std.transform(X_tr), std.transform(Y_tr)
@@ -776,10 +830,20 @@ class LearnedTest(TwoSampleTest):
             Xs, Xv_np = Xs[ix_t], Xs[ix_v]
             Ys, Yv_np = Ys[iy_t], Ys[iy_v]
             Xv, Yv = to_tensor(Xv_np), to_tensor(Yv_np)
+            if weighted:
+                wxv, wyv = _subset_weights(wx, ix_v), _subset_weights(wy, iy_v)
+                wx, wy = _subset_weights(wx, ix_t), _subset_weights(wy, iy_t)
         with torch_seed(rng):
             net = build_network(X_tr.shape[1:], self.arch, hidden=self.hidden, depth=self.depth,
                                 layer_norm=self.layer_norm)
-            info = self._train(net, to_tensor(Xs), to_tensor(Ys), Xv, Yv)
+            if weighted:
+                tw = [None if w is None else torch.as_tensor(w, dtype=torch.float64)
+                      for w in (wx, wy, wxv, wyv)]
+                info = self._train(net, to_tensor(Xs), to_tensor(Ys), Xv, Yv, wx=tw[0],
+                                   wy=tw[1], wxv=tw[2], wyv=tw[3])
+                info["weighted"] = True
+            else:
+                info = self._train(net, to_tensor(Xs), to_tensor(Ys), Xv, Yv)
         info["train_curve"] = self._subsample_curve(info.get("train_curve", {}))
         if "val_curve" in info:
             info["val_curve"] = self._subsample_curve(info["val_curve"])
@@ -933,7 +997,10 @@ class CriticTest(LearnedTest):
         return f_x.mean() - f_y.mean(), gp, f_hat
 
     def _train(self, net: torch.nn.Module, Xt: torch.Tensor, Yt: torch.Tensor,
-               Xv: torch.Tensor | None, Yv: torch.Tensor | None) -> dict[str, Any]:
+               Xv: torch.Tensor | None, Yv: torch.Tensor | None, *,
+               wx: torch.Tensor | None = None, wy: torch.Tensor | None = None,
+               wxv: torch.Tensor | None = None,
+               wyv: torch.Tensor | None = None) -> dict[str, Any]:
         opt = torch.optim.Adam(net.parameters(), lr=self.lr, betas=self.betas)
         nx, ny, b = Xt.shape[0], Yt.shape[0], self.batch_size
         chunk = max(1, self.n_steps // max(1, self.curve_points * 2))
@@ -945,15 +1012,16 @@ class CriticTest(LearnedTest):
         if Xv is not None and Yv is not None:
             # Fixed validation pairs and interpolation weights (paired random indices).
             m_v = max(Xv.shape[0], Yv.shape[0])
-            vix = torch.randint(0, Xv.shape[0], (m_v,))
-            viy = torch.randint(0, Yv.shape[0], (m_v,))
+            vix = _draw_indices(Xv.shape[0], m_v, wxv)
+            viy = _draw_indices(Yv.shape[0], m_v, wyv)
             veps = torch.rand(m_v)
         step = 0
         net.train()
         for step in range(1, self.n_steps + 1):
             # Pair random indices: sizes may differ, each interpolate uses one real and one synthetic point.
-            ix = torch.randint(0, nx, (b,))
-            iy = torch.randint(0, ny, (b,))
+            # (Weighted training: indices drawn with the sampling probabilities wx / wy.)
+            ix = _draw_indices(nx, b, wx)
+            iy = _draw_indices(ny, b, wy)
             eps = torch.rand(b)
             wd, gp, _ = self._gp_terms(net, Xt[ix], Yt[iy], eps, create_graph=True)
             loss = -wd + self.gp_lambda * gp

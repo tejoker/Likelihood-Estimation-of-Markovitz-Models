@@ -127,10 +127,30 @@ def spawn_rngs(seed: int | np.random.SeedSequence | np.random.Generator,
 # --------------------------------------------------------------------------------------------
 # Parallel map
 # --------------------------------------------------------------------------------------------
+_WORKER_THREAD_LIMITS: Any = None  # keeps the threadpoolctl limiter of a worker alive
+
+
 def _worker_init(use_torch: bool) -> None:
-    """Pool initializer: one BLAS/OpenMP/torch thread per worker process."""
+    """Pool initializer: one BLAS/OpenMP/torch thread per worker process.
+
+    The thread variables are already set in the environment the worker inherits, which is
+    enough for a spawned worker (its BLAS starts after them). A forked worker inherits the
+    parent's BLAS thread pools, already sized from the parent's environment (16 OpenBLAS
+    threads on the development machine, which made Merton fits 10 times slower in forked
+    workers): their size is set to 1 at run time with ``threadpoolctl`` when it is installed
+    (a dependency of scikit-learn).
+    """
+    global _WORKER_THREAD_LIMITS
     for k in _THREAD_ENV:
         os.environ[k] = "1"
+    try:
+        from threadpoolctl import threadpool_limits
+
+        _WORKER_THREAD_LIMITS = threadpool_limits(limits=1)
+    except ImportError:  # pragma: no cover - optional; spawned workers are covered by env vars
+        pass
+    except Exception as exc:  # pragma: no cover - never let thread limiting kill a worker
+        logger.debug("threadpoolctl could not limit threads: %s", exc)
     if use_torch or "torch" in sys.modules:
         import torch
 

@@ -20,11 +20,19 @@ Models
     panel (the same random blocks for every asset), which preserves the cross-sectional
     dependence exactly. Its block-length rule and index generator are those of the univariate
     ``StationaryBootstrap`` (one implementation, one convention for E3 and E4).
+``FactorGARCHt``
+    One-factor panel ``r_it = a_i + b_i m_t + e_it`` with a GARCHt market factor (the
+    equal-weight cross-sectional mean return) and GARCHt idiosyncratic terms, independent
+    across assets given the factor. Common volatility regimes come from the factor (E1 panel
+    placebo; E4 generator with realistic correlations).
 
 References
 ----------
 Bollerslev, T. (1990). Modelling the coherence in short-run nominal exchange rates: a
     multivariate generalized ARCH model. *Review of Economics and Statistics* 72(3), 498-505.
+Engle, R. F., Ng, V. K. and Rothschild, M. (1990). Asset pricing with a factor-ARCH covariance
+    structure: empirical estimates for Treasury bills. *Journal of Econometrics* 45(1-2),
+    213-237.
 Joe, H. (2005). Asymptotic efficiency of the two-stage estimation method for copula-based
     models. *Journal of Multivariate Analysis* 94(2), 401-419.
 Liu, C. and Rubin, D. B. (1995). ML estimation of the t distribution using EM and its
@@ -35,10 +43,13 @@ Politis, D. N. and Romano, J. P. (1994). The stationary bootstrap. *Journal of t
     Statistical Association* 89(428), 1303-1313.
 Politis, D. N. and White, H. (2004). Automatic block-length selection for the dependent
     bootstrap. *Econometric Reviews* 23(1), 53-70.
+Sharpe, W. F. (1963). A simplified model for portfolio analysis. *Management Science* 9(2),
+    277-293.
 """
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable, Mapping
 from typing import Literal
 
@@ -60,6 +71,7 @@ __all__ = [
     "MVStudentT",
     "CCCGARCHt",
     "MVStationaryBootstrap",
+    "FactorGARCHt",
     "stationary_bootstrap_indices",
     "NU_BOUNDS",
 ]
@@ -969,3 +981,371 @@ class MVStationaryBootstrap(MultiReturnModel):
                 "block_series": None if self.mean_block not in ("auto", None)
                 else self.block_series,
                 "T": int(self.R_.shape[0]), "N": int(self.R_.shape[1])}
+
+
+# ----------------------------------------------------------------------------------------------
+# One-factor GARCH(1,1)-t panel
+# ----------------------------------------------------------------------------------------------
+def _mean_offdiag(C: np.ndarray) -> float:
+    """Mean of the off-diagonal entries of a square matrix (``nan`` for a 1 x 1 matrix)."""
+    N = C.shape[0]
+    if N < 2:
+        return float("nan")
+    return float((np.sum(C) - np.trace(C)) / (N * (N - 1)))
+
+
+def _corr_from_cov(S: np.ndarray) -> np.ndarray:
+    d = np.sqrt(np.diag(S))
+    return S / np.outer(d, d)
+
+
+def _logvol_corr_mean(X: np.ndarray, w: int = 20) -> float:
+    """Mean pairwise correlation across columns of the rolling ``w``-day log-volatility
+    (``nan`` when ``T < 2 w`` or a rolling volatility is zero)."""
+    if X.shape[0] < 2 * w or X.shape[1] < 2:
+        return float("nan")
+    sd = np.lib.stride_tricks.sliding_window_view(X, w, axis=0).std(axis=-1, ddof=1)
+    if not np.all(sd > 0):
+        return float("nan")
+    return _mean_offdiag(np.corrcoef(np.log(sd), rowvar=False))
+
+
+class FactorGARCHt(MultiReturnModel):
+    """One-factor GARCH(1,1)-t panel (single-index model with GARCH factor and residuals).
+
+    Model, for assets ``i = 1, ..., N``::
+
+        r_it = a_i + b_i m_t + e_it,
+        m_t  = mu_0 + s_0t z_0t,   s_0t^2 = omega_0 + alpha_0 (m_{t-1} - mu_0)^2 + beta_0 s_{0,t-1}^2,
+        e_it = mu_i + s_it z_it,   s_it^2 = omega_i + alpha_i (e_{i,t-1} - mu_i)^2 + beta_i s_{i,t-1}^2,
+
+    with ``z_0t, z_1t, ..., z_Nt`` unit-variance Student-t (``nu_0, nu_1, ..., nu_N``),
+    **mutually independent** and i.i.d. over time. So the idiosyncratic innovations are
+    independent across assets and of the factor: given the factor path, assets are independent,
+    and all cross-sectional dependence comes from the common factor (Sharpe 1963 single index;
+    a factor-ARCH covariance in the sense of Engle, Ng and Rothschild 1990). The conditional
+    covariance ``b_i b_j s_0t^2 (i != j)`` and the common part ``b_i^2 s_0t^2`` of every
+    conditional variance move with the factor's volatility regime, so simulated assets share
+    turbulent and calm periods and their correlations rise when the factor is volatile. This is
+    the property the E1 simulated panel placebo needs (windows of different tickers on the same
+    dates are dependent, as in real data) and the one CCCGARCHt lacks (its volatilities co-move
+    only through ``corr(x_i^2, x_j^2) = P_ij^2``).
+
+    Estimation, every GARCH being the univariate ``GARCHt`` with its default options
+    (``synthval.models.get_model("GARCHt")``, variance targeting):
+
+    1. ``m_t = N^{-1} sum_i r_it``, the equal-weight cross-sectional mean of the log-returns;
+       GARCHt is fitted to ``m``.
+    2. OLS of each ``r_i`` on ``(1, m)`` gives ``a_i`` and the loading ``b_i`` (attribute
+       ``loadings_``; "beta" is avoided because of the GARCH ``beta``).
+    3. GARCHt is fitted to each OLS residual series ``e_i = r_i - a_i - b_i m``.
+
+    Because ``m`` is the mean of the same assets, OLS gives ``mean_i b_i = 1`` and
+    ``sum_i a_i = 0`` exactly, and the residuals add up to zero every day
+    (``sum_i e_it = 0``). ``fit_info_["resid_corr_mean"]`` records the average pairwise
+    correlation of the OLS residuals (``"std_resid_corr_mean"``: of the standardised GARCH
+    residuals). Because of the adding-up identity,
+    ``sum_{i != j} cov(e_i, e_j) = -sum_i var(e_i)``, this average is pinned near
+    ``-1/(N-1)`` (``"resid_corr_baseline"``; exact for equal residual variances) *whatever* the
+    dependence left in the residuals: positive within-industry correlations are offset by
+    negative ones across industries. So it cannot reveal omitted dependence. Two diagnostics
+    that can: the root mean square of the pairwise residual correlations, ``"resid_corr_rms"``,
+    against its value under the model, ``"resid_corr_rms_null" = sqrt(1/T + 1/(N-1)^2)``
+    (sampling noise plus the adding-up term); and the share of the largest eigenvalue of the
+    residual correlation matrix, ``"resid_top_eig_share"`` (``lambda_max / N``: the residual
+    variance a second factor could explain), against the Marchenko-Pastur upper edge
+    ``(1 + sqrt(N/T))^2 / N`` (``"resid_top_eig_share_null"``). Values well above the nulls
+    measure the dependence beyond the market factor (industries, size, value) that the
+    independence assumption leaves out.
+
+    Consequences of the specification (stated limitations):
+
+    * Second moments. With variance targeting the unconditional variances of ``m`` and ``e_i``
+      equal their sample variances (divisor ``T``), so the model's unconditional covariance
+      ``b b' var(m) + diag(var(e))`` (:meth:`unconditional_cov`) equals the sample covariance
+      (divisor ``T``) except for the off-diagonal residual covariances, which are set to zero.
+      The variances are reproduced exactly (``var(r_i) = b_i^2 var(m) + var(e_i)`` for OLS).
+    * Residual dependence. On the S&P 500 panels (TRAIN 2018-2022) the market factor takes all
+      of the *average* dependence, but not its structure: ``resid_corr_rms`` is 0.14-0.15
+      against a null of 0.03-0.045, and the top residual eigenvalue carries 12-14% of the
+      residual variance (null 2-4%), i.e. industry effects that the model drops.
+    * Idiosyncratic volatilities are independent across assets; in real data they also share
+      regimes (e.g. 2020): ``resid_logvol_corr_mean`` is 0.42-0.44 on the S&P 500 panels
+      (zero under the model). The co-movement of volatilities is therefore reproduced only
+      through the factor component of each asset's variance, and only partly. On 30 S&P 500
+      stocks (``data.panel_tickers(30)``, TRAIN), mean over 20 TRAIN-length paths: mean pairwise
+      return correlation 0.368 (data), 0.342 (FactorGARCHt), 0.275 (CCCGARCHt); correlation of
+      rolling 20-day log-volatilities 0.601, 0.321, 0.105. Path-to-path dispersion of the
+      FactorGARCHt statistics is large (sd about 0.09 and 0.14), because a TRAIN-length path
+      may or may not contain a factor-volatility episode; the simulated mean correlation is
+      below the model's unconditional value (0.386) for the same reason.
+    * ``m`` is a latent factor in simulation: the equal-weight mean of simulated returns is
+      ``mean(a) + m_t + mean_i e_it``, whose variance exceeds ``var(m)`` by
+      ``mean_i var(e_i) / N`` (``fit_info_["ew_mean_var_excess"]``, as a fraction of
+      ``var(m)``; 1.4% for the 100-stock panel, 4-5% for 30 stocks). For the same reason,
+      loadings re-estimated on simulated data are shrunk towards one (errors in variables:
+      ``(b_i V_m + v_i / N) / (V_m + sum_j v_j / N^2)`` with ``V_m = var(m)``,
+      ``v_i = var(e_i)``).
+    * Means: ``E r_it = a_i + b_i mu_0 + mu_i`` (:meth:`unconditional_mean`), where ``mu_0`` and
+      ``mu_i`` are the Student-t location estimates of the GARCHt fits, not sample means (the
+      same convention as the CCCGARCHt margins).
+    * No likelihood: the factor is latent in the model, so the density of the panel requires
+      integrating over the factor's GARCH path (a nonlinear state-space model);
+      ``has_likelihood = False`` and :meth:`loglik_obs` raises ``NotImplementedError``.
+
+    Filters follow the GARCHt convention: in sample, each recursion (the factor and every
+    residual) starts at the sample variance (divisor ``T``) of its series. The one-step-ahead
+    variances at the end of the training sample, ``sigma2_next_``, are taken from the fitted
+    GARCHt models' ``forecast_variance()`` (our own filter when a model does not provide it; a
+    disagreement is logged).
+
+    Parameters
+    ----------
+    garch_factory : callable or None, default None
+        Zero-argument callable returning an unfitted univariate GARCH model; ``None`` uses
+        ``synthval.models.get_model("GARCHt")`` (default options). It is called ``N + 1``
+        times: first for the factor, then for the residuals in column order. Its ``params()``
+        must contain the mean, ``omega``, ``alpha``, ``beta`` and ``nu`` (aliases as for
+        CCCGARCHt).
+
+    Attributes
+    ----------
+    a_, loadings_ : ndarray, shape (N,)
+        OLS intercepts and loadings ``b_i`` on the equal-weight factor.
+    factor_model_ : ReturnModel
+        GARCHt fitted to the factor ``m``.
+    idio_models_ : list of ReturnModel
+        GARCHt fitted to each residual series.
+    factor_params_ : dict of float
+        ``mu, omega, alpha, beta, nu`` of the factor.
+    idio_params_ : dict of ndarray, shape (N,)
+        ``mu, omega, alpha, beta, nu`` of the residuals.
+    sigma2_init_, sigma2_next_, persistence_ : ndarray, shape (N + 1,)
+        Training sample variance (in-sample filter start), one-step-ahead variance at the end
+        of the training sample and ``alpha + beta``; **index 0 is the factor**, index ``i`` the
+        residual of asset ``i - 1``.
+    factor_ : ndarray, shape (T,)
+        Training factor ``m``.
+    resid_ : ndarray, shape (T, N)
+        Training OLS residuals.
+    sigma2_fit_ : ndarray, shape (T, N + 1)
+        In-sample conditional variances (column 0: factor).
+    fit_info_ : dict
+        Diagnostics: ``resid_corr_mean``, ``std_resid_corr_mean``, ``resid_corr_baseline``,
+        ``resid_corr_rms`` and ``resid_corr_rms_null``, ``resid_top_eig_share`` and
+        ``resid_top_eig_share_null`` (see above), ``resid_logvol_corr_mean`` (mean pairwise
+        correlation of the rolling 20-day log-volatilities of the residuals, which is zero in
+        expectation under the model; ``nan`` if ``T < 40``),
+        ``corr_mean_data`` (mean pairwise return correlation of the training panel),
+        ``corr_mean_implied`` (same for :meth:`unconditional_cov`), ``r2`` (per asset) and
+        ``r2_mean``, ``ew_mean_var_excess``, ``persistence``, ``at_bound`` (per component, from
+        the GARCHt ``fit_info_``; index 0 the factor), ``end_state_gap`` (largest relative gap
+        between our end-of-sample variances and ``forecast_variance()``), ``seconds``.
+    """
+
+    name = "FactorGARCHt"
+    has_likelihood = False
+
+    def __init__(self, garch_factory: Callable[[], ReturnModel] | None = None) -> None:
+        self.garch_factory = garch_factory
+
+    # -- estimation --------------------------------------------------------------------------
+    def fit(self, R: np.ndarray) -> "FactorGARCHt":
+        """Fit the factor GARCHt, the OLS loadings and the residual GARCHt models on ``R``
+        of shape ``(T, N)`` (``N >= 2``)."""
+        t0 = time.perf_counter()
+        R = _check_returns(R, min_obs=20)
+        T, N = R.shape
+        if N < 2:
+            raise ValueError("FactorGARCHt needs at least two assets (the factor is their mean)")
+        m = R.mean(axis=1)
+        m_bar = float(m.mean())
+        mc = m - m_bar
+        var_m = float(mc @ mc) / T
+        if not var_m > 0:
+            raise ValueError("FactorGARCHt: the equal-weight factor is constant")
+        r_bar = R.mean(axis=0)
+        loadings = (R - r_bar).T @ mc / (T * var_m)
+        a = r_bar - loadings * m_bar
+        E = R - a - np.outer(m, loadings)
+
+        factory = self.garch_factory if self.garch_factory is not None else _default_margin
+        X = np.column_stack([m, E])  # column 0: factor; column i: residual of asset i - 1
+        models: list[ReturnModel] = []
+        theta = {k: np.empty(N + 1) for k in _GARCH_KEYS}
+        for j in range(N + 1):
+            g = factory()
+            g.fit(X[:, j].copy())
+            p = _garch_params(g.params())
+            for k in _GARCH_KEYS:
+                theta[k][j] = p[k]
+            models.append(g)
+        mu, omega, alpha, beta, nu = (theta[k] for k in ("mu", "omega", "alpha", "beta", "nu"))
+
+        eps = X - mu
+        s2_0 = X.var(axis=0)
+        s2 = _garch_filter(eps, omega, alpha, beta, s2_0)
+        own_next = omega + alpha * eps[-1] ** 2 + beta * s2[-1]
+        s2_next = own_next.copy()
+        for j, g in enumerate(models):
+            fv = getattr(g, "forecast_variance", None)
+            if callable(fv):
+                v = float(fv())
+                if np.isfinite(v) and v > 0:
+                    s2_next[j] = v
+        gap = float(np.max(np.abs(s2_next - own_next) / own_next))
+        if gap > 1e-6:
+            logger.warning("FactorGARCHt: end-of-sample variances of the GARCH models differ from "
+                           "the params() filter by up to %.3g (relative); using the models' "
+                           "forecast_variance()", gap)
+
+        self.n_assets_ = N
+        self.a_, self.loadings_ = a, loadings
+        self.factor_model_, self.idio_models_ = models[0], models[1:]
+        self._mu, self._omega, self._alpha, self._beta, self._nu = mu, omega, alpha, beta, nu
+        self._zscale = np.sqrt((nu - 2.0) / nu)
+        self.factor_params_ = {k: float(theta[k][0]) for k in _GARCH_KEYS}
+        self.idio_params_ = {k: theta[k][1:].copy() for k in _GARCH_KEYS}
+        self.sigma2_init_ = s2_0
+        self.sigma2_next_ = s2_next
+        self.persistence_ = alpha + beta
+        self.factor_ = m
+        self.resid_ = E
+        self.sigma2_fit_ = s2
+
+        Zs = eps[:, 1:] / np.sqrt(s2[:, 1:])
+        var_r = R.var(axis=0)
+        r2 = loadings ** 2 * var_m / var_r
+        at_bound = [[str(b) for b in (getattr(g, "fit_info_", None) or {}).get("at_bound", [])]
+                    for g in models]
+        C_e = np.corrcoef(E, rowvar=False)
+        off = C_e[~np.eye(N, dtype=bool)]
+        self.fit_info_ = {
+            "T": T,
+            "N": N,
+            "innovations": "independent across assets and of the factor (one-factor model)",
+            "resid_corr_mean": _mean_offdiag(C_e),
+            "std_resid_corr_mean": _mean_offdiag(np.corrcoef(Zs, rowvar=False)),
+            "resid_corr_baseline": -1.0 / (N - 1),
+            "resid_corr_rms": float(np.sqrt(np.mean(off ** 2))),
+            "resid_corr_rms_null": float(np.sqrt(1.0 / T + 1.0 / (N - 1) ** 2)),
+            "resid_top_eig_share": float(np.linalg.eigvalsh(C_e)[-1] / N),
+            "resid_top_eig_share_null": float((1.0 + np.sqrt(N / T)) ** 2 / N),
+            "resid_logvol_corr_mean": _logvol_corr_mean(E, 20),
+            "corr_mean_data": _mean_offdiag(np.corrcoef(R, rowvar=False)),
+            "corr_mean_implied": _mean_offdiag(_corr_from_cov(self.unconditional_cov())),
+            "r2": r2,
+            "r2_mean": float(np.mean(r2)),
+            "ew_mean_var_excess": float(np.mean(E.var(axis=0)) / N / var_m),
+            "persistence": self.persistence_.copy(),
+            "at_bound": at_bound,
+            "end_state_gap": gap,
+            "seconds": time.perf_counter() - t0,
+        }
+        near = np.flatnonzero(self.persistence_ >= 0.999)
+        if near.size:
+            logger.warning("FactorGARCHt: %d GARCH component(s) with alpha + beta >= 0.999 "
+                           "(index 0 = factor): %s", near.size, near.tolist())
+        return self
+
+    # -- helpers -----------------------------------------------------------------------------
+    def unconditional_variance(self) -> np.ndarray:
+        """``omega / (1 - alpha - beta)`` of the factor (index 0) and of each residual, shape
+        ``(N + 1,)`` (training sample variance for a non-stationary component)."""
+        _require_fitted(self, "a_")
+        persist = self._alpha + self._beta
+        with np.errstate(divide="ignore", invalid="ignore"):
+            v = self._omega / (1.0 - persist)
+        return np.where(persist < 1.0, v, self.sigma2_init_)
+
+    def unconditional_cov(self) -> np.ndarray:
+        """Model covariance of the returns, ``b b' var(m) + diag(var(e))``, shape ``(N, N)``."""
+        v = self.unconditional_variance()
+        b = self.loadings_
+        return v[0] * np.outer(b, b) + np.diag(v[1:])
+
+    def unconditional_mean(self) -> np.ndarray:
+        """Model mean of the returns, ``a + b mu_0 + mu_e``, shape ``(N,)``."""
+        _require_fitted(self, "a_")
+        return self.a_ + self.loadings_ * self._mu[0] + self._mu[1:]
+
+    def innovations(self, n: int, *, rng: np.random.Generator) -> np.ndarray:
+        """Draw ``(n, N + 1)`` independent unit-variance Student-t innovations (column 0: the
+        factor, column ``i``: the residual of asset ``i - 1``), in the order used by
+        :meth:`simulate`."""
+        _require_fitted(self, "a_")
+        return rng.standard_t(self._nu, size=(int(n), self.n_assets_ + 1)) * self._zscale
+
+    # -- simulation --------------------------------------------------------------------------
+    def simulate(
+        self,
+        n_steps: int,
+        *,
+        rng: np.random.Generator,
+        burn_in: int = 250,
+        start_from_end: bool = False,
+        return_factor: bool = False,
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+        """Simulate ``(n_steps, N)`` returns.
+
+        Parameters
+        ----------
+        n_steps : int
+            Number of simulated days.
+        rng : numpy.random.Generator
+            Random generator (all innovations are drawn in one call, see :meth:`innovations`).
+        burn_in : int, default 250
+            Discarded initial days when ``start_from_end`` is False; every recursion (factor and
+            residuals) then starts at its unconditional variance, which equals the training
+            sample variance under variance targeting.
+        start_from_end : bool, default False
+            Continue every GARCH filter (the factor and each residual) from the end of the
+            training sample: the first simulated day has conditional variances
+            ``sigma2_next_`` (no burn-in).
+        return_factor : bool, default False
+            Also return the simulated factor path ``m`` of shape ``(n_steps,)``.
+
+        Returns
+        -------
+        R : ndarray, shape (n_steps, N)
+            Simulated daily log-returns; ``(R, m)`` if ``return_factor``.
+        """
+        _require_fitted(self, "a_")
+        n = _check_n_steps(n_steps)
+        burn = 0 if start_from_end else max(int(burn_in), 0)
+        total = n + burn
+        Z = self.innovations(total, rng=rng)
+        om, al, be = self._omega, self._alpha, self._beta
+        s2 = self.sigma2_next_.copy() if start_from_end else self.unconditional_variance()
+        X = np.empty_like(Z)
+        for t in range(total):
+            e = np.sqrt(s2) * Z[t]
+            X[t] = e
+            s2 = om + al * e * e + be * s2
+        X = self._mu + X[burn:]
+        m = X[:, 0].copy()
+        R = self.a_ + m[:, None] * self.loadings_ + X[:, 1:]
+        return (R, m) if return_factor else R
+
+    def loglik_obs(self, R: np.ndarray, R_history: np.ndarray | None = None) -> np.ndarray:
+        raise NotImplementedError(f"{self.name}: likelihood is intractable (latent GARCH factor)")
+
+    def params(self) -> dict:
+        """Loadings, intercepts, factor and residual GARCH parameters, start and end-of-sample
+        variances (``"sigma2_init"`` and ``"sigma2_next"``: index 0 the factor) and the average
+        pairwise residual correlation."""
+        _require_fitted(self, "a_")
+        return {
+            "a": self.a_.copy(),
+            "loadings": self.loadings_.copy(),
+            "factor": dict(self.factor_params_),
+            "idio": {k: v.copy() for k, v in self.idio_params_.items()},
+            "sigma2_init": self.sigma2_init_.copy(),
+            "sigma2_next": self.sigma2_next_.copy(),
+            "persistence": self.persistence_.copy(),
+            "resid_corr_mean": self.fit_info_["resid_corr_mean"],
+        }
+
+    def n_params(self) -> int:
+        N = self.n_assets_
+        return 2 * N + 5 * (N + 1)

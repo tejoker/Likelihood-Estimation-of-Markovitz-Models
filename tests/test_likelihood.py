@@ -195,6 +195,14 @@ def test_window_loglik():
                                gt.loglik_windows(W, sigma2_init=s2k), rtol=1e-12)
     with pytest.raises(TypeError):
         window_loglik(_IIDLaplace(), W, sigma2_init=s2k)
+    # n_init: K stationary draws from a fixed seed (cached), log-mean-exp over them
+    ref = gt.loglik_windows(W, sigma2_init=gt.stationary_variance_draws(
+        60, rng=np.random.default_rng(7)))
+    np.testing.assert_allclose(window_loglik(gt, W, n_init=60, seed=7), ref, rtol=1e-12)
+    np.testing.assert_allclose(window_loglik(gt, W, n_init=60, seed=7), ref, rtol=1e-12)  # cache
+    assert len(gt._s2init_cache) == 1
+    assert not np.allclose(window_loglik(gt, W, n_init=60, seed=8), ref)
+    np.testing.assert_allclose(window_loglik(gt, W, n_init=0), window_loglik(gt, W), rtol=1e-12)
 
 
 # --------------------------------------------------------------------------------------------

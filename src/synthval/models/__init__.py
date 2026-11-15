@@ -17,6 +17,7 @@ _MULTIVARIATE = {
     "MVStudentT": "synthval.models.multivariate:MVStudentT",
     "CCCGARCHt": "synthval.models.multivariate:CCCGARCHt",
     "MVBootstrap": "synthval.models.multivariate:MVStationaryBootstrap",
+    "FactorGARCHt": "synthval.models.multivariate:FactorGARCHt",
 }
 UNIVARIATE_MODELS = list(_UNIVARIATE)
 MULTIVARIATE_MODELS = list(_MULTIVARIATE)

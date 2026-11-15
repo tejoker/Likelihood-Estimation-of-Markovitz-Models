@@ -9,13 +9,16 @@ berkowitz_test
 pit_ks_test
     Kolmogorov-Smirnov test of PIT uniformity (Diebold, Gunther and Tay 1998).
 vuong_test
-    Vuong (1989) test for non-nested models, optional Newey-West variance and BIC/AIC correction.
+    Vuong (1989) test for non-nested models, optional Newey-West variance and BIC/AIC
+    correction; with ``hac=True`` and no correction on out-of-sample predictive
+    log-likelihoods it is the Amisano-Giacomini (2007) test.
 window_loglik
     Log-density of each window of returns under a model (used by the LR oracle).
 lr_oracle_test
-    Likelihood-ratio oracle with a Monte Carlo null distribution: the Neyman-Pearson test when
-    window densities are exact (i.i.d. models, or GARCH with ``n_init > 0``), an approximate
-    likelihood-ratio benchmark for GARCH with the default fixed-start window density.
+    Likelihood-ratio test of two fully specified models with a Monte Carlo null distribution:
+    the Neyman-Pearson (most powerful) test for i.i.d. models; for GARCH an *approximate*
+    likelihood-ratio benchmark (window densities approximated), valid but not a strict power
+    bound.
 
 All ``TestResult`` objects follow :class:`synthval.twosample.base.TestResult`.
 """
@@ -208,11 +211,23 @@ def vuong_test(ll_a: np.ndarray, ll_b: np.ndarray, k_a: int = 0, k_b: int = 0, *
 
     ``d_t = ll_a[t] - ll_b[t]``; statistic ``Z = (sum_t d_t - C) / (sqrt(n) * omega)`` which, for
     ``C = 0``, is ``sqrt(n) mean(d) / sd(d)``. ``omega^2`` is the sample variance of ``d``
-    (divisor n) or, with ``hac=True``, its Newey-West long-run variance (needed for out-of-sample
-    conditional log-likelihoods, which can be serially dependent). ``C`` is the Schwarz
+    (divisor n) or, with ``hac=True``, its Newey-West long-run variance. ``C`` is the Schwarz
     correction ``(k_a - k_b) log(n) / 2`` (``correction="bic"``), the Akaike correction
     ``k_a - k_b`` (``"aic"``) or 0 (``"none"``); with the default ``k_a = k_b = 0`` there is no
     correction.
+
+    Two uses, which must not be mixed:
+
+    * **In-sample** (Vuong 1989): ``ll_a``, ``ll_b`` are the log-likelihoods of models fitted
+      on the same data; the parameter-count corrections ``k_a``, ``k_b`` apply here, and the
+      i.i.d. variance is Vuong's.
+    * **Out-of-sample** (DESIGN E3): ``ll_a``, ``ll_b`` are predictive log-likelihoods on an
+      evaluation period, from models estimated on a separate (earlier) sample. With
+      ``hac=True`` and ``k_a = k_b = 0`` this is the Amisano and Giacomini (2007) test of equal
+      predictive (log-score) accuracy: ``d_t`` can be serially dependent, hence the HAC
+      variance, and no parameter-count correction is used (estimation error is part of what
+      is compared). Pass ``k_a = k_b = 0`` in this use; the ``k``-based corrections are for
+      in-sample comparisons only.
 
     Returns
     -------
@@ -277,9 +292,10 @@ def window_loglik(model: Any, windows: np.ndarray, **kwargs: Any) -> np.ndarray:
     :class:`~synthval.models.univariate.GARCHt` the exact density integrates over the
     stationary law of the conditional variance at the window's first observation, which has
     no closed form: by default each window's filter starts at the unconditional variance
-    ``omega / (1 - alpha - beta)``, an **approximation**; passing
-    ``sigma2_init=model.stationary_variance_draws(K, rng=rng)`` integrates over ``K`` draws
-    from the stationary law instead (exact up to Monte Carlo error).
+    ``omega / (1 - alpha - beta)``, an **approximation**; ``n_init=K`` (draws from a fixed
+    seed, cached) or ``sigma2_init=model.stationary_variance_draws(K, rng=rng)`` integrate
+    over ``K`` draws from the stationary law instead (log-mean-exp; exact as ``K`` grows, up
+    to Monte Carlo error).
 
     Parameters
     ----------
@@ -289,7 +305,8 @@ def window_loglik(model: Any, windows: np.ndarray, **kwargs: Any) -> np.ndarray:
         separately.
     windows : ndarray, shape (n, L)
     **kwargs
-        Passed to ``model.loglik_windows`` (e.g. ``sigma2_init`` for GARCHt).
+        Passed to ``model.loglik_windows`` (e.g. ``n_init``, ``seed`` or ``sigma2_init`` for
+        GARCHt).
 
     Returns
     -------
@@ -340,31 +357,41 @@ def _null_sampler(source: Any, n: int, L: int) -> Callable[[np.random.Generator]
 def lr_oracle_test(X: np.ndarray, Y_model_true: Any = None, model_null: Any = None,
                    model_alt: Any = None, *, rng: np.random.Generator, n_mc: int = 500,
                    alpha: float = 0.05, n_init: int = 0) -> TestResult:
-    """Likelihood-ratio oracle for ground-truth studies (Monte Carlo null distribution).
+    """Likelihood-ratio test of two fully specified models, Monte Carlo null distribution.
 
     Tests H0: the windows ``X`` are drawn from ``model_null`` against H1: they are drawn from
-    ``model_alt``, both fully specified. The statistic is
-    ``T = sum_i [log p_alt(x_i) - log p_null(x_i)]`` over the windows of ``X`` (window densities
-    from :func:`window_loglik`). The null distribution of T is obtained by Monte Carlo:
-    ``n_mc`` samples of the same shape as ``X`` are drawn under H0 and
-    ``p = (1 + #{T_b >= T}) / (1 + n_mc)``. The test has exact level for any statistic, provided
-    the null samples reproduce how ``X`` is drawn under H0 (see ``Y_model_true``).
+    ``model_alt``. The statistic is ``T = sum_i [log p_alt(x_i) - log p_null(x_i)]`` over the
+    windows of ``X`` (window log-densities from :func:`window_loglik`). Its null distribution
+    is obtained by Monte Carlo: ``n_mc`` samples of the same shape as ``X`` are drawn under H0
+    (see ``Y_model_true``) and ``p = (1 + #{T_b >= T}) / (1 + n_mc)``. Whatever the window
+    density used, the p-value is exact (up to the discreteness of ``n_mc``) **provided the
+    null samples reproduce how ``X`` is drawn**. With the default ``Y_model_true=None`` the
+    null samples are ``n`` independent stationary windows, so the test is valid only when
+    ``X`` itself consists of independent windows (each from its own path, as in E2); for
+    windows cut from one long path pass a sampler that cuts them the same way.
 
-    Optimality. When the window densities are exact, the test is the Neyman-Pearson test of
-    this simple-vs-simple problem: it is most powerful at its level, and its power bounds that
-    of any two-sample test (a two-sample test of X against a synthetic sample Y drawn under H0
-    independently of X is a randomised test based on X alone). This holds for i.i.d. models
-    (GBM, Merton, Student-t). For GARCH it holds only approximately: with ``n_init=0``
-    (default) each window is filtered from the unconditional variance, which is not the exact
-    window density, so the test is an *approximate likelihood-ratio benchmark*, valid but not
-    necessarily most powerful (for GARCH(0.08, 0.90)-t(6) against matched alternatives of
-    persistence 0.8-0.95, the exact density separates the hypotheses 1.7-3 times more per
-    window than the fixed start). With ``n_init = K > 0``, models
-    that provide ``stationary_variance_draws`` (GARCHt) integrate over ``K`` draws from the
-    stationary law of the initial conditional variance; the draws are made once per model and
-    shared by ``X`` and all Monte Carlo samples, so ``T`` stays a fixed function of the data
-    and the Monte Carlo p-value stays exact, while ``T`` converges to the exact log-likelihood
-    ratio as ``K`` grows (cost proportional to ``K``).
+    What the test is, and is not:
+
+    * i.i.d. models (GBM, Merton, Student-t) with independent windows: the window densities
+      are exact and ``T`` is the log-likelihood ratio of the whole sample, so this is the
+      Neyman-Pearson test of a simple null against a simple alternative, most powerful at its
+      level (up to the Monte Carlo critical value). Its power is then an upper bound for any
+      level-alpha two-sample test of ``X`` against a synthetic sample drawn from
+      ``model_null`` independently of ``X`` (such a test is a randomised test based on ``X``).
+    * GARCH: :meth:`GARCHt.loglik_windows` starts each window's filter at the unconditional
+      variance (``n_init=0``, default), so ``T`` is an **approximate** likelihood ratio: the
+      exact window density integrates over the stationary law of the initial conditional
+      variance. The test is valid (exact level as above) but is not the Neyman-Pearson test
+      and its power is **not** a strict upper bound for other tests: it is an approximate
+      likelihood-ratio benchmark. (For GARCH(0.08, 0.90)-t(6) against matched alternatives of
+      persistence 0.8-0.95, the integrated density separates the hypotheses 1.7-3 times more
+      per window than the fixed start.) ``n_init = K > 0`` integrates over ``K`` draws from the
+      stationary law of the initial variance of each model (log-mean-exp, Monte Carlo); the
+      draws are made once per model from ``rng`` and shared by ``X`` and all Monte Carlo
+      samples, so ``T`` stays a fixed function of the data and the p-value stays exact, and
+      ``T`` approaches the sum of exact window log-likelihood ratios as ``K`` grows (cost
+      proportional to ``K``). Even then, windows cut from one GARCH path are dependent, so
+      the sum of window log-ratios is not the joint log-likelihood ratio of such a sample.
 
     Parameters
     ----------
@@ -373,8 +400,9 @@ def lr_oracle_test(X: np.ndarray, Y_model_true: Any = None, model_null: Any = No
     Y_model_true : optional
         How to draw samples under H0; it **must reproduce the sampling protocol of** ``X``.
         One of: ``None`` (use ``model_null.simulate(L, n, rng=rng)``: ``n`` *independent*
-        stationary windows; valid only if ``X`` was also generated as independent windows, not
-        cut from one long path), an object with ``simulate`` (called the same way), a callable
+        stationary windows; **valid only if** ``X`` **was also generated as independent
+        windows**, not cut from one long path), an object with ``simulate`` (called the same
+        way), a callable
         ``rng -> (n, L) array`` (e.g. ``lambda g: null.simulate(n * L, 1, rng=g).reshape(n, L)``
         when ``X`` is cut from one long path: for GARCH, windows from one path are dependent and
         the independent-window null understates the variance of ``T``, so the test
@@ -390,7 +418,7 @@ def lr_oracle_test(X: np.ndarray, Y_model_true: Any = None, model_null: Any = No
         Level at which the Monte Carlo critical value is reported in ``extra``.
     n_init : int
         Number of stationary initial-variance draws for models with
-        ``stationary_variance_draws`` (see Optimality); 0 keeps the unconditional-variance
+        ``stationary_variance_draws`` (GARCHt; see above); 0 keeps the unconditional-variance
         start. Ignored for models without that method.
 
     Returns
