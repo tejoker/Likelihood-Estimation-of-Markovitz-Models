@@ -10,12 +10,14 @@ file under "Change log", with a one-line reason.
 Likelihood Benchmarks for Markov Models, and Markowitz Portfolio Utility.*
 
 Synthetic return data is used for back-testing, data sharing and portfolio construction, but
-"is this synthetic data good?" is usually answered with eyeballed stylized facts or with tests
-that have no power. We turn the discriminator of a Wasserstein GAN (the critic, trained alone,
-with no generator) into a formal two-sample test with exact finite-sample level (held-out
-permutation), and a *relative* test that asks whether synthetic data is at least as close to
-future real data as the real past is (markets are non-stationary, so "identical to the future"
-is the wrong bar). We validate size and power against ground truth, and against the
+"is this synthetic data good?" is usually answered with stylized facts, uncalibrated
+discriminator scores, or formal tests whose size and power are unchecked. We turn the
+discriminator of a Wasserstein GAN (the critic, trained alone, with no generator) into a formal
+two-sample test: exact finite-sample level for independent windows (held-out permutation), and
+Driscoll-Kraay HAC inference with a time-block train/eval split for serially and
+cross-sectionally dependent real data. We add an *anchored relative* test that asks whether
+synthetic data is at least as close to future real data as the real past is (markets are
+non-stationary, so "identical to the future" is the wrong bar). We validate size and power against ground truth, and against the
 Neyman-Pearson likelihood-ratio oracle where the likelihood is tractable (Markov models: GBM,
 Merton jump-diffusion, GARCH(1,1)-t). We compare with MMD, signature MMD, classifier two-sample
 tests (C2ST) and KS. On S&P 500 stocks (2018-2025) we compare critic verdicts with
@@ -38,12 +40,22 @@ whether the verdicts predict downstream usefulness for Markowitz mean-variance p
 
 ### Decision rule (the yes/no answer the paper delivers)
 For a generator G calibrated on the real past R_past and evaluated against held-out real data R_new:
-1. **Absolute test** H0: Law(G) = Law(R_new). Critic statistic, permutation p-value.
-2. **Relative test** H0: d(G, R_new) <= d(R_past, R_new) vs H1: d(G, R_new) > d(R_past, R_new).
-3. **Verdict:** `GOOD` if the relative test does not reject at level alpha *and* the power check
-   (simulation at matched sample size) shows power >= 0.8 against a pre-specified deviation;
-   `BAD` if the relative test rejects; `INCONCLUSIVE` otherwise. The absolute test is reported
-   alongside ("distinguishable from the future but no worse than history" is the typical
+1. **Absolute test** H0: Law(G) = Law(R_new). Critic statistic; on real data time-block split +
+   Driscoll-Kraay HAC p-value (permutation p-value only for independent windows).
+2. **Anchored relative test** (primary; see §3.7 `method="anchored"`). One critic f is trained to
+   separate R_new (positive class) from the balanced pool {G_tr, R_past_tr} (negative class).
+   Statistic `Delta = mean f(R_past_ev) - mean f(G_ev)`; H1: Delta > 0 ("G is less like the
+   future than the past is"). At the boundary Law(G) = Law(R_past), G_ev and R_past_ev are
+   exchangeable given f, so the permutation p-value is exact for independent windows (HAC p-value
+   on real data). The older two-critic version `D(G,R_new) - D(R_past,R_new)` is reported as a
+   secondary statistic only: it is anti-conservative at that boundary (theory.md Prop 6.8).
+3. **Power check (pre-specified, before any real-data run).** Simulate the full E3 relative-test
+   pipeline at the real sample sizes and split, with R_past*, R_new* drawn from the per-ticker
+   GARCHt fit (TRAIN, TEST lengths, independent of each other) and G* the same model with
+   volatility x1.2. Power = rejection rate over >= 50 reps at alpha = 0.05.
+4. **Verdict:** `BAD` if the anchored relative test rejects at alpha = 0.05; `GOOD` if it does not
+   reject *and* the power check gives power >= 0.8; `INCONCLUSIVE` otherwise. The absolute test is
+   reported alongside ("distinguishable from the future but no worse than history" is the typical
    real-world outcome and is a finding, not a failure).
 
 ## 2. Data
@@ -53,8 +65,12 @@ For a generator G calibrated on the real past R_past and evaluated against held-
   and `PX_VOLUME`; first data row 2018-01-02. 503 tickers, current S&P 500 constituents
   (survivorship bias: must be stated as a limitation).
 - Use `PX_LAST` only. **Never back-fill.** A ticker is in the *complete universe* if it has no
-  missing `PX_LAST` from 2018-01-02 to 2025-06-17 (about 481 tickers). Isolated internal gaps
-  (<= 3 consecutive days) may be forward-filled; anything else excludes the ticker.
+  missing `PX_LAST` from 2018-01-02 to 2025-06-17 (481 tickers; the last trading day in the file
+  is 2025-06-16). Isolated internal gaps (<= 3 consecutive days) may be forward-filled; anything
+  else excludes the ticker. Two data errors are excluded by a rule (`data.DATA_ANOMALIES`:
+  max |log-return| > 1 or >= 20 zero-volume days): KDP (unadjusted special dividend, -1.72
+  log-return on 2018-07-10) and AMCR (232 days of stale pre-listing quotes). Default universe:
+  479 tickers. Report both in the paper's data section.
 - Returns: daily log-returns `r_t = log P_t - log P_{t-1}`.
 - Split (constants in `synthval.config`):
   - `TRAIN = ("2018-01-02", "2022-12-30")`: calibration ("real past").
@@ -156,8 +172,8 @@ should start from the fitted end state when meaningful (GARCH, Heston), else fro
 |---|---|---|---|
 | `GBM` | r_t iid N(mu, sigma^2) | closed-form MLE | exact |
 | `Merton` | r_t = mu + sigma*e_t + sum_{k<=N_t} J_k, N_t~Poisson(lam), J~N(muJ, sJ^2) | MLE, truncated Poisson sum (n<=10 or until mass < 1e-12), multistart, bounds | exact (mixture) |
-| `GARCHt` | r_t = mu + s_t z_t, s_t^2 = w + a eps_{t-1}^2 + b s_{t-1}^2, z ~ standardised Student-t(nu) | MLE (scipy, constraints a+b<1, nu>2.05), multistart; tests cross-check vs `arch` | exact (filtered) |
-| `Heston` | Euler full-truncation, daily step: r_t = mu - v_t/2 + sqrt(v_t) z1, v_{t+1} = v_t + kappa(theta - v_t) + xi sqrt(v_t) z2, corr(z1,z2)=rho | simulated method of moments on: var, kurtosis, ACF(r^2) lags 1,5,10,20, corr(r_t, r_{t+1}^2); common random numbers; Nelder-Mead/L-BFGS-B with bounds | intractable |
+| `GARCHt` | r_t = mu + s_t z_t, s_t^2 = w + a eps_{t-1}^2 + b s_{t-1}^2, z ~ standardised Student-t(nu) | MLE (scipy, constraints a+b<1, nu>2.05), multistart; tests cross-check vs `arch`. Experiments use `variance_targeting=True` (w = (1-a-b) x sample variance; Engle-Mezrich 1996) with persistence cap 0.995, to avoid explosive simulated paths at near-IGARCH fits (RCL) | exact (filtered) |
+| `Heston` | Daily step with Andersen (2008) QE scheme for v (no zero-variance sticking) and the matching log-return step: r_t = mu - (integrated var)/2 + ...; corr(z1,z2)=rho | simulated method of moments on: var, a robust tail moment (log-kurtosis or quantile ratio), ACF(r^2) lags 1,5,10,20, corr(r_t, r_{t+1}^2); common random numbers (QE driven by fixed normals/uniforms); Nelder-Mead with bounds | intractable |
 | `StationaryBootstrap` | Politis-Romano (1994) on training returns, mean block length via Politis-White (2004) rule or default 20 | none | intractable |
 
 ### 3.6 Multivariate models (`models/multivariate.py`)
@@ -217,9 +233,36 @@ class TwoSampleTest:     # every test implements this
   shared R_new eval windows). For the MMD version follow Bounliphone et al. (2016).
 - `TEST_REGISTRY = {"critic": CriticTest, "lrcritic": partial(C2ST, statistic="logit"), "c2st": C2ST, "mmd": MMDTest, "sigmmd": SigMMDTest, "ks": KSTest}`.
 - Every learned test must also report `extra["z_hac"]`: a studentised statistic using a
-  HAC/Newey-West variance over eval windows ordered in time (robustness to serial dependence
-  between windows, cf. Chung & Romano 2013), plus its normal p-value `extra["p_hac"]`, when the
-  caller passes `order_x`/`order_y` (time indices); otherwise the i.i.d. z.
+  Driscoll-Kraay / Newey-West variance over eval windows ordered in time (Bartlett kernel,
+  Andrews 1991 AR(1) plug-in bandwidth; justified by a CLT under mixing, Driscoll & Kraay 1998),
+  plus its normal p-value `extra["p_hac"]`, when the caller passes `order_x`/`order_y`
+  (time indices in window units or date ranks, not trading days); otherwise the i.i.d. z.
+
+**Inference protocol (binding for experiments, after review).**
+- *Independent windows* (E2: each window simulated from its own path with burn-in): permutation
+  p-values, exact level. Default `inference="permutation"`.
+- *Dependent windows* (E1, E3, E4, E5 on real data or on simulated long paths): learned tests use
+  `time_blocks=10, inference="hac"` (contiguous time-block train/eval split from `order_*`, so
+  train and eval cover disjoint dates; a ticker split shares dates and biases T, theory.md
+  Prop 7.5); MMD / SigMMD use `inference="wild"` (Chwialkowski-Sejdinovic-Gretton 2014); KS is
+  reported but marked invalid under dependence. Always pass `order_*` = date rank of each
+  window's first day. Robust p-values are asymptotic and still somewhat oversized under strong
+  dependence (pilot: 6-10% at nominal 5%), so E1 measures their real size with the exact E3
+  pipeline and the paper reports it.
+- Critic default `lr=1e-3` (changed from 1e-4 before any E2 run: under-training lost power).
+  C2ST accuracy p-value uses randomized tie-breaking.
+
+**Anchored relative test** (`relative_test(..., method="anchored")`, the primary relative test).
+Inputs R_new, G, R_past (+ optional order/groups). Split G and R_past into train/eval (time
+blocks when `order_*` given, else random halves). R_new is used only for training (all of it).
+Train one learned critic (same architecture/optimiser as `CriticTest`, or C2ST logit) to separate
+R_new (label 1) from the pool {G_tr, R_past_tr} with equal total weight on G_tr and R_past_tr.
+Statistic `Delta = mean f(R_past_ev) - mean f(G_ev)`, one-sided H1: Delta > 0. p-value: permutation
+of the G_ev / R_past_ev labels with f fixed (exact at Law(G) = Law(R_past) for independent
+windows), and `extra["p_hac"]` (HAC/DK z, using `order_*`) for dependent windows; with
+`inference="hac"` the reported p-value is `p_hac`. Also report `extra["ci"]` (normal CI with the
+HAC se) and the two absolute statistics f-based means for diagnostics. `method="two_critic"`
+keeps the existing implementation (secondary, documented as anti-conservative at the boundary).
 
 ### 3.8 `likelihood.py`
 ```python
@@ -267,33 +310,69 @@ Each script: `uv run python experiments/eX_name.py [--quick]`. `--quick` finishe
 `results/eX/meta.json`, figures `paper/figures/eX_*.pdf`, LaTeX tables `paper/tables/eX_*.tex`
 (booktabs, no hand-edited numbers anywhere in the paper). Respect `SYNTHVAL_WORKERS`.
 
-- **E1 Placebo / size on real data.** Real-vs-real comparisons where H0 is plausible: random
-  halves of the panel tickers in the same period (repeated with many random splits); and
-  R_past vs R_new (quantifies non-stationarity, the reference for the relative test). Report
-  empirical rejection rates per test at alpha in {0.01, 0.05, 0.10}.
-- **E2 Ground-truth size and power.** "Real" sampled from known P, "synthetic" from Q.
-  Families (each indexed by delta, delta=0 is H0): (a) volatility level x(1+delta);
+Compute: 16 cores, ~5 GB free RAM. Every script must set `OMP_NUM_THREADS=OPENBLAS_NUM_THREADS=
+MKL_NUM_THREADS=1` and torch threads = 1 inside workers (`utils.parallel_map` does torch; set the
+env vars at the top of the script before importing numpy), parallelise over replications with
+`utils.parallel_map` and `SYNTHVAL_WORKERS` (default 4; full runs use 12), and checkpoint
+per-replication results to `results/eX/` so an interrupted run resumes. Each script prints its
+estimated full-run time after `--quick`.
+
+- **E1 Placebo / size of the real-data pipeline.**
+  (a) *Simulated panel placebo* (primary): a one-factor panel calibrated to the real panel
+  (market factor m_t = equal-weight panel return, GARCHt; r_it = beta_i m_t + e_it with GARCHt
+  idiosyncratic e_it, all fitted on TRAIN; common volatility regimes, which is what makes real
+  windows dependent). "Real" and "synthetic" panels are independent draws from it (H0 true).
+  Apply *exactly* the E3 pipeline (same sizes: 100 tickers x TEST length, L=20, vol
+  normalisation, `time_blocks=10`, HAC / wild inference, anchored relative test with an R_past*
+  of TRAIN length from the same model). 200 reps. Report rejection rates at alpha in
+  {0.01, 0.05, 0.10} with Wilson 95% CIs for every test and p-value type (permutation, HAC/wild).
+  (b) *Real-data placebo*: random halves of the panel tickers within TEST and within TRAIN
+  (100 random splits each, same pipeline). Shared dates make this conservative; report it as
+  secondary. (c) R_past vs R_new absolute tests (quantifies non-stationarity).
+- **E2 Ground-truth size and power** (independent windows: each window its own path with
+  burn-in 250, so permutation p-values are exact). "Real" from known P, "synthetic" from Q.
+  Families (delta=0 is H0): (a) volatility level x(1+delta), delta in {0, .05, .1, .2, .3};
   (b) tails: Student-t nu=4 vs nu in {4, 6, 10, 30, inf} (variance matched); (c) volatility
-  clustering: GARCH persistence a+b in {0.98, 0.95, 0.90, 0.80, 0} at matched unconditional
-  variance and tails; (d) jumps: Merton vs variance-matched GBM, mixing fraction delta.
-  Sample sizes n in {500, 2000} windows of L=20; reps 200 at delta=0, 100 otherwise. Tests:
-  critic, C2ST, MMD, SigMMD, KS, and the LR oracle where tractable. Output: size table, power
-  curves (one panel per family).
-- **E3 S&P 500 univariate.** Fit each univariate model per panel ticker on TRAIN; simulate the
-  TEST horizon; pooled (vol-normalised, grouped by ticker) absolute and relative critic tests per
-  model; per-ticker tests at L=5 with Benjamini-Hochberg; stylized-facts table (real vs models);
-  likelihood benchmark for GBM/Merton/GARCHt: predictive log-lik, Berkowitz rejection rates,
-  pairwise Vuong; agreement (Kendall tau of model rankings, Cohen kappa of per-ticker verdicts)
-  between critic and likelihood-based evaluation. Final verdict table (GOOD/BAD/INCONCLUSIVE).
-- **E4 Markowitz utility.** Random universes (e.g. 30 universes x N=30 assets from the complete
-  universe). For each MV generator: fit on TRAIN, simulate TRAIN-length synthetic samples (B
-  replicas), estimate moments (sample and Ledoit-Wolf), build GMV, long-only mean-variance and
-  1/N; evaluate on real TEST; compare with the same portfolios estimated on real TRAIN.
-  Utility loss = out-of-sample variance/Sharpe gap vs real-estimated portfolio. Also
-  multivariate critic test (windows (N, L=5)) and MMD; correlate distances with utility loss
-  (Spearman, with universe-level bootstrap CI).
-- **E5 Robustness.** Window length L in {5, 10, 20, 60}; critic capacity and steps; GP lambda;
-  train/eval split fraction; number of permutations; sensitivity of E3 verdicts.
+  clustering: GARCHt persistence a+b in {0.98, 0.95, 0.90, 0.80, 0} vs P at 0.98, matched
+  unconditional variance and nu; (d) jumps: Merton vs variance-matched GBM, mixing fraction
+  delta in {0, .25, .5, .75, 1}. n in {500, 2000} windows of L=20; reps 200 at delta=0, 100
+  otherwise. Tests: critic, lrcritic, c2st, mmd, sigmmd, ks, and the LR oracle (exact for
+  (a),(b),(d); approximate for GARCH (c), say so). Outputs: size table with Wilson CIs, power
+  curves (one panel per family, both n). Plus:
+  (e) *relative-test boundary size*: P_past = P_new = G (and G = bootstrap-like resample of
+  R_past*), anchored vs two-critic, 200 reps, n=500 and 2000; shows the anchored fix.
+  (f) *learned vs true log-likelihood ratio*: for GBM-vs-Merton and GARCH(0.98)-vs-GARCH(0.90),
+  scatter / Spearman correlation of the lrcritic logit with the exact log p/q on eval windows.
+  (g) *dependent-window size*: windows cut from long GARCH paths, permutation vs HAC/time-block
+  vs wild p-values, 200 reps, n=500 (documents why the real-data protocol differs).
+- **E3 S&P 500 univariate.** Panel = `load_panel()` (100 tickers). Fit each univariate model per
+  ticker on TRAIN (GBM, Merton, GARCHt with variance targeting, Heston QE, StationaryBootstrap).
+  Simulate the TEST horizon with `start_from_end=True`, one path per ticker for the main test
+  (balanced sizes; 3000 windows each side) and per-ticker vol normalisation with TRAIN std.
+  Pooled absolute tests per model (critic, lrcritic, c2st, mmd-wild, sigmmd-wild, ks) with the
+  dependent-window protocol; anchored relative test per model (R_past = real TRAIN windows,
+  `order_*` = date ranks; synthetic order = the simulated date ranks); two-critic relative as
+  secondary; repeat over 10 seeds of synthetic paths and report median p and rejection share.
+  Power check per the decision rule (§1, item 3). Per-ticker tests at L=5 with BH (HAC). Stylized-facts table (real vs
+  models, panel medians and IQR). Likelihood benchmark for GBM/Merton/GARCHt: predictive
+  log-lik, Berkowitz and PIT-KS rejection rates, pairwise Amisano-Giacomini (HAC Vuong, k=0)
+  tests. Agreement: Kendall tau between critic-statistic ranking and predictive-log-lik ranking
+  of the 3 likelihood models, Cohen kappa of per-ticker verdicts (critic vs Berkowitz). Report
+  fit diagnostics: Merton/GARCH at-bound tickers, Heston moment match (data vs simulated per
+  moment, panel medians). Final verdict table (GOOD/BAD/INCONCLUSIVE).
+- **E4 Markowitz utility.** 30 random universes x N=30 assets from the 479-name universe. For
+  each MV generator: fit on TRAIN, simulate TRAIN-length synthetic samples (B=20 replicas),
+  estimate moments (sample and Ledoit-Wolf), build GMV, long-only mean-variance (gamma in
+  {1,5,20}) and 1/N; evaluate on real TEST; compare with the same portfolios estimated on real
+  TRAIN. Utility loss = out-of-sample variance ratio and Sharpe/CE gap vs real-estimated
+  portfolio. Report `portfolio.average_correlation` real vs each generator and CCC
+  near-unit-root counts. Multivariate critic test (windows (N, L=5), dependent-window protocol)
+  and MMD (wild) per universe and generator; Spearman correlation of distances / p-values with
+  utility loss, universe-level bootstrap CI.
+- **E5 Robustness.** Window length L in {5, 10, 20, 60}; critic capacity, n_steps, lr in
+  {1e-4, 1e-3}; GP lambda in {1, 10}; time_blocks in {4, 10}; train fraction; n_perm; HAC lag
+  rule (Andrews vs NW); alternative split (TRAIN 2018-2021 / TEST 2022-2025-06); sensitivity of
+  the E3 verdicts (anchored relative test, critic, per model).
 
 ## 5. Paper (`paper/`)
 `main.tex` (article class, 11pt, natbib author-year, booktabs, amsmath/amsthm, hyperref,
@@ -303,3 +382,20 @@ Compile with `latexmk -pdf main.tex` from `paper/`.
 
 ## Change log
 - (agents append here)
+- 2026-11-15 (lead, after Workflow-1 reviews):
+  - Data: `DATA_ANOMALIES = ("AMCR","KDP")` excluded by rule; universe 479; last trading day 2025-06-16;
+    `complete_universe`/`panel_tickers` take `exclude=` (default the anomalies).
+  - Tests: critic `lr=1e-3`; HAC bandwidth Andrews AR(1) plug-in; C2ST accuracy p-value randomized;
+    `time_blocks`/`inference="hac"` for learned tests and `inference="wild"` for MMD/SigMMD; the
+    permutation p-value is exact only for i.i.d. windows (docstrings and paper must say so).
+  - Real-data protocol: time-block split (a ticker split shares dates and biases T, theory Prop 7.5).
+  - Relative test: new primary `method="anchored"` (exact at Law(G)=Law(R_past)); the two-critic
+    version is anti-conservative at that boundary (theory Prop 6.8) and is secondary.
+  - Decision rule: power check pre-specified (GARCHt panel, vol x1.2, power >= 0.8).
+  - Models: Heston simulated with Andersen QE (Euler full truncation stuck at v=0 on 36-53% of days);
+    GARCHt variance targeting + persistence cap 0.995 in experiments; MVStationaryBootstrap uses the
+    |r| block rule (median over assets), like the univariate one; CCC correlations attenuated
+    (documented limitation; E4 reports average correlations).
+  - Likelihood: out-of-sample Vuong with k=0 and HAC = Amisano-Giacomini (2007); GARCH LR oracle is
+    approximate (fixed initial variance), not a strict power bound.
+  - z_hac citation: CLT under mixing + Driscoll-Kraay/Newey-West, not Chung & Romano (2013).
