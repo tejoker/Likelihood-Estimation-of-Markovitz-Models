@@ -108,3 +108,14 @@ parts) -> E4 (all parts). Command for each:
   registry, a new branch of `pipeline.fit_panel` used only by panel models); none of it is
   called by E1, so these blocks were copied into the current checkpoint directory instead of
   being recomputed.
+- 2026-11-16: computational change only (no change of method): the power designs (E3 `power`,
+  `realvol`; E5 `split` power, `gridpower`, `gridrealvol`) train the 2 x n_seeds anchored
+  critics of a replication as one bank of independent critics in one process
+  (`synthval.batched`, `SYNTHVAL_BATCHED=1`, commit b24d9bc). Each critic keeps the initial
+  weights and the mini-batch / interpolation draws of the sequential code (verified exactly);
+  only floating-point rounding differs (grouped convolutions), which training amplifies as it
+  does between thread counts or devices, so individual p-values are not reproducible across
+  implementations but their distribution is (exactness check: uniform permutation p-values at
+  the boundary). GPU benchmark (RTX 5050, E3 sizes, 1000 steps): 0.79 tests/s for one batched
+  process (~2.2 GB host RAM) against 0.24 for one sequential process. E1 `sim` (finished
+  17:08) is not rerun although E1's library fingerprint changed with the new package.
