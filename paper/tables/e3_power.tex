@@ -1,0 +1,8 @@
+\begin{tabular}{lrrrrrrr}
+\toprule
+Design & Reps $\times$ seeds & Power, rule [95\% CI] & $\beta_L$ (rule) & Power, 1 seed [95\% CI] & Boundary size, rule [CP 95\%] & Boundary size, 1 seed [CP 95\%] & Median $\widehat{\mathrm{se}}_{\mathrm{HAC}}$ \\
+\midrule
+D1: GARCH-$t$ per ticker, stationary $R_{\mathrm{past}}^*$ (DESIGN) & 100 $\times$ 5 & 1.00 [0.96, 1.00] & 0.97 & 1.00 [0.96, 1.00] & 0.00 [0.00, 0.04] & 0.09 [0.04, 0.16] & 0.032 \\
+D2: real TRAIN vol.\ path, non-stationary $R_{\mathrm{past}}^*$ & 100 $\times$ 5 & 0.45 [0.36, 0.55] & 0.37 & 0.47 [0.38, 0.57] & 0.08 [0.04, 0.15] & 0.25 [0.17, 0.35] & 0.245 \\
+\bottomrule
+\end{tabular}

@@ -1,0 +1,22 @@
+\begin{tabular}{llrrrrrrrrrrr}
+\toprule
+ &  & \multicolumn{2}{c}{GBM} & \multicolumn{2}{c}{Merton} & \multicolumn{2}{c}{GARCH-t} & \multicolumn{2}{c}{Heston} & \multicolumn{2}{c}{Stat. bootstrap} & \multicolumn{1}{c}{Rule} \\
+\cmidrule(lr){3-4} \cmidrule(lr){5-6} \cmidrule(lr){7-8} \cmidrule(lr){9-10} \cmidrule(lr){11-12} \cmidrule(lr){13-13}
+Factor & Setting & rel. & abs. & rel. & abs. & rel. & abs. & rel. & abs. & rel. & abs. & power \\
+\midrule
+Default & -- & $<$0.001 B & \textbf{$<$0.001} & 0.005 B & \textbf{$<$0.001} & 0.432 I & \textbf{$<$0.001} & 0.017 B & \textbf{$<$0.001} & 0.116$^\ddagger$ & \textbf{$<$0.001} & -- \\
+Window length $L$ & 5 & $<$0.001 B & \textbf{$<$0.001} & $<$0.001 B & \textbf{$<$0.001} & 0.100 I & \textbf{$<$0.001} & $<$0.001 B & \textbf{$<$0.001} & 0.015$^\ddagger$ & \textbf{$<$0.001} & -- \\
+ & 10 & $<$0.001 B & \textbf{$<$0.001} & $<$0.001 B & \textbf{$<$0.001} & 0.139 I & \textbf{$<$0.001} & $<$0.001 B & \textbf{$<$0.001} & 0.019$^\ddagger$ & \textbf{$<$0.001} & -- \\
+ & 60 & 0.023 B & \textbf{$<$0.001} & 0.110 I$^\dagger$ & \textbf{$<$0.001} & 0.323 I & \textbf{$<$0.001} & 0.070 I$^\dagger$ & \textbf{$<$0.001} & 0.463$^\ddagger$ & \textbf{$<$0.001} & -- \\
+Width$\times$depth & $32\times2$ & 0.003 B & \textbf{$<$0.001} & 0.034 B & \textbf{$<$0.001} & 0.831 I & \textbf{0.032} & 0.102 I$^\dagger$ & \textbf{$<$0.001} & 0.341$^\ddagger$ & \textbf{0.015} & -- \\
+ & $256\times4$ & $<$0.001 B & \textbf{$<$0.001} & 0.029 B & \textbf{$<$0.001} & 0.648 I & \textbf{$<$0.001} & 0.028 B & \textbf{$<$0.001} & 0.159$^\ddagger$ & \textbf{$<$0.001} & -- \\
+Critic steps & 500 & 0.001 B & \textbf{$<$0.001} & 0.021 B & \textbf{$<$0.001} & 0.522 I & \textbf{$<$0.001} & 0.050 B & \textbf{$<$0.001} & 0.216$^\ddagger$ & \textbf{$<$0.001} & -- \\
+ & 3000 & $<$0.001 B & \textbf{$<$0.001} & 0.018 B & \textbf{$<$0.001} & 0.572 I & \textbf{$<$0.001} & 0.030 B & \textbf{$<$0.001} & 0.214$^\ddagger$ & \textbf{$<$0.001} & -- \\
+Learning rate & $10^{-4}$ & 0.004 B & \textbf{$<$0.001} & 0.025 B & \textbf{$<$0.001} & 0.719 I & \textbf{0.004} & 0.079 I$^\dagger$ & \textbf{$<$0.001} & 0.375$^\ddagger$ & \textbf{0.003} & -- \\
+GP weight $\lambda$ & 1 & $<$0.001 B & \textbf{$<$0.001} & 0.005 B & \textbf{$<$0.001} & 0.483 I & \textbf{0.002} & 0.023 B & \textbf{$<$0.001} & 0.096$^\ddagger$ & \textbf{$<$0.001} & -- \\
+Time blocks & 4 & 0.010 B & \textbf{$<$0.001} & 0.236 I$^\dagger$ & \textbf{$<$0.001} & 1.000 I & \textbf{0.029} & 0.379 I$^\dagger$ & \textbf{$<$0.001} & 1.000$^\ddagger$ & 0.095$^\dagger$ & -- \\
+Train fraction & 0.3 & 0.170 I$^\dagger$ & \textbf{$<$0.001} & 0.671 I$^\dagger$ & \textbf{$<$0.001} & 1.000 I & \textbf{0.026} & 1.000 I$^\dagger$ & \textbf{$<$0.001} & 1.000$^\ddagger$ & \textbf{0.005} & -- \\
+ & 0.7 & $<$0.001 B & \textbf{$<$0.001} & 0.011 B & \textbf{$<$0.001} & 0.561 I & \textbf{0.005} & 0.035 B & \textbf{$<$0.001} & 0.136$^\ddagger$ & \textbf{$<$0.001} & -- \\
+HAC lag rule & Newey-West & $<$0.001 B & \textbf{$<$0.001} & 0.003 B & \textbf{$<$0.001} & 0.408 I & \textbf{$<$0.001} & 0.015 B & \textbf{$<$0.001} & 0.116$^\ddagger$ & \textbf{$<$0.001} & -- \\
+\bottomrule
+\end{tabular}

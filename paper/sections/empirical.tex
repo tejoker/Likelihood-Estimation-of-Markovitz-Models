@@ -1,0 +1,51 @@
+\section{Empirical results: S\&P 500}\label{sec:emp}
+% =============================================================================================
+% Target length: 5.5 pages including 6 tables and 3 figures. Experiments: E1
+% (experiments/e1_placebo.py) and E3 (experiments/e3_sp500.py). Every real-data test uses the
+% dependent protocol (time blocks + Driscoll-Kraay HAC; wild bootstrap for kernel tests; KS
+% flagged invalid). Report the pre-specified power check BEFORE the real-data results, as it was
+% run. Plan: OUTLINE.md, Section 7.
+%
+% Planned subsections (labels):
+%  \subsection{Size of the real-data pipeline}                     \label{sec:emp-placebo}
+%     E1(a) simulated panel placebo (factor GARCH-t fitted on TRAIN; cells joint / indep;
+%     200 replications; exactly the E3 sizes): tab:e1-size-sim, fig:e1-pvalue-qq. The naive
+%     protocol (ticker split + permutation) is severely oversized (\todo{rate}, theory pilot
+%     about 45% at 5%); time-block + HAC closer to nominal but still above (\todo{rates});
+%     fixed-b comparison rows. E1(b) real-ticker halves (secondary, 50 splits, rates only:
+%     tab:e1-size-real in appendix). E1(c) R_new vs R_past: non-stationarity
+%     (tab:e1-nonstat).
+%  \subsection{Pre-specified power check}                          \label{sec:emp-power}
+%     tab:e3-power: designs D1 (per-ticker GARCH-t, stationary R_past*) and D2 (real TRAIN
+%     volatility path); power and boundary size of the seed-combined rule (100 replications x
+%     5 seeds as run); a single-seed anchored p-value is not calibrated on real data.
+%  \subsection{Absolute and relative tests by generator}           \label{sec:emp-tests}
+%     tab:e3-pooled-tests, fig:e3-pvalues: pooled absolute tests per model (5 seeds, twice the
+%     median p) and anchored / two-critic relative tests; typical finding to discuss:
+%     distinguishable from the future but not worse than history.
+%  \subsection{What the critic detects}                            \label{sec:emp-witness}
+%     fig:e3-critic-witness: critic values against window log realised volatility and max |r|.
+%  \subsection{Per-ticker tests}                                   \label{sec:emp-perticker}
+%     tab:e3-perticker: L = 5, critic (HAC) and MMD (wild), p-values calibrated against a pooled
+%     GARCH-t null (nominal p-values oversized: tab:e3-perticker-null in appendix), BH primary,
+%     BY and Storey pi_0 as robustness; per-ticker GOOD needs per-ticker power (rarely).
+%  \subsection{Agreement with likelihood benchmarks}               \label{sec:emp-likelihood}
+%     tab:e3-likelihood (predictive log-likelihood, Berkowitz, PIT-KS for GBM / Merton /
+%     GARCH-t), tab:e3-likelihood-ag (appendix), tab:e3-agreement (Kendall tau of rankings,
+%     Cohen kappa of per-ticker verdicts); disagreement is expected when models are misspecified
+%     in different directions (rem:kl-vs-w1).
+%  \subsection{Verdicts}                                           \label{sec:emp-verdicts}
+%     tab:e3-verdicts: GOOD / BAD / INCONCLUSIVE per model (INVALID for the bootstrap), with
+%     the absolute test alongside and the Clopper-Pearson variant.
+% Tables/figures (file -> label):
+%   e1_size_sim.tex -> tab:e1-size-sim (main); e1_pvalue_qq.pdf -> fig:e1-pvalue-qq (main)
+%   e1_nonstat.tex -> tab:e1-nonstat (main or appendix); e1_size_real.tex -> tab:e1-size-real (app.)
+%   e3_power.tex -> tab:e3-power (main); e3_pooled_tests.tex -> tab:e3-pooled-tests (main)
+%   e3_pvalues.pdf -> fig:e3-pvalues (main); e3_critic_witness.pdf -> fig:e3-critic-witness (main)
+%   e3_perticker.tex -> tab:e3-perticker (main); e3_perticker_null.tex -> tab:e3-perticker-null (app.)
+%   e3_likelihood.tex -> tab:e3-likelihood (main); e3_likelihood_ag.tex -> tab:e3-likelihood-ag (app.)
+%   e3_agreement.tex -> tab:e3-agreement (main); e3_verdicts.tex -> tab:e3-verdicts (main)
+% =============================================================================================
+\todo{Section to be written (OUTLINE.md, Section 7). Anchor citations:
+\citet{diebold1998evaluating}, \citet{berkowitz2001testing}, \citet{amisano2007comparing},
+\citet{benjamini1995controlling}.}

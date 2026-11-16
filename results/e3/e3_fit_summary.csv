@@ -1,0 +1,36 @@
+Model,Parameter,Median,IQR,At bound
+GBM,$\mu\times 10^4$,2.17,"[0.73, 4.17]",0
+GBM,$\sigma\times 100$,2.11,"[1.85, 2.51]",0
+GBM,Optimiser success (share),1.00,--,
+GBM,Fit time (s),0.00,"[0.00, 0.00]",
+GBM,Tickers with a parameter at a bound,0,,of 100
+Merton,$\mu\times 10^4$,8.64,"[5.09, 11.36]",0
+Merton,$\sigma\times 100$,1.38,"[1.18, 1.60]",0
+Merton,$\lambda$,0.152,"[0.108, 0.237]",3
+Merton,$\mu_J\times 100$,$-$0.36,"[$-$0.52, $-$0.23]",0
+Merton,$\sigma_J\times 100$,3.73,"[3.18, 4.86]",0
+Merton,Optimiser success (share),1.00,--,
+Merton,Fit time (s),0.28,"[0.24, 0.31]",
+Merton,Tickers with a parameter at a bound,3,,of 100
+GARCH-t,$\mu\times 10^4$,7.78,"[5.38, 9.99]",0
+GARCH-t,$\alpha$,0.117,"[0.095, 0.148]",0
+GARCH-t,$\beta$,0.845,"[0.788, 0.874]",0
+GARCH-t,$\alpha+\beta$,0.965,"[0.940, 0.976]",1
+GARCH-t,$\nu$,4.88,"[4.43, 5.76]",0
+GARCH-t,$\omega\times 10^6$,16.69,"[12.55, 28.09]",0
+GARCH-t,Optimiser success (share),1.00,--,
+GARCH-t,Fit time (s),0.05,"[0.04, 0.05]",
+GARCH-t,Tickers with a parameter at a bound,1,,of 100
+Heston,$\kappa$,0.061,"[0.038, 0.098]",5
+Heston,$\sqrt{\theta}\times 100$,2.13,"[1.87, 2.54]",0
+Heston,$\xi\times 100$,0.78,"[0.58, 0.98]",0
+Heston,$\rho$,$-$0.47,"[$-$0.81, $-$0.19]",20
+Heston,$c=\xi/\sqrt{2\kappa\theta}$ (CV of $v$),1.05,"[0.93, 1.12]",11
+Heston,Feller condition holds (share),0.43,--,
+Heston,Optimiser success (share),1.00,--,
+Heston,Fit time (s),32.81,"[27.88, 40.09]",
+Heston,Tickers with a parameter at a bound,33,,of 100
+Stat. bootstrap,Mean block length,52.3,"[43.9, 55.7]",0
+Stat. bootstrap,Block-rule fallback (tickers),0,--,
+Stat. bootstrap,Fit time (s),0.00,"[0.00, 0.00]",
+Stat. bootstrap,Tickers with a parameter at a bound,0,,of 100

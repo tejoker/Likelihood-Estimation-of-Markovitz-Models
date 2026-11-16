@@ -1,0 +1,42 @@
+\section{Markowitz utility of synthetic data}\label{sec:markowitz}
+% =============================================================================================
+% Target length: 4 pages including 4 tables and 1 figure. Theory: docs/theory.md Section 9
+% (proofs in \cref{app:proofs}). Experiment: E4 (experiments/e4_markowitz.py). Plan: OUTLINE.md,
+% Section 8.
+%
+% Planned subsections (labels):
+%  \subsection{What theory predicts}                               \label{sec:mk-theory}
+%     lem:quad-loss (Lemma 9.1); prop:gmv-sensitivity (Prop 9.2: scale invariance, Kantorovich
+%     bound, quadratic in the relative covariance error); cor:gmv-drivers (Cor 9.3; (ii)-(iii)
+%     heuristic); prop:no-free-lunch (Prop 9.4); examples ex:scale-blind (9.5), ex:spread (9.6),
+%     ex:corr-blind (9.7), ex:drift (9.8). Message: critic distance and portfolio utility are
+%     related but not monotonically; GMV depends on Sigma_G up to scale; drift errors dominate
+%     mean-variance utility yet are undetectable at these sample sizes.
+%  \subsection{Design}                                             \label{sec:mk-design}
+%     30 universes x 30 assets; five generators fitted on TRAIN; B = 20 synthetic TRAIN-length
+%     samples; sample and Ledoit-Wolf moments; GMV (unconstrained, long-only), long-only
+%     mean-variance gamma in {1, 5, 20}, 1/N; evaluated on real TEST against the same rule on
+%     real TRAIN (TRTR); losses: variance ratio, Sharpe gap, CE loss; aggregations replica /
+%     pooled / weight-averaged. Multivariate tests on (N, L) = (30, 5) windows (critic with
+%     time blocks + HAC; MMD wild bootstrap, fixed bandwidth per universe), placebo-calibrated
+%     rejection shares; \todo{as run: 2 test seeds, 60 placebo replications (compute budget)}.
+%  \subsection{Utility of synthetic-trained portfolios}            \label{sec:mk-utility}
+%     tab:e4-utility, tab:e4-correlation (average correlation real TRAIN vs TEST vs generators;
+%     the real correlation fell between TRAIN and TEST, so a generator that fits the past
+%     better need not be more useful); TRTR reference tab:e4-trtr and aggregations
+%     tab:e4-utility-agg in the appendix.
+%  \subsection{Do test verdicts predict utility?}                  \label{sec:mk-link}
+%     tab:e4-tests (+ note), tab:e4-link (+ note), fig:e4-utility-vs-distance; four views of
+%     the link (pooled, within-universe, within-generator, generator-level n = 5); conclusions
+%     conditional on five generators; placebo sizes tab:e4-placebo, fig:e4-placebo-size and
+%     tab:e4-link-pooled in the appendix.
+% Tables/figures (file -> label):
+%   e4_utility.tex -> tab:e4-utility (main); e4_correlation.tex -> tab:e4-correlation (main)
+%   e4_tests.tex (+e4_tests_note) -> tab:e4-tests (main); e4_link.tex (+e4_link_note) -> tab:e4-link (main)
+%   e4_utility_vs_distance.pdf -> fig:e4-utility-vs-distance (main)
+%   appendix: e4_trtr -> tab:e4-trtr, e4_utility_agg -> tab:e4-utility-agg, e4_placebo (+note)
+%   -> tab:e4-placebo, e4_placebo_size.pdf -> fig:e4-placebo-size, e4_link_pooled -> tab:e4-link-pooled
+% =============================================================================================
+\todo{Section to be written (OUTLINE.md, Section 8). Anchor citations:
+\citet{markowitz1952portfolio}, \citet{ledoit2004well}, \citet{demiguel2009optimal},
+\citet{chopra1993effect}, \citet{cetingoz2026synthetic}.}

@@ -1,0 +1,172 @@
+{
+  "experiment": "e2",
+  "part": "e",
+  "quick": false,
+  "written": "2026-11-15T22:17:14",
+  "config": {
+    "part": "e",
+    "seed": 20251115,
+    "L": 20,
+    "burn": 250,
+    "P_new": {
+      "kind": "garch",
+      "pers": 0.98
+    },
+    "scenarios": {
+      "equal": {
+        "P_past": {
+          "kind": "garch",
+          "pers": 0.98
+        },
+        "seed": "e_past_equal"
+      },
+      "shift": {
+        "P_past": {
+          "kind": "garch",
+          "pers": 0.95
+        },
+        "seed": "e_past"
+      }
+    },
+    "gens": [
+      [
+        "equal",
+        "equal",
+        "boundary: G = P_past = P_new (GARCH 0.98)",
+        {
+          "kind": "garch",
+          "pers": 0.98
+        }
+      ],
+      [
+        "past",
+        "shift",
+        "boundary: G = P_past (GARCH 0.95) != P_new",
+        {
+          "kind": "garch",
+          "pers": 0.95
+        }
+      ],
+      [
+        "new",
+        "shift",
+        "interior: G = P_new (GARCH 0.98)",
+        {
+          "kind": "garch",
+          "pers": 0.98
+        }
+      ],
+      [
+        "garch90",
+        "shift",
+        "worse: GARCH 0.90",
+        {
+          "kind": "garch",
+          "pers": 0.9
+        }
+      ],
+      [
+        "gbm",
+        "shift",
+        "worse: GBM",
+        {
+          "kind": "gbm",
+          "vol": 0.02
+        }
+      ],
+      [
+        "resample",
+        "shift",
+        "resample of R_past, split by source window (conservative)",
+        "resample_grouped"
+      ],
+      [
+        "resample_naive",
+        "shift",
+        "resample of R_past, random split (train/eval leakage)",
+        "resample_naive"
+      ]
+    ],
+    "methods": [
+      "anchored",
+      "two_critic"
+    ],
+    "base": {
+      "n_steps": 1000,
+      "batch_size": 128,
+      "lr": 0.001,
+      "weight_decay": 0.0,
+      "arch": "auto",
+      "hidden": null,
+      "depth": 3,
+      "layer_norm": false,
+      "train_frac": 0.5,
+      "n_perm": 1000,
+      "early_stopping": false,
+      "val_frac": 0.2,
+      "eval_every": 50,
+      "patience": 5,
+      "min_steps": 0,
+      "curve_points": 100,
+      "hac_lags": null,
+      "inference": "permutation",
+      "tie_break": "conservative",
+      "time_blocks": null,
+      "gp_lambda": 10.0
+    },
+    "n_boot": 500,
+    "code_models": "4a126fd58c171a4e",
+    "code_tests_e": "b3a65cf9a10381ae",
+    "n_list": [
+      500
+    ],
+    "reps": 200
+  },
+  "config_hash": "7cb8db927ee8",
+  "timing": {
+    "e_s": 9076.787168096002
+  },
+  "workers": 5,
+  "argv": [
+    "experiments/e2_ground_truth.py",
+    "--part",
+    "e",
+    "--workers",
+    "5"
+  ],
+  "git": {
+    "commit": "b7c16b830085aca7de70730ce67e12bc4975c9ae",
+    "dirty": true,
+    "dirty_paths": [
+      "src",
+      "experiments"
+    ],
+    "n_dirty_files": 2,
+    "dirty_files": [
+      " M experiments/run_full.sh",
+      "?? experiments/e2_dependence.py"
+    ]
+  },
+  "code": {
+    "sha256": "32ae8a7681db62a5fc27a9c5bd774fe3f6947dd146f4712e5bb67095e2d25dca",
+    "n_files": 22,
+    "dir": "src/synthval"
+  },
+  "packages": {
+    "python": "3.12.16",
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "scipy": "1.18.1",
+    "statsmodels": "0.15.0",
+    "matplotlib": "3.11.2",
+    "torch": "2.15.0+cpu",
+    "arch": "9.0.0",
+    "scikit-learn": "1.9.1"
+  },
+  "platform": {
+    "system": "Linux",
+    "release": "7.0.0-43-generic",
+    "machine": "x86_64",
+    "cpu_count": 16
+  }
+}

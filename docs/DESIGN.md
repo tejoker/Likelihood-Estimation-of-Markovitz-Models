@@ -423,3 +423,11 @@ Compile with `latexmk -pdf main.tex` from `paper/`.
   - E4: new `placebo` part (200 replications per generator) and size-adjusted rejection shares; FactorGARCHt as fifth generator; RealTRAIN reference = last 615 TRAIN days; MMD with a fixed per-universe bandwidth; 10 test seeds; link in four views (pooled, within-universe, within-generator, generator-level with n = 5).
   - E5 calls E3's power/realvol replication functions and verdict rule; new parts `gridsize` (absolute size per configuration, McNemar vs default), `gridpower`, `gridrealvol`; n_perm moved from the grid to `simpower`.
   - Compute: full-settings workers peak at 0.46-0.6 GB (critic-only) to 0.9 GB (kernel matrices: E1, E3 pooled, E5 split battery), so 12 workers do not fit in ~5 GB free RAM; E3/E5 cap workers from MemAvailable; E5 gridpower (4.35 h) and gridrealvol (2.86 h) exceed 2.5 h at 12 workers; schedule in experiments/README.md.
+- 2026-11-15 (lead, compute budget; ~205 CPU h requested vs ~45 available today): E3 synthetic seeds
+  10 -> 5 (verdict rule: min(1, 2 x median p) over 5 seeds), E3 power/realvol reps 200 -> 100;
+  E5 runs grid, split (rule power 25 reps), simpower (50 reps); gridsize, gridpower, gridrealvol not run
+  (E1 measures the size of the default real-data pipeline); E4 test seeds 2, placebo reps 60;
+  E2 part e at n = 500 only (200 reps); E1 real-data placebo 50 splits. Commands: experiments/run_full.sh.
+- 2026-11-15 (lead): new experiments/e2_dependence.py (E2 dependence-only families "mix" and "block",
+  exact marginal, so KS has no power by construction) after preliminary E2 results showed pooled KS
+  dominating every family that changes the marginal.

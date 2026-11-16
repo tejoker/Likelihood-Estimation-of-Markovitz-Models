@@ -13,9 +13,11 @@ laneA() {  # ground truth, then placebo  (E2 main is run first: --part main --wo
   run experiments/e2_ground_truth.py --part e --workers 5
   run experiments/e2_ground_truth.py --part f,g --workers 5
   run experiments/e1_placebo.py --part sim --workers 4
+  run experiments/e2_dependence.py --workers 4
   run experiments/e1_placebo.py --part real,nonstat --workers 4
   run experiments/e1_placebo.py --plots-only
   run experiments/e2_ground_truth.py --plots-only
+  run experiments/e2_dependence.py --plots-only
 }
 laneB() {  # S&P 500 univariate, then robustness
   run experiments/e3_sp500.py --part fit --workers 5

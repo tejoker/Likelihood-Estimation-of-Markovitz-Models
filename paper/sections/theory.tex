@@ -1,0 +1,947 @@
+\section{Theory}\label{sec:theory}
+% =============================================================================================
+% Owner: theory writer. Source: docs/theory.md (Sections 1-9), checked against src/synthval.
+% Proofs: sections/appendix_proofs.tex (input by appendix.tex under \section{Proofs}).
+% Labels follow paper/OUTLINE.md, Section 6. New labels (not in the outline registry):
+%   sec:theory-markowitz, ass:anc, ass:rel, prop:anchored-target, rem:anchored-null,
+%   rem:nonstat-past, rem:ks-marginal, tab:theory-status, app:proofs-* (appendix subsections).
+% =============================================================================================
+
+This section states what the protocol of \cref{sec:method} guarantees and what it does not. A
+Proposition, Lemma or Corollary is proved, in \cref{app:proofs} unless the proof takes a few
+lines; ``sketch'' marks a proof that gives every key step but omits routine measure-theoretic
+detail. A Fact is a standard result quoted with a reference. A Remark whose title contains
+``heuristic'' is an argument, not a theorem. \Cref{tab:theory-status} at the end of the section
+lists the status and the assumptions of each result. Throughout, $P$ and $Q$ are the laws of one
+real and one synthetic window on $\R^d$ ($d=L$, or $d=NL$ for multivariate windows), $\norm{\cdot}$
+is the Euclidean (Frobenius) norm, $Pf=\int f\,dP$, and $\Pev f$, $\Qev f$, $\Ptr f$, $\Qtr f$
+are means of $f$ over the evaluation and training halves of the two samples.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{What a window test can detect}\label{sec:theory-windows}
+
+Let $(r_t)_{t\in\mathbb Z}$ be a return process with values in $\R$ or $\R^N$. The real sample
+consists of non-overlapping windows $X_i=(r_{s_0+(i-1)L+1},\dots,r_{s_0+iL})$ of the observed
+series, and the synthetic sample of windows $Y_j$ of paths simulated from the generator $G$.
+
+\begin{definition}[Absolute null]\label{def:abs-null}
+With $P=\Law(X_i)$ and $Q=\Law(Y_j)$, the absolute null is $H_0:P=Q$, against $H_1:P\neq Q$.
+\end{definition}
+
+$H_0$ concerns the marginal law of one window. Dependence between windows, such as successive
+windows of one path or windows of different tickers on the same dates, is not part of $H_0$; it is
+a nuisance that changes the null distribution of every statistic.
+\Cref{sec:theory-critic,sec:theory-level,sec:theory-consistency,sec:theory-likelihood} assume
+independent windows and \cref{sec:theory-dependence} removes this assumption.
+
+\begin{proposition}[What a window law identifies]\label{prop:window-ident}
+Let $(r_t)$ be strictly stationary and let $P_L$ be the law of $(r_1,\dots,r_L)$.
+\begin{enumerate}
+  \item[(a)] $P_L$ determines the joint law of $(r_{t_1},\dots,r_{t_k})$ whenever
+  $t_k-t_1\le L-1$: every autocovariance and every moment $\E g(r_t,r_{t+h})$ with
+  $0\le h\le L-1$ (the autocorrelations of $r_t$, $\abs{r_t}$ and $r_t^2$, leverage correlations),
+  and the law of aggregated returns $\sum_{t=1}^h r_t$ for $h\le L$.
+  \item[(b)] The family $(P_L)_{L\ge1}$ determines the law of the process.
+  \item[(c)] For every $L\ge1$ there are strictly stationary processes with the same $P_L$ and
+  different $P_{L+1}$.
+\end{enumerate}
+\end{proposition}
+\noindent\textit{Proof.} In \cref{app:proofs-windows}.
+
+A test on windows of length $L$ therefore tests the necessary condition $P_L=Q_L$: equality of
+every dependence feature at lags $0,\dots,L-1$ and of aggregated returns up to horizon $L$. It has
+no power against deviations that appear only at lags $L$ or more, however large the sample.
+Longer windows see longer-range dependence but give fewer windows ($n=\lfloor T/L\rfloor$) in a
+higher dimension; E5 varies $L\in\{5,10,20,60\}$ (\cref{sec:robust}).
+
+\begin{proposition}[Pairs determine a stationary Markov chain]\label{prop:markov-pairs}
+Let $(r_t)$ and $(r'_t)$ be strictly stationary, time-homogeneous, first-order Markov chains with
+values in a Polish space. If $(r_0,r_1)\eqd(r'_0,r'_1)$, then $(r_t)\eqd(r'_t)$ as processes. For
+chains of order $k$, $P_{k+1}=P'_{k+1}$ implies equality of the processes.
+\end{proposition}
+\noindent\textit{Proof.} In \cref{app:proofs-windows}.
+
+\Cref{prop:markov-pairs} compares two Markov chains: if only the generator is Markov, $P_2=Q_2$
+says that the real process has the generator's pair law, nothing more. The models of this paper
+are Markov only in an augmented state. GBM, Merton and the i.i.d.\ Student-$t$ laws of E2 have
+i.i.d.\ returns, and a window density is a product of daily densities. In the \GARCHt{} model,
+$\sigma_{t+1}^2=\omega/(1-b)+a\sum_{j\ge0}b^j\varepsilon_{t-j}^2$ is a function of past returns
+(the model is observation-driven), so the likelihood is explicit given $\sigma_1^2$; yet the
+returns are not Markov of any finite order when $a,b>0$ (sketch in \cref{app:proofs-windows}).
+The autocorrelation of squared returns decays like $(a+b)^h$ \citep{francq_2019_garch}, and at
+persistence $0.98$ the volatility half-life is $\log0.5/\log0.98\approx34$ days, beyond $L=20$.
+In the Heston model the variance is a latent continuous state with its own shock and no closed-form
+filter, so the likelihood is intractable \citep{aitsahalia2007maximum}; we simulate it with the
+quadratic-exponential scheme of \citet{andersen_2008_simple} (\cref{sec:data-generators}). The
+stationary bootstrap has no likelihood. Likelihood benchmarks thus exist for GBM, Merton and
+\GARCHt{} only, and the critic is the only formal tool of the paper for the other two generators.
+
+\begin{remark}[Pooling tickers]\label{rem:pooling}
+Real and synthetic returns of ticker $i$ are divided by the same constant $s_i$ computed on
+\TRAIN. Given \TRAIN{} this is a fixed bijection, so the per-ticker null $P_i=Q_i$ is unchanged.
+If ticker $i$ contributes a fraction $\pi_i$ of the real windows and $\pi'_i$ of the synthetic
+ones, the pooled laws are $\bar P=\sum_i\pi_iP_i$ and $\bar Q=\sum_i\pi'_iQ_i$, and the per-ticker
+nulls imply the pooled null $\bar P=\bar Q$ only if $\pi_i=\pi'_i$. Each ticker therefore
+contributes the same number of real and synthetic windows. The pooled null is weaker than the
+intersection of the per-ticker nulls, because per-ticker errors can cancel in the mixture; the
+per-ticker tests of \cref{rem:bh} address this.
+\end{remark}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{The held-out critic statistic}\label{sec:theory-critic}
+
+Each sample is split into a training and an evaluation half, with index sets $\Itr,\Iev$ (real,
+sizes $n_t,n_e$) and $\Jtr,\Jev$ (synthetic, sizes $m_t,m_e$). Let $\Gsig$ be the $\sigma$-field
+generated by the training halves, the index sets and the training randomness $\xi$
+(initialisation, mini-batches). The critic is $\fhat=\ghat\circ A$, where
+$A(x)=\Lambda^{-1}(x-m_A)$ is the coordinate-wise standardisation fitted on the pooled training
+half (per asset channel for multivariate windows) and $\ghat$ is the network trained by
+\eqref{eq:wgan-gp}. Conditioning on $\Gsig$ fixes $\fhat$, and the statistic is
+$T=\Pev\fhat-\Qev\fhat$ \eqref{eq:critic-stat}. The networks are compositions of globally
+Lipschitz maps (affine and convolutional layers, LeakyReLU, LayerNorm with a positive
+$\epsilon$), so $\Lip(\ghat)<\infty$ and $\fhat\in L^p(P)$ whenever $P\in\Pspace{p}(\R^d)$, although
+the constant is not controlled.
+
+\begin{fact}[Kantorovich--Rubinstein duality; \citealp{villani2009optimal}, Ch.~5--6]
+\label{fact:kr-duality}
+For $P,Q\in\Pspace{1}(\R^d)$,
+$\W(P,Q):=\inf_{\pi\in\Pi(P,Q)}\int\norm{x-y}\,\pi(dx,dy)=\sup_{f\in\Lip_1}(Pf-Qf)$, where
+$\Pi(P,Q)$ is the set of couplings and $\Lip_c=\{f:\Lip(f)\le c\}$. $\W$ is a metric on
+$\Pspace{1}$, and it metrises weak convergence together with convergence of first moments.
+\end{fact}
+
+$\W$ is the integral probability metric of $\Lip_1$ \citep{muller1997integral}; on $\Pspace{1}$,
+$H_0$ holds if and only if $\W(P,Q)=0$.
+
+\begin{remark}[The critic sees standardised windows]\label{rem:representation}
+Given $\Gsig$, $A$ is a fixed affine bijection, so $A_\#P=A_\#Q$ if and only if $P=Q$. The
+gradient penalty differentiates $\ghat$ with respect to the standardised input, so the Lipschitz
+constant it pushes towards one is $\Lip(\ghat)$, the Lipschitz constant of $\fhat$ for the metric
+$\norm{x-y}_A=\norm{\Lambda^{-1}(x-y)}$. Write $P_A=A_\#P$ and $Q_A=A_\#Q$. Then $\W(P_A,Q_A)$ is
+the Wasserstein-1 distance of $P$ and $Q$ under $\norm{\cdot}_A$, and
+$\norm{\Lambda}_{\mathrm{op}}^{-1}\W(P,Q)\le\W(P_A,Q_A)\le\norm{\Lambda^{-1}}_{\mathrm{op}}\W(P,Q)$.
+In E2 the windows are raw daily returns with volatility $0.02$, so $\norm{\Lambda^{-1}}_{\mathrm{op}}$
+is about $50$; in E3 and E4 the returns are already divided by $s_i$ and $\Lambda$ is of order one.
+\end{remark}
+
+\begin{proposition}[Conditional unbiasedness and a bound by $\W$ of the standardised laws]
+\label{prop:unbiased}
+Assume that, conditionally on $\Gsig$, every evaluation window $X_i$ has law $P$, every
+evaluation window $Y_j$ has law $Q$, and $P,Q\in\Pspace{1}(\R^d)$.
+\begin{enumerate}
+  \item[(a)] $\E[T\mid\Gsig]=P\fhat-Q\fhat=P_A\ghat-Q_A\ghat=:\Dcrit(\fhat)$.
+  \item[(b)] $\Dcrit(\fhat)\le\Lip_{S_A}(\ghat)\,\W(P_A,Q_A)\le\Lip(\ghat)\,\W(P_A,Q_A)$, where
+  $\Lip_{S_A}$ is the Lipschitz constant on $S_A=\supp P_A\cup\supp Q_A$.
+  \item[(c)] If the evaluation windows are also conditionally independent and
+  $P,Q\in\Pspace{2}(\R^d)$, then
+  $\Var(T\mid\Gsig)=\Var_P\fhat/n_e+\Var_Q\fhat/m_e\le\Lip(\ghat)^2\big(\Tr\Sigma_{P_A}/n_e+\Tr\Sigma_{Q_A}/m_e\big)$,
+  where $\Sigma_{P_A}=\Lambda^{-1}\Sigma_P\Lambda^{-1}$ is the covariance matrix of $P_A$.
+\end{enumerate}
+\end{proposition}
+\noindent\textit{Proof.} In \cref{app:proofs-critic}.
+
+\begin{remark}[What the $\W$ reading of $T$ does and does not say]\label{rem:gp-soft}
+If $\Lip(\ghat)\le1$, part (b) makes the conditional mean of $T$ a lower bound on $\W(P_A,Q_A)$;
+this is the sense in which $T$ is ``a $\W$ lower bound''. The reading has five limits.
+(i) \emph{Scale:} it concerns standardised windows, not return units (\cref{rem:representation}).
+(ii) \emph{Sampling error:} $T$ itself can exceed $\W(P_A,Q_A)$ by a term of order
+$n_e^{-1/2}+m_e^{-1/2}$; the conservative summary is the lower confidence bound
+$T-z_{1-\alpha}(s_X^2/n_e+s_Y^2/m_e)^{1/2}$.
+(iii) \emph{Soft constraint:} the penalty enforces the Lipschitz constraint only in expectation
+over interpolates of training points, and it is two-sided, pushing gradient norms towards one
+rather than below one \citep{petzka_2018_regularization}. Nothing guarantees $\Lip(\ghat)\le1$,
+and WGAN critics are known to be poor estimators of $\W$ itself
+\citep{mallasto2019well,stanczuk_2021_wasserstein}.
+(iv) \emph{Looseness:} a small $T$ says that the trained critic found no separating direction, not
+that $\W$ is small; \cref{prop:consistency} says what training would have to deliver.
+(v) \emph{Relevance:} $\W$ of standardised windows weights directions by the inverse coordinate
+scale and ignores what a user of the data values; \cref{sec:theory-markowitz} shows that it can
+rank generators against their portfolio utility.
+We therefore use $T$ as a test statistic. Its level (\cref{sec:theory-level}) does not depend on
+any Lipschitz property, and its $\W$ reading is approximate and descriptive.
+\end{remark}
+
+\begin{remark}[Why hold data out]\label{rem:holdout}
+The plug-in distance $\W(P_n,Q_m)$ is biased upwards: $\E\,\W(P_n,P)$ is of order $n^{-1/d}$ for
+$d\ge3$ \citep{fournier2015rate}, which is about $0.68$ for $d=20$ and $n=2000$ and swamps
+plausible effects. The in-sample training objective is biased upwards in the same way. The
+held-out $T$ is conditionally unbiased for $\Dcrit(\fhat)$ and has an exact null distribution
+(\cref{prop:exact-level}), at the cost of sample splitting, which \cref{prop:local-power}
+quantifies. This is the template of sample-split two-sample tests
+\citep{lopezpaz2017revisiting,kim2021classification,liu2020learning,kubler2022witness}; for
+Wasserstein-based testing see \citet{ramdas2017wasserstein}. The critic is a learned, sample-split
+relative of the test functions of \citet{bierens1990consistent} and
+\citet{stinchcombe1998consistent}.
+\end{remark}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Exact level under exchangeability}\label{sec:theory-level}
+
+Pool the evaluation windows as $V=(V_1,\dots,V_{n_e+m_e})=(X_{\Iev},Y_{\Jev})$, real first, and let
+$t(v)=n_e^{-1}\sum_{k\le n_e}\fhat(v_k)-m_e^{-1}\sum_{k>n_e}\fhat(v_k)$. Then $T=t(V)$, the
+permuted statistics are $T_b=t(\pi_b\cdot V)$ with $(\pi\cdot v)_k=v_{\pi^{-1}(k)}$, and the
+p-value \eqref{eq:perm-pvalue} is $\pperm=(1+\#\{b\ge1:T_b\ge T\})/(1+B)$.
+
+\begin{assumption}[Exchangeability]\label{ass:exch}
+\emph{(A1)} (i) $X_1,\dots,X_n$ are i.i.d.\ $P$, $Y_1,\dots,Y_m$ are i.i.d.\ $Q$, and the two
+samples are independent. (ii) The index sets are chosen independently of the window values;
+random, deterministic, group-wise and time-block splits qualify. (iii) $\fhat$ is a measurable
+function of the training windows and of randomness $\xi$ independent of the data. (iv) The
+permutations $\pi_1,\dots,\pi_B$ are i.i.d.\ uniform on the permutations of $\{1,\dots,n_e+m_e\}$,
+independent of everything else.\\
+\emph{(A1$'$)} Conditionally on $\Gsig$, the law of $V$ is invariant under every permutation of
+its coordinates. Under $H_0$, (A1) implies (A1$'$).
+\end{assumption}
+
+\begin{proposition}[Exact level]\label{prop:exact-level}
+Under (A1$'$) and (A1)(iv), in particular under (A1) and $H_0$, for every $\alpha\in(0,1)$, every
+$B\ge1$, every $n_e,m_e\ge1$ and every critic, however it was trained,
+\[
+  \Prob(\pperm\le\alpha\mid\Gsig)\le\frac{\lfloor\alpha(B+1)\rfloor}{B+1}\le\alpha\quad\text{a.s.},
+  \qquad\text{hence}\qquad \Prob(\pperm\le\alpha)\le\alpha .
+\]
+\end{proposition}
+\noindent\textit{Proof.} In \cref{app:proofs-level} (\cref{lem:exchangeable,lem:rank}).
+
+This is the randomisation principle \citep{lehmann2022testing} in the random-permutation form of
+\citet{phipson2010permutation} and \citet{hemerik2018exact}. The guarantee needs no Lipschitz
+constraint, no convergence of training and no continuity: a poor or overfitted critic costs power,
+never level. For a discrete statistic such as the C2ST accuracy, randomised tie-breaking makes the
+p-value exactly uniform under (A1$'$). The guarantee does need conditional exchangeability of the
+evaluation windows given the training data, which fails when real windows depend on each other or
+on the training windows (\cref{sec:theory-dependence}).
+
+\begin{remark}[Weaker nulls and studentisation]\label{rem:studentised}
+(a) Conditionally on $\Gsig$, $z=T/(s_X^2/n_e+s_Y^2/m_e)^{1/2}$ is asymptotically $N(0,1)$
+whenever $P\fhat=Q\fhat$ and second moments are finite (Lindeberg); under $H_0$ its normal p-value
+is asymptotically equivalent to $\pperm$ \citep{hoeffding_1952_large}.
+(b) The permutation test is exact for $P=Q$. For the weaker hypothesis $H_0':P\fhat=Q\fhat$ the
+unstudentised permutation test can be miscalibrated when $n_e\neq m_e$ and the two variances
+differ \citep{romano_1990_behavior}; with $n_e=m_e$ the permutation variance matches the true
+variance asymptotically. Permuting the studentised statistic is asymptotically valid for $H_0'$
+and stays exact under $H_0$ \citep{janssen1997studentized,chung2013exact}. These results concern
+unequal i.i.d.\ laws, not serial dependence. They matter for the relative tests, whose nulls are
+statements about means of a trained critic.
+\end{remark}
+
+\begin{remark}[Seeds and the p-value lottery]\label{rem:combine-seeds}
+The p-value depends on the random split, on $\xi$ and, on real data, on the synthetic seed.
+Reporting the smallest p-value over $S$ seeds is invalid. If every $p_s$ is valid, that is
+$\Prob(p_s\le u)\le u$ for all $u\in(0,1)$, then $\pmed=\min\{1,2\med_sp_s\}$ \eqref{eq:pmed} is
+valid under arbitrary dependence between the $p_s$ \citep{meinshausen_2009_pvalues}: the event
+$\{\pmed\le\alpha\}$ implies that at least $S/2$ of the $p_s$ are at most $\alpha/2$, and Markov's
+inequality bounds its probability by $(2/S)\sum_s\Prob(p_s\le\alpha/2)\le\alpha$. Twice the mean
+is valid as well \citep{vovk_2020_combining}. The combination inherits any miscalibration of the
+individual $p_s$.
+\end{remark}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Consistency}\label{sec:theory-consistency}
+
+The standardisation $A$ is estimated on the training half. Under the conditions of
+\cref{ass:consistency} below it converges almost surely to the population standardisation $A^*$,
+and the estimation error adds $o_\Prob(1)$ terms to every step (\cref{app:proofs-consistency}).
+We therefore state the results for the standardised laws $A^*_\#P$ and $A^*_\#Q$ and for the
+network $\ghat$, with Lipschitz constants in standardised coordinates, and, in this subsection
+only, write $P,Q$ for $A^*_\#P,A^*_\#Q$ and $\fhat$ for $\ghat$.
+
+\begin{assumption}[Consistency regime]\label{ass:consistency}
+\emph{(C1)} (A1) holds, $P,Q\in\Pspace{2}(\R^d)$ and $P\neq Q$.
+\emph{(C2)} $n_t,m_t,n_e,m_e\to\infty$ and $B\ge\lceil2/\alpha\rceil$ (otherwise $\pperm$ can
+never fall below $\alpha$).
+\emph{(C3)} (Hard Lipschitz constraint, an idealisation of the gradient penalty.) There are
+$c<\infty$ and classes $\mathcal F_n\subset\Lip_c$ with $\Prob(\fhat\in\mathcal F_n)\to1$.
+\emph{(C4)} (Richness.) There are $n_0$ and $f_0\in\bigcap_{n\ge n_0}\mathcal F_n$ with
+$Pf_0-Qf_0=:\eta_0>0$.
+\emph{(C5)} (Approximate optimisation.) With probability tending to one,
+$(\Ptr-\Qtr)\fhat\ge\sup_{f\in\mathcal F_n}(\Ptr-\Qtr)f-\varepsilon_{\mathrm{opt}}$ with
+$\varepsilon_{\mathrm{opt}}\le\eta_0/2$.
+\end{assumption}
+
+\begin{proposition}[Consistency of the critic test]\label{prop:consistency}
+Under \cref{ass:consistency}, $\Prob(\pperm\le\alpha)\to1$.
+\end{proposition}
+\noindent\textit{Proof.} In \cref{app:proofs-consistency} (uses \cref{lem:uniform-lip}).
+
+\begin{corollary}[$T$ estimates $\W$ of the standardised laws under idealised training]
+\label{cor:w1-limit}
+Suppose (C1)--(C3) hold with $c=1$, $\sup_{f\in\mathcal F_n}(Pf-Qf)\to\W(P,Q)$, and (C5) holds
+with $\varepsilon_{\mathrm{opt}}\to0$ in probability. Then $T\pto\W(A^*_\#P,A^*_\#Q)$, the
+Wasserstein-1 distance under the metric $\norm{\Lambda_*^{-1}(x-y)}$, not in return units.
+\end{corollary}
+\noindent\textit{Proof.} In \cref{app:proofs-consistency}.
+
+\begin{remark}[How realistic are (C3)--(C5)?]\label{rem:c-realism}
+(C4) is a population property. It holds if, for some $c$, the $c$-Lipschitz members of
+$\bigcup_n\mathcal F_n$ are dense in the bounded 1-Lipschitz functions for uniform convergence on
+compacts, because bounded Lipschitz functions separate probability measures
+\citep{dudley_2002_real}; norm-constrained GroupSort networks have this density property
+\citep{anil_2019_sorting}. For the LeakyReLU and LayerNorm networks used here, trained with a soft
+penalty, we do not prove it. (C3) idealises the penalty (\cref{rem:gp-soft}), and (C5) is an
+assumption about stochastic-gradient training that we cannot verify. \Cref{prop:consistency} says
+what has to hold for consistency, not that WGAN-GP training delivers it; the power study of
+\cref{sec:sim-power} measures what training delivers.
+\end{remark}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Likelihood connection and the Neyman--Pearson bound}\label{sec:theory-likelihood}
+
+\begin{proposition}[Bayes-optimal logit; \citealp{goodfellow2014generative}]\label{prop:bayes-logit}
+Let $\nu=P+Q$, $p=dP/d\nu$, $q=dQ/d\nu$, and let $(V,\iota)$ satisfy
+$\iota\sim\mathrm{Bernoulli}(\pi)$, $V\mid\iota=1\sim P$ and $V\mid\iota=0\sim Q$. Among measurable
+$D:\R^d\to[0,1]$, the cross-entropy risk $-\E[\iota\log D(V)+(1-\iota)\log(1-D(V))]$ is minimised
+by $D^*=\pi p/(\pi p+(1-\pi)q)$, $\nu$-a.e., whose logit is
+$\lstar(v)=\log\{p(v)/q(v)\}+\log\{\pi/(1-\pi)\}$.
+\end{proposition}
+\begin{proof}
+The risk equals $\int-[\pi p\log D+(1-\pi)q\log(1-D)]\,d\nu$. Where $p,q>0$ the integrand is
+strictly convex in $D\in[0,1]$ and minimised at $D^*$; where $q=0<p$ the minimiser is $D=1$, and
+conversely.
+\end{proof}
+
+\begin{corollary}[Targets of the logit and accuracy statistics]\label{cor:jeffreys}
+(a) If $\lhat=\lstar+\text{const}$ and $\KL(P\Vert Q)$, $\KL(Q\Vert P)$ are finite, then the
+\LRC{} statistic $\Tlogit=\Pev\lhat-\Qev\lhat$ satisfies
+$\E[\Tlogit\mid\Gsig]=\KL(P\Vert Q)+\KL(Q\Vert P)=\Jeff(P,Q)$, the Jeffreys divergence; the class
+prior cancels. (b) For a decision region $\hat A=\{\lhat>0\}$ the balanced accuracy satisfies
+$\E[\Tacc\mid\Gsig]=\tfrac12+\tfrac12\{P(\hat A)-Q(\hat A)\}\le\tfrac12\{1+\TV(P,Q)\}$, with
+equality for $\hat A=\{p>q\}$.
+\end{corollary}
+\begin{proof}
+Apply \cref{prop:unbiased}(a), which needs no Lipschitz property, to $f=\lstar$ and to
+$f=\one_{\hat A}$.
+\end{proof}
+
+Unlike the \WC{}, nothing makes $\E[\Tlogit\mid\Gsig]$ a lower bound on $\Jeff$ for an imperfect
+logit: rescaling $\lhat$ inflates it. $\Tlogit$ is a plug-in estimator, consistent only if
+$\lhat\to\lstar$ in $L^1(P)\cap L^1(Q)$; the level of the test does not depend on this. The
+\LRC{} is thus a learned log-likelihood-ratio statistic \citep{cheng2022classification}, and
+\cref{sec:sim-llr} measures how close the learned logit is to $\log(p/q)$ (\cref{tab:e2-llr}).
+
+\begin{proposition}[No two-sample test beats the Neyman--Pearson oracle]\label{prop:oracle-bound}
+Let $P,Q$ have densities $p,q$ with respect to a common $\sigma$-finite measure. Write
+$\bNP(F\to F';m,\alpha)$ for the power of the most powerful level-$\alpha$ test of
+$F^{\otimes m}$ against $F'^{\otimes m}$ \citep{lehmann2022testing}. Let
+$\phi(X_{1:n},Y_{1:m},U)\in[0,1]$ be any test whose auxiliary randomness $U$ (splits, training,
+permutations) is independent of the data.
+\begin{enumerate}
+  \item[(a)] If $\E_{P^{\otimes n}\otimes P^{\otimes m}}\phi\le\alpha$, then
+  $\E_{P^{\otimes n}\otimes Q^{\otimes m}}\phi\le\bNP(P\to Q;m,\alpha)$.
+  \item[(b)] If $\E_{Q^{\otimes n}\otimes Q^{\otimes m}}\phi\le\alpha$, then
+  $\E_{P^{\otimes n}\otimes Q^{\otimes m}}\phi\le\bNP(Q\to P;n,\alpha)$.
+\end{enumerate}
+\end{proposition}
+\noindent\textit{Proof.} In \cref{app:proofs-likelihood}.
+
+A two-sample test of exact level $\alpha$ thus has power at most
+$\min\{\bNP(P\to Q;m,\alpha),\bNP(Q\to P;n,\alpha)\}$: its level must hold at every null point
+$P=Q$, while the oracle knows both densities. The E2 oracle \eqref{eq:lr-oracle} applies the
+Neyman--Pearson statistic $\TLR=\sum_j\log\{q(Y_j)/p(Y_j)\}$ to the synthetic sample with a Monte
+Carlo critical value. As a Monte Carlo test it has exact level, and its power tends to $\bNP$ as
+the number of null samples grows \citep{dufour_2006_monte}. For the i.i.d.\ families (a), (b) and
+(d) of E2 the window density is a product of daily densities and the oracle is exact. For the
+\GARCHt{} family (c) the window density
+$p(x_{1:L})=\int\prod_tp(x_t\mid\sigma_t^2)\,\Pi(d\sigma_1^2)$, with $\Pi$ the law of the
+conditional variance at the window start, has no closed form. E2 replaces it by an average over
+$M=512$ draws from $\Pi$, shared by the observed and the null samples. The Monte Carlo test keeps
+its exact level, but its statistic only approximates the log-likelihood ratio (the logarithm of an
+unbiased density estimate is biased downwards by a term of order $1/M$). Its power need not equal
+$\bNP$, so the family-(c) curve is an approximate envelope, and a learned test above it would not
+contradict \cref{prop:oracle-bound}.
+
+\begin{proposition}[Local power of fixed-critic tests]\label{prop:local-power}
+Let $\{Q_\theta\}_{\theta\in[0,\theta_0)}$, with $Q_0=P$, be differentiable in quadratic mean at
+$0$ with score $h\in L^2(P)$ and $I=Ph^2>0$. Let $m\to\infty$ with $n/m\to\kappa\in(0,\infty)$,
+$n_e=\lfloor\rho n\rfloor$ and $m_e=\lfloor\rho m\rfloor$ for some $\rho\in(0,1]$, and
+$\theta_m=\tau/\sqrt m$ with $\tau>0$.
+\begin{enumerate}
+  \item[(a)] $\bNP(P\to Q_{\theta_m};m,\alpha)\to1-\Phi(z_{1-\alpha}-\tau\sqrt I)$.
+  \item[(b)] Let $f\in L^2(P)$ be fixed, with $\sigma_f^2=\Var_Pf>0$ and orientation
+  $r_f=-\Corr_P(f,h)\ge0$ (the critic scores real windows higher). The test that rejects when
+  $z>z_{1-\alpha}$, and the permutation test with the same $f$, have power under
+  $P^{\otimes n}\otimes Q_{\theta_m}^{\otimes m}$ tending to
+  $1-\Phi\big(z_{1-\alpha}-\tau\sqrt I\,r_f\sqrt{\rho\kappa/(1+\kappa)}\big)$.
+  \item[(c)] At $\kappa=1$ and $\rho=1/2$ (the defaults), the noncentrality of every fixed-critic
+  test is at most half the oracle's. Where the oracle has power $0.80$ at $\alpha=0.05$, every
+  fixed-critic test has asymptotic power at most $0.34$.
+\end{enumerate}
+\end{proposition}
+\noindent\textit{Proof.} In \cref{app:proofs-likelihood}; proved for a fixed critic, sketched for
+a learned one.
+
+The factor $\sqrt{\rho\kappa/(1+\kappa)}$ separates the two costs of not knowing the densities:
+the two-sample cost $\sqrt{\kappa/(1+\kappa)}$, which tends to one only when $P$ is effectively
+known, and the splitting cost $\sqrt\rho$. The factor $r_f\le1$ is the price of a sub-optimal
+direction. With a learned critic the argument applies conditionally on the training half with
+$f=\fhat$, so the bound in (c) holds for learned critics too; a rigorous version needs a central
+limit theorem uniform over the critic class, which we do not provide.
+
+\begin{example}[Volatility level]\label{ex:vol-level}
+Let $P=N(0,\sigma^2I_L)$ and $Q_\theta=N(0,(1+\theta)^2\sigma^2I_L)$. The score is proportional to
+$\norm{x}^2-L\sigma^2$. The critic $\pm\norm{x}$, oriented to score real windows higher, is an
+optimal Kantorovich potential for every scale factor, and its local efficiency is
+$r_f^2=\Corr(\chi_L,\chi_L^2)^2=0.876$, $0.957$, $0.988$ for $L=1,5,20$. The population
+standardisation is a multiple of the identity here, so standardising changes nothing. Against
+volatility-level deviations the population \WC{} is nearly as efficient as the likelihood-ratio
+direction (details in \cref{app:proofs-likelihood}).
+\end{example}
+
+\begin{remark}[\LRC{} versus \WC{} (heuristic)]\label{rem:lr-vs-w1}
+By \cref{prop:bayes-logit} the population logit critic is $\log(p/q_\theta)\approx-\theta h$, the
+locally optimal direction ($r_f=1$). The population \WC{} is a Kantorovich potential, which is in
+general not proportional to $h$ ($r_f<1$). If both were learned well, the \LRC{} would be locally
+at least as powerful. The Lipschitz penalty may instead reduce the estimation variance of the
+\WC{} in samples of a few thousand windows. Which effect dominates is an empirical question; in
+E2 the \WC{} is the more powerful of the two in most cells (\cref{sec:sim-power}).
+\end{remark}
+
+\begin{remark}[What the pooled KS test can and cannot see]\label{rem:ks-marginal}
+(i) Suppose the returns are i.i.d.\ within windows under both laws, $P=P_1^{\otimes L}$ and
+$Q=Q_1^{\otimes L}$, as in E2 families (a) and (b). Then the pair formed by the empirical
+distribution of the $nL$ pooled real returns and that of the $mL$ pooled synthetic returns is
+sufficient for $(P_1,Q_1)$. For any test $\phi$, the conditional expectation of $\phi$ given this
+pair has the same rejection probability at every $(P_1,Q_1)$, so nothing is lost by looking only
+at the two pooled marginals. This is what KS does, with no splitting and no learning; the oracle
+statistic $\TLR=\sum_{j,t}\log\{q_1(y_{jt})/p_1(y_{jt})\}$ is also a function of the pooled
+synthetic marginal. A window critic must learn this additive structure in dimension $L$ from half
+of the data. This is the regime in which E2 finds KS far ahead of every window test
+(\cref{tab:e2-power}).
+(ii) When returns within a window are dependent, the null distribution of KS, derived for $nL$
+independent draws, is wrong: in E2 family (c) KS is oversized under $H_0$ (\cref{tab:e2-size}).
+(iii) When $P$ and $Q$ have the same one-dimensional marginal and differ only in their dependence
+(the E2-dep families), the scaled KS statistic converges in law to the supremum of a Gaussian
+process under the alternative as under the null, so its rejection probability converges to a
+limit below one: KS is not consistent against dependence-only deviations, whereas the window tests
+are consistent under \cref{ass:consistency} if the deviation is visible at lags below $L$
+(\cref{prop:window-ident}; \cref{fig:e2dep-power}). Parts (ii) and (iii) follow from the
+empirical-process central limit theorem for window-level sums of indicators; we do not write out
+the details.
+\end{remark}
+
+\begin{remark}[Likelihood ranks by $\KL$, the critic by $\W$]\label{rem:kl-vs-w1}
+The expected out-of-sample log-likelihood of a model $G$ is $\E_P\log g=-\mathrm{Ent}(P)-\KL(P\Vert G)$
+whenever finite, and for conditional densities of stationary ergodic processes it is the
+corresponding relative-entropy rate. Rankings by predictive log-score, and the Vuong and
+Amisano--Giacomini tests \citep{vuong1989likelihood,amisano2007comparing}, therefore rank by
+$\KL(P\Vert G)$; the critic ranks by (lower bounds on) $\W$ of window laws. Both vanish only at
+$G=P$, but they can rank misspecified models differently. Let $P$ be Student-$t_4$ scaled to unit
+variance, $G_1=N(0,1)$ (right variance, wrong tails) and $G_2$ the same $t_4$ law scaled by $1.4$
+(right tails, wrong scale). Numerical quadrature gives $\KL(P\Vert G_1)\approx0.084$,
+$\W(P,G_1)\approx0.139$, $\KL(P\Vert G_2)\approx0.060$ and $\W(P,G_2)=0.4\,\E_P\abs{X}\approx0.283$:
+the likelihood prefers $G_2$, $\W$ prefers $G_1$. Disagreement between the two evaluations in
+\cref{sec:emp-likelihood} therefore shows that they measure different divergences, not that
+either is broken.
+\end{remark}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{The relative tests}\label{sec:theory-relative}
+
+There are three samples: $\Rnew$, windows $X_1,\dots,X_n$ with law $\Pnew$; the synthetic sample,
+$Y_1,\dots,Y_m$ with law $\QG$; and $\Rpast$, windows $Z_1,\dots,Z_k$ with law $\Ppast$. Markets
+are non-stationary, so the absolute null $\QG=\Pnew$ is expected to fail for every generator
+calibrated on the past (E1(c), \cref{tab:e1-nonstat}). The relative question is whether $G$ is at
+least as close to $\Rnew$ as $\Rpast$ is. For a sample $W$ and a part $\mathrm{p}\in\{\trn,\evl\}$
+of it, $W^{\mathrm p}f$ denotes the mean of $f$ over that part.
+
+\emph{Anchored test} (primary, \cref{sec:method-relative}). $Y$ and $Z$ are split into training
+and evaluation parts of sizes $m_t,m_e$ and $k_t,k_e$; all of $X$ is used for training. One critic
+$\fhat$ is trained to separate $X$ (positive class) from the pool $\{Y^{\trn},Z^{\trn}\}$, in which
+the two samples carry weight $1/2$ each. The statistic and its conditional target are
+\[
+  \Danc=Z^{\evl}\fhat-Y^{\evl}\fhat\quad\eqref{eq:anchored-stat},\qquad
+  \delta=\Ppast\fhat-\QG\fhat ,
+\]
+where now $\Gsig$ is generated by $X$, $Y^{\trn}$, $Z^{\trn}$, the index sets and $\xi$. Large
+$\Danc$ means that the critic which scores ``$\Rnew$-likeness'' finds the past more $\Rnew$-like
+than $G$.
+
+\emph{Two-critic test} (secondary). Critics $\fhat_G$ on $(X^{\trn},Y^{\trn})$ and $\fhat_P$ on
+$(X^{\trn},Z^{\trn})$ are trained separately with independent randomness and evaluated on the
+shared $X^{\evl}$: $\Dtwo=(X^{\evl}-Y^{\evl})\fhat_G-(X^{\evl}-Z^{\evl})\fhat_P$
+\eqref{eq:two-critic-stat}, with targets $D_G=(\Pnew-\QG)\fhat_G$, $D_P=(\Pnew-\Ppast)\fhat_P$ and
+$\delta^{\mathrm{2c}}=D_G-D_P$.
+
+\begin{definition}[Relative nulls]\label{def:rel-null}
+(a) The anchored null is $H_0^{\mathrm{anc}}:\delta\le0$, that is $\QG\fhat\ge\Ppast\fhat$ for the
+trained critic, against $\delta>0$. (b) The two-critic null is
+$H_0^{\mathrm{2c}}:\delta^{\mathrm{2c}}\le0$. (c) The idealised $\W$ null is
+$H_0^{W}:\W(\QG,\Pnew)\le\W(\Ppast,\Pnew)$. The boundary point $\QG=\Ppast$ belongs to $H_0^W$ and
+to the analogous null for any divergence.
+\end{definition}
+
+Both conditional nulls depend on the data through the trained critics. \Cref{prop:anchored}
+gives exact or asymptotic level for $H_0^{\mathrm{anc}}$; \cref{prop:anchored-target} says what
+$\delta$ measures; \cref{prop:paired-boot,prop:boundary-size} treat the two-critic test.
+
+\begin{assumption}[Anchored exchangeability]\label{ass:anc}
+(i) Conditionally on $X$, the $k+m$ windows $Z_1,\dots,Z_k,Y_1,\dots,Y_m$ are i.i.d. This holds
+when the three samples are independent, each is i.i.d., and $\QG=\Ppast$, whatever $\Pnew$.
+(ii) The split of $Y$ and $Z$ depends only on time stamps, group labels and randomness independent
+of the window values. (iii) $\fhat$ is a measurable function of $X$, $Y^{\trn}$, $Z^{\trn}$ and of
+randomness $\xi$ independent of the data. (iv) The permutations of the $k_e+m_e$ evaluation labels
+are i.i.d.\ uniform and independent of everything else.
+\end{assumption}
+
+\begin{proposition}[Level of the anchored test]\label{prop:anchored}
+\begin{enumerate}
+  \item[(a)] \emph{Exact level at the boundary.} Under \cref{ass:anc}, the permutation p-value of
+  $\Danc$ (labels of the pooled $Z^{\evl}$ and $Y^{\evl}$ permuted, $\fhat$ fixed) satisfies
+  $\Prob(\pperm\le\alpha\mid\Gsig)\le\lfloor\alpha(B+1)\rfloor/(B+1)\le\alpha$ almost surely, for
+  every critic, every $B\ge1$ and $k_e,m_e\ge1$, and whatever $\Pnew$.
+  \item[(b)] \emph{Weaker null, independent windows.} Suppose that, conditionally on $\Gsig$,
+  $Z^{\evl}$ is i.i.d.\ $\Ppast$, $Y^{\evl}$ is i.i.d.\ $\QG$, the two are independent, and
+  $\fhat$ has finite positive variances under both laws. As $k_e,m_e\to\infty$ with
+  $k_e/(k_e+m_e)\to\kappa\in(0,1)$ and $\fhat$ fixed, the studentised permutation test satisfies
+  $\limsup\Prob(\text{reject}\mid\Gsig)\le\alpha$ on $\{\delta\le0\}$. When $k_e=m_e$, so does the
+  unstudentised permutation test.
+  \item[(c)] \emph{Dependent windows.} Suppose that, conditionally on $\Gsig$, the evaluation
+  windows of $Z$ and of $Y$, ordered by date rank, are independent of each other and satisfy
+  \cref{ass:mixing} with marginals $\Ppast$ and $\QG$ and $f=\fhat$. Then the Driscoll--Kraay
+  statistic $\zhac$ of $\Danc$ \eqref{eq:hac-z} is asymptotically $N(0,1)$ on $\{\delta=0\}$ and
+  tends to $-\infty$ in probability on $\{\delta<0\}$, so the test that rejects when
+  $\zhac>z_{1-\alpha}$ has asymptotic level $\alpha$ for $H_0^{\mathrm{anc}}$.
+\end{enumerate}
+\end{proposition}
+\noindent\textit{Proof.} In \cref{app:proofs-relative}.
+
+\begin{proposition}[What the anchored target measures]\label{prop:anchored-target}
+Lipschitz constants and $\W$ are taken in the standardised coordinates $A$ of the anchored critic,
+and $M=\tfrac12(\QG+\Ppast)$ is the law of the pool.
+\begin{enumerate}
+  \item[(a)] If $\Ppast,\QG\in\Pspace{1}$ and $\Lip(\ghat)\le c$, then
+  $\abs{\delta}\le c\,\W(A_\#\Ppast,A_\#\QG)$. In particular $\delta=0$ whenever $\QG=\Ppast$,
+  whatever $\Pnew$ and the critic.
+  \item[(b)] \emph{(\LRC{}.)} Let $\Pnew,\QG,\Ppast$ be mutually absolutely continuous with
+  $\KL(\QG\Vert\Pnew)$ and $\KL(\Ppast\Vert\Pnew)$ finite. If $\fhat=\lstar$ is the Bayes logit of
+  the population training problem ($\Pnew$ against $M$ with equal class weights), then
+  \begin{equation}\label{eq:anchored-kl}
+    \delta=\big[\KL(\QG\Vert\Pnew)-\KL(\Ppast\Vert\Pnew)\big]-\big[\KL(\QG\Vert M)-\KL(\Ppast\Vert M)\big],
+  \end{equation}
+  and the second bracket lies in $[-\log2,\log2]$. If moreover $d\QG/d\Ppast=1+\varepsilon h$ with
+  $h$ bounded and $\Ppast h=0$, the second bracket equals $-\varepsilon^3\Ppast(h^3)/24+O(\varepsilon^4)$
+  as $\varepsilon\to0$.
+  \item[(c)] \emph{(\WC{}.)} If $\fhat=f^*$ is a 1-Lipschitz maximiser of $(\Pnew-M)f$, then
+  $\delta=(\Pnew-\QG)f^*-(\Pnew-\Ppast)f^*$, and the two terms sum to $2\,\W(A_\#\Pnew,A_\#M)$.
+\end{enumerate}
+\end{proposition}
+\noindent\textit{Proof.} In \cref{app:proofs-relative}.
+
+\begin{remark}[What the anchored null means away from the boundary]\label{rem:anchored-null}
+By \cref{prop:anchored-target}(a) the anchored test is a two-sample test of $G$ against the past
+whose witness has been trained to point towards $\Rnew$: it can reject only if $G$ differs from the
+past, and only in a direction that separates $\Rnew$ from the pool. If the market were stationary
+($\Pnew=\Ppast$) it would be a critic test of $\QG=\Ppast$. By part (b), near the boundary the
+idealised \LRC{} version compares $\KL(\QG\Vert\Pnew)$ with $\KL(\Ppast\Vert\Pnew)$ up to a
+third-order term, so to first order $H_0^{\mathrm{anc}}$ says that $G$ is at least as close to the
+new law as the past is, in the Kullback--Leibler divergence from the candidate to the new law; this
+is the reverse of the direction $\KL(\Pnew\Vert G)$ by which predictive log-scores rank
+(\cref{rem:kl-vs-w1}). Away from the boundary the correction in \eqref{eq:anchored-kl} is bounded
+but not small. By part (c), the \WC{} version compares the two absolute discrepancies with a common
+witness. Each is at most the corresponding $\W$ distance, but a common witness need not be optimal
+for either pair, so $\delta>0$ is possible under $H_0^W$ and conversely: neither relative test is a
+test of $H_0^W$. A rejection (\BAD) means that $G$ is detectably less $\Rnew$-like than the past
+for a critic trained to recognise $\Rnew$ against an even mixture of both. A non-rejection is not
+evidence that $G$ is good, which is why the verdict needs a power check (\cref{sec:theory-verdict}).
+Two idealisations remain. First, $G$ is calibrated on $\Rpast$, so its windows depend on the past
+windows through the fitted parameters and \cref{ass:anc}(i) holds only approximately; for a
+parametric generator each past window moves the estimate by $O(1/k)$, which we expect to be
+negligible but do not prove. Second, the stationary bootstrap copies past windows that the critic
+saw as pool negatives; evaluation windows of $G$ then duplicate training points, exchangeability
+fails in the direction of rejection, and the generator receives the verdict \INVALID{} (E2 part e
+documents this leakage, \cref{tab:e2-relative-boundary}).
+\end{remark}
+
+\begin{remark}[Non-stationary past (heuristic)]\label{rem:nonstat-past}
+On real data $\Rpast$ is the \TRAIN{} panel, whose windows are not identically distributed (the
+2020 crash, the 2022 drawdown). \Cref{ass:anc}(i) then fails, and the natural boundary is
+$\QG$ equal to the pooled \TRAIN{} window law. The time-block split sends a random half of the
+\TRAIN{} blocks to the evaluation part, so $Z^{\evl}\fhat$ estimates the critic mean over a random
+half of the \TRAIN{} regimes while $\QG\fhat$ averages over all of them. The target $\delta$ is then
+a random variable centred near zero whose spread reflects the heterogeneity between blocks, which
+the Driscoll--Kraay variance of the evaluation part does not capture. By the argument of
+\cref{prop:boundary-size}(a), the rejection rate at this boundary is about
+$\E[1-\Phi(z_{1-\alpha}-\delta/\sigma)]$, which exceeds $\alpha$ when $\delta$ is roughly symmetric
+and not small relative to the evaluation standard deviation $\sigma$. In addition, the last
+\TRAIN{} block borders the first \TEST{} dates; with volatility clustering, when that block falls
+in the evaluation part it raises $Z^{\evl}\fhat$, in the direction of rejection. We therefore claim
+no calibration for a single-seed anchored p-value on real data. The verdict uses $\pmed$ over the
+synthetic seeds, and the size of this rule at the pooled-\TRAIN{} boundary and its power are
+estimated in design D2, which keeps the real \TRAIN{} volatility path, as well as in the
+stationary design D1 (\cref{def:power-check}, \cref{tab:e3-power}).
+\end{remark}
+
+For the two-critic test we use the regime of \citet{bounliphone2016test}-type comparisons with
+learned witnesses.
+
+\begin{assumption}[Two-critic regime]\label{ass:rel}
+(R1) Conditionally on $\Gsig$ (the training halves of the three samples and the training
+randomness of both critics), the three evaluation samples are mutually independent and i.i.d.\
+from $\Pnew$, $\QG$ and $\Ppast$. (R2) $n_e,m_e,k_e\to\infty$ proportionally. With
+$\sigma_N^2=\sigma_X^2/n_e+\sigma_Y^2/m_e+\sigma_Z^2/k_e$, $\sigma_X^2=\Var_{\Pnew}(\fhat_G-\fhat_P)$,
+$\sigma_Y^2=\Var_{\QG}\fhat_G$ and $\sigma_Z^2=\Var_{\Ppast}\fhat_P$, the quantity
+$(n_e+m_e+k_e)\sigma_N^2$ is bounded away from zero and the $(2+\epsilon)$-th moments of the
+three summands are bounded in probability. (R3) The bootstrap resamples $X^{\evl}$ once per
+replicate for both critics (paired), and $Y^{\evl}$, $Z^{\evl}$ independently.
+\end{assumption}
+
+\begin{proposition}[Paired bootstrap, conditional validity; sketch]\label{prop:paired-boot}
+Under \cref{ass:rel}, conditionally on $\Gsig$: (a) $(\Dtwo-\delta^{\mathrm{2c}})/\sigma_N\dto N(0,1)$;
+(b) the bootstrap law of $\Dtwo{}^*-\Dtwo$ estimates the law of $\Dtwo-\delta^{\mathrm{2c}}$
+uniformly consistently; (c) the test that rejects when
+$p^*=(1+\#\{b:\Dtwo_b{}^*-\Dtwo\ge\Dtwo\})/(1+B)\le\alpha$ has
+$\Prob(\text{reject}\mid\Gsig)=1-\Phi(z_{1-\alpha}-\delta^{\mathrm{2c}}/\sigma_N)+o_\Prob(1)$ as
+$B\to\infty$, which is at most $\alpha+o_\Prob(1)$ on $\{\delta^{\mathrm{2c}}\le0\}$; (d) the
+percentile interval has asymptotic coverage $0.95$ for $\delta^{\mathrm{2c}}$.
+\end{proposition}
+\noindent\textit{Proof.} Sketch in \cref{app:proofs-relative}. The centred p-value follows
+\citet{hall1991two}.
+
+\begin{proposition}[The two-critic test is anti-conservative at the boundary]
+\label{prop:boundary-size}
+Assume \cref{ass:rel} along a sequence of experiments, let $B\to\infty$, $\alpha<1/2$ and
+$z=z_{1-\alpha}$.
+\begin{enumerate}
+  \item[(a)] $\Prob(\text{reject})=\E[1-\Phi(z-\delta^{\mathrm{2c}}/\sigma_N)]+o(1)$.
+  \item[(b)] Suppose in addition that $\QG=\Ppast$, $m_t=k_t$ and $m_e=k_e$; that
+  $\fhat_G=\Psi(X^{\trn},Y^{\trn},\xi_G)$ and $\fhat_P=\Psi(X^{\trn},Z^{\trn},\xi_P)$ for one
+  training map $\Psi$ with $\xi_G,\xi_P$ i.i.d.\ and independent of the data; and that the joint
+  law of the data and the index sets is invariant under exchanging $(Y,\xi_G)$ and $(Z,\xi_P)$.
+  Then $(\delta^{\mathrm{2c}},\sigma_N)\eqd(-\delta^{\mathrm{2c}},\sigma_N)$ and
+  \[
+    \Prob(\text{reject})=\E\,\bar g\big(\abs{\delta^{\mathrm{2c}}}/\sigma_N\big)+o(1),\qquad
+    \bar g(x)=1-\tfrac12\{\Phi(z-x)+\Phi(z+x)\}.
+  \]
+  $\bar g$ is continuous and strictly increasing on $[0,\infty)$, with $\bar g(0)=\alpha$ and
+  $\bar g(\infty)=1/2$. Hence $\Prob(\text{reject})\ge\alpha+o(1)$, and if
+  $\Prob(\abs{\delta^{\mathrm{2c}}}>\varepsilon\sigma_N)\ge\eta$ for some $\varepsilon,\eta>0$ and
+  all large samples, then $\liminf\Prob(\text{reject})\ge\alpha+\eta\{\bar g(\varepsilon)-\alpha\}>\alpha$.
+  \item[(c)] If the training halves are held fixed while the evaluation sizes grow, then
+  $\Prob(\text{reject})\to\Prob(\delta^{\mathrm{2c}}>0)+\alpha\Prob(\delta^{\mathrm{2c}}=0)$, which
+  equals $1/2$ when $\delta^{\mathrm{2c}}$ has no atom at zero.
+\end{enumerate}
+\end{proposition}
+\noindent\textit{Proof.} In \cref{app:proofs-relative}.
+
+At the boundary, $\delta^{\mathrm{2c}}$ is the difference of two exchangeable replicates of a
+training-dependent quantity. It fluctuates at the scale of critic training, and nothing in
+WGAN-GP training makes it $o_\Prob(\sigma_N)$. The proof uses only the conditional rejection
+probability and the symmetry, so the conclusion also holds for the HAC version of the two-critic
+test. The anchored test avoids the problem: with one critic the target is exactly zero at the
+boundary (\cref{prop:anchored-target}(a)) and the permutation is exact (\cref{prop:anchored}(a)).
+E2 part e compares the two tests at the boundary (\cref{sec:sim-relative}).
+
+\begin{remark}[Guarantee of the two-critic test; the MMD version]\label{rem:rel-guarantee}
+Under \cref{ass:rel}, a two-critic rejection means that the critic family, given equal resources,
+separates $G$ from $\Rnew$ by more than it separates $\Rpast$ from $\Rnew$. By
+\cref{prop:unbiased}, $D_G$ and $D_P$ equal $\Lip(\ghat_G)\W(\QG,\Pnew)$ and
+$\Lip(\ghat_P)\W(\Ppast,\Pnew)$ minus unknown non-negative slacks (in standardised coordinates),
+so with respect to $H_0^W$ the test is neither exact nor conservative. It is fair only to the
+extent that the two critic problems are equally hard (same architecture, budget and sample sizes),
+and even then \cref{prop:boundary-size} shows over-rejection at $\QG=\Ppast$. The MMD version of
+\citet{bounliphone2016test} uses a fixed kernel and a genuine metric null, but its normal
+approximation needs a non-degenerate projection, which fails when all three laws coincide. For
+serially dependent evaluation windows the i.i.d.\ bootstrap of $X^{\evl}$ must be replaced by a
+block bootstrap \citep{kunsch1989jackknife,politis1994stationary,lahiri2003resampling} or by a HAC
+variance, as implemented.
+\end{remark}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Serial and cross-sectional dependence}\label{sec:theory-dependence}
+
+The real windows of one ticker form a stationary but dependent sequence: volatility clustering
+makes window features such as realised variance persistent. Windows of different tickers on the
+same date are dependent through common factors, whereas synthetic windows from univariate
+generators are independent across tickers. Under $H_0$ the pooled evaluation vector is then not
+exchangeable and \cref{prop:exact-level} does not apply.
+
+\begin{remark}[Size distortion of the naive permutation test (heuristic)]\label{rem:naive-perm}
+Let $a_k=\fhat(X_{(k)})$ be the real evaluation values in time order, with variance $\sigma^2$ and
+long-run variance $\LRV_a=\sigma^2(1+2\sum_{h\ge1}\rho_h)$, and let the synthetic values be
+i.i.d.\ with variance $\sigma^2$, with $n_e=m_e$. The permutation distribution uses the variance
+$2\sigma^2/n_e$, while the true variance is $(\LRV_a+\sigma^2)/n_e$, so the rejection rate tends
+to $1-\Phi\big(z_{1-\alpha}\{2/(2+2\sum_h\rho_h)\}^{1/2}\big)$. For $\rho_h=\phi^h$ the nominal 5\%
+test rejects about 12\% of the time at $\phi=0.5$ and 17\% at $\phi=0.67$. Contemporaneous
+covariances between tickers inflate the true variance in the same way.
+\end{remark}
+
+For a fixed function $f$, let $a_k=f(X_k)$ be the real evaluation values, each with the date rank
+$\tau(k)$ of its first day, and let $\mathcal S_\tau=\sum_{k:\tau(k)=\tau}(a_k-\bar a)$ be the
+date sums. The Driscoll--Kraay variance \eqref{eq:dk-var} is the Bartlett-kernel long-run variance
+of $(\mathcal S_\tau)$, with lags counted in windows and the truncation lag $H$ chosen by the
+\citet{andrews1991heteroskedasticity} AR(1) plug-in; with one window per date it is the
+\citet{newey1987simple} estimator. The synthetic values $b_k$ are treated in the same way, and
+$\zhac=(\bar a-\bar b)/\{\hat V_{\mathrm{DK}}(\bar a)+\hat V_{\mathrm{DK}}(\bar b)\}^{1/2}$
+\eqref{eq:hac-z}.
+
+\begin{assumption}[Weak dependence, fixed critic $f$]\label{ass:mixing}
+Each sample has a fixed number of windows per date ($N$ for a panel, one for a single series).
+(D1) The date-level sums $u_\tau=\sum_{k:\tau(k)=\tau}f(X_k)$ of the real sample and
+$v_\tau=\sum_{k:\tau(k)=\tau}f(Y_k)$ of the synthetic sample form strictly stationary sequences,
+independent of each other, that are strongly mixing with coefficients satisfying
+$\sum_h\alpha(h)^{\epsilon/(2+\epsilon)}<\infty$, and $u_\tau$, $v_\tau$ have finite
+$(2+\epsilon)$-th moments for some $\epsilon>0$ (for Lipschitz $f$ this follows from finite
+$(2+\epsilon)$-th moments of returns). (D2) The long-run variances $\LRV_u=\sum_h\Cov(u_0,u_h)$
+and $\LRV_v$ are positive. (D3) The Driscoll--Kraay estimators are consistent:
+$\hat V_{\mathrm{DK}}(\bar a)/\Var(\bar a)\pto1$, and likewise for $\bar b$; sufficient conditions,
+including data-dependent lags, are in \citet{andrews1991heteroskedasticity},
+\citet{newey1987simple}, \citet{driscoll1998consistent} and \citet{dejong_2000_consistency}.
+(D4) The numbers of evaluation dates of the two samples tend to infinity proportionally.
+\end{assumption}
+
+With the time-block split the evaluation dates of a sample form a union of at most $K$ contiguous
+blocks; because $K$ is fixed while the blocks grow, (D1) for the underlying date sequence carries
+the central limit theorem and (D3) over to the union (the edge terms are of order $KH$ divided by
+the number of dates; we omit the routine details).
+
+\begin{proposition}[Asymptotic validity of the HAC test for a fixed critic]\label{prop:hac}
+Under \cref{ass:mixing} and $H_0':Pf=Qf$, $\zhac\dto N(0,1)$, so the test that rejects when
+$\zhac>z_{1-\alpha}$ has asymptotic level $\alpha$. $H_0$ implies $H_0'$ for every $f$, so the test
+is asymptotically valid for $H_0$ whatever the critic; the dependence across windows and across
+tickers on the same date is a nuisance that the date sums absorb.
+\end{proposition}
+\noindent\textit{Proof.} In \cref{app:proofs-dependence}.
+
+\Cref{prop:hac} is stated for a fixed $f$, that is, for fixed training data and growing
+evaluation data. Applying it with $f=\fhat$ conditionally on $\Gsig$ requires the evaluation
+sequences to satisfy (D1) conditionally on $\Gsig$, in particular to be independent of $\Gsig$. If
+the evaluation data depend on the training data, $\E[\bar a-\bar b\mid\Gsig]$ can be non-zero
+under $H_0$, and no variance estimator corrects a bias in the mean (\cref{prop:ticker-bias}).
+Versions for critics that change with the sample size would need central limit theorems uniform
+over the critic class; we do not pursue them.
+
+\begin{fact}[Mixing of the models; \citealp{carrasco2002mixing}]\label{fact:mixing}
+Under $a+b<1$, with innovations that have a positive density, GARCH(1,1) is $\beta$-mixing, hence
+$\alpha$-mixing, with a geometric rate; stochastic-volatility models inherit $\beta$-mixing from the
+volatility process. Window-level coefficients satisfy $\alpha_W(h)\le\alpha_r((h-1)L+1)$, because a
+gap of $h$ windows is a gap of at least $(h-1)L+1$ days. Finite $(2+\epsilon)$-th moments of
+\GARCHt{} returns require $\nu>2+\epsilon$ and a moment condition on $(a,b)$
+\citep{francq_2019_garch}.
+\end{fact}
+
+The conditional independence of training and evaluation data fails in a time series. Write
+$\beta(\mathcal A,\mathcal B)=\E\sup_{C\in\mathcal B}\abs{\Prob(C\mid\mathcal A)-\Prob(C)}$ for the
+absolute-regularity coefficient of two $\sigma$-fields \citep{bradley_2005_basic}.
+
+\begin{lemma}[Decoupling]\label{lem:decoupling}
+Let $U$ (training data, $\sigma$-field $\mathcal A$) and $V$ (evaluation data, $\sigma$-field
+$\mathcal B$) take values in Polish spaces, and let $\tilde V$ be a copy of $V$ independent of $U$.
+For every measurable $E$, $\abs{\Prob((U,V)\in E)-\Prob((U,\tilde V)\in E)}\le\beta(\mathcal A,\mathcal B)$.
+\end{lemma}
+\noindent\textit{Proof.} In \cref{app:proofs-dependence}.
+
+If training and evaluation data were contiguous blocks separated by a gap of $g$ days, then
+$\beta(\mathcal A,\mathcal B)\le\beta_r(g+1)$, the $\beta$-mixing coefficient of the (panel) return
+process at lag $g+1$, which decays geometrically for the models of \cref{fact:mixing}. Every level
+statement whose remaining hypotheses concern only the evaluation data, \cref{prop:hac} in
+particular, would then hold up to an additive $\beta_r(g+1)$, because $\tilde V$ keeps the internal
+dependence of $V$. The implemented split is different (\cref{sec:method-inference}): each sample's
+date range is cut into $K=10$ blocks of equal length, whole blocks are assigned at random to the
+two halves, the blocks interleave, and there is no gap. At every boundary between a training and
+an evaluation block the relevant coefficient is the one-day coefficient, which is not small under
+persistent volatility, so \cref{lem:decoupling} gives no useful bound. At the E3 sizes a \TEST{}
+block holds about three window dates per ticker, so most evaluation windows lie within one or two
+windows of a training block, while the volatility half-life at persistence $0.98$ is about 34
+days. What the split does guarantee is that training and evaluation dates are disjoint, which
+removes the common-date bias of \cref{prop:ticker-bias} below. The residual dependence across
+block boundaries is controlled only empirically: by the simulated placebo of E1, which runs the
+exact real-data pipeline (\cref{sec:emp-placebo}), and by E2 part g (\cref{sec:sim-dependent}).
+
+\begin{proposition}[Bias under ticker splits on common dates]\label{prop:ticker-bias}
+Let the real windows be $X_{i\tau}=\psi(F_\tau,\varepsilon_{i\tau})$ for tickers $i$ and dates
+$\tau\in\mathcal T$, where the factor path $(F_\tau)$ is strictly stationary with marginal $\mu_F$,
+the $\varepsilon_{i\tau}$ are i.i.d.\ and independent of $(F_\tau)$, and $\psi$ is measurable. Let
+$P^{(v)}$ be the law of $\psi(v,\varepsilon)$, so that every real window has law
+$\bar P=\int P^{(v)}\mu_F(dv)$. Let the synthetic windows be mutually independent, independent of
+the real data, with law $\bar Q=\bar P$ (the pooled null holds). Split the tickers into training
+and evaluation sets independently of the data, each ticker contributing one window per date, and
+let $\fhat$ be $\Gsig$-measurable, where $\Gsig$ is generated by the training windows (real and
+synthetic), the split and $\xi$.
+\begin{enumerate}
+  \item[(a)] Conditionally on $(\Gsig,F)$ the real evaluation windows are independent with
+  $X_{i\tau}\sim P^{(F_\tau)}$, and $\E[T\mid\Gsig,F]=(\hat P_F-\bar Q)\fhat$, where
+  $\hat P_F=\abs{\mathcal T}^{-1}\sum_{\tau\in\mathcal T}P^{(F_\tau)}$ is the realised mixture.
+  \item[(b)] $\E T=\E[(\hat P_F-\bar Q)\fhat]$. This vanishes if $\fhat$ is independent of $F$;
+  in general it is a covariance between the critic and the realised factor path and need not
+  vanish.
+  \item[(c)] (Idealised critic.) If $\fhat=\log(d\hat P_F/d\bar Q)$, the Bayes logit of the
+  population version of the training problem given $F$, then
+  $\E[T\mid\Gsig,F]=\Jeff(\hat P_F,\bar Q)\in(0,\infty]$ whenever $\hat P_F\neq\bar Q$. For Gaussian
+  scale mixtures, $\psi(v,\varepsilon)=v\varepsilon$ with $\varepsilon\sim N(0,I_L)$ and $v>0$, this
+  holds almost surely as soon as $\mu_F$ has no atoms.
+\end{enumerate}
+\end{proposition}
+\noindent\textit{Proof.} In \cref{app:proofs-dependence}.
+
+With many training tickers per date, the training half reveals the realised factor path. A critic
+that separates real from synthetic training windows then learns that windows typical of the
+realised dates are real; the real evaluation windows share those dates and the synthetic ones do
+not. The result is a bias, $\E[T\mid\Gsig]\neq0$ and typically positive, under the pooled null.
+Driscoll--Kraay and other HAC variances estimate the dispersion of $T$ around $\E[T\mid\Gsig]$ and
+cannot remove it; the permutation p-value, which also ignores the cross-sectional dependence, is
+worse. A placebo that compares real tickers with real tickers on the same dates cannot reveal the
+bias, because both samples share the realised path. The simulated placebo E1(a) runs the ticker
+split with permutation p-values as a comparison row; its rejection rate at nominal 5\% is
+\todo{E1 ticker-split permutation size, \cref{tab:e1-size-sim}}, against
+\todo{E1 time-block DK size, \cref{tab:e1-size-sim}} for the time-block split with the
+Driscoll--Kraay p-value.
+
+\begin{remark}[Few evaluation dates]\label{rem:small-T}
+For features driven by common factors, precision is governed by the number of distinct evaluation
+dates, not by tickers times windows. At $L=20$ the \TEST{} period gives 30 window dates per ticker,
+about 15 of them in the evaluation half. HAC estimates from so few dates are imprecise and biased
+downwards, and normal critical values then over-reject. Fixed-$b$ critical values matched to the
+Bartlett kernel and bandwidth \citep{kiefer_2005_new}, or a cluster variance over time blocks with
+$t_{G-1}$ critical values \citep{bester_2011_inference}, are the standard small-sample
+corrections; the two pairings should not be mixed. The pipeline reports the normal-reference
+Driscoll--Kraay p-value; fixed-$b$ p-values are computed as comparison rows in E1, which measures
+the size of the complete pipeline (\cref{sec:emp-placebo}).
+\end{remark}
+
+\begin{remark}[Wild bootstrap for the kernel tests]\label{rem:wild}
+MMD and \SigMMD{} have no train/evaluation split. Under dependence they use the wild bootstrap of
+\citet{chwialkowski2014wild} for the MMD V-statistic, with a Gaussian AR(1) multiplier process on
+the date grid that is shared by all windows with the same date rank, in both samples, and a
+plug-in correlation length (\cref{app:impl}). \citet{chwialkowski2014wild} prove validity for
+weakly dependent stationary processes with a given correlation length; the date-shared multipliers
+and the plug-in length are our choices and are not covered by their theorem. We give no proof;
+their size is measured in E1 and in E2 part g.
+\end{remark}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{What the verdict controls}\label{sec:theory-verdict}
+
+\begin{definition}[Power check]\label{def:power-check}
+A power check is a pre-registered pair $(\Cdesign,\vartheta^*)$. $\Cdesign$ is a reference
+simulation design that reproduces the empirical one: the sizes of $\Rpast$, $\Rnew$ and $G$, the
+window length, the split, the critic settings, the inference, the seed combination and, where
+possible, the dependence. $\vartheta^*$ is a pre-specified deviation of the generator. We use two
+designs: D1, a per-ticker \GARCHt{} panel fitted on \TRAIN, with $\Rpast^*$ of \TRAIN{} length from
+the stationary law and $\Rnew^*$, $G^*$ of \TEST{} length; and D2, in which the past windows are
+the real \TRAIN{} realised volatilities times fresh Gaussian noise and $\Rnew$ is the real \TEST{}
+sample. The deviation is a synthetic volatility $1.2$ times too high. The power $\beta(\vartheta^*)$
+is the probability that the verdict rule rejects, estimated from $R$ replications by $\hat\beta$,
+with one-sided Clopper--Pearson lower bound $\betaL$ \citep{clopper_1934_use}. The same design with
+the generator replaced by an independent draw from the law of $\Rpast^*$ (D1), or from the pooled
+law of the past windows (D2), gives the boundary size $\abd$.
+\end{definition}
+
+\begin{definition}[Verdict]\label{def:verdict}
+Let $\alpha=0.05$, $\bmin=0.8$ and let $\pmed$ be the anchored p-value combined over the synthetic
+seeds (\cref{rem:combine-seeds}). The verdict \eqref{eq:verdict} is $V=\BAD$ if $\pmed\le\alpha$;
+$V=\GOOD$ if $\pmed>\alpha$ and $\hat\beta\ge\bmin$ under every design (D1 and D2); and
+$V=\INCONCL$ otherwise. The stationary bootstrap, for which the anchored test is invalid
+(\cref{rem:anchored-null}), receives \INVALID. A stricter variant replaces $\hat\beta$ by $\betaL$.
+\end{definition}
+
+\begin{proposition}[What the verdict controls]\label{prop:verdict}
+(a) If each single-seed anchored p-value $p_s$ satisfies $\Prob(p_s\le u)\le u$ for all $u$, then
+$\Prob(V=\BAD)\le\alpha$. This holds in finite samples at $\QG=\Ppast$ under \cref{ass:anc}
+(\cref{prop:anchored}(a)), and asymptotically at $\QG=\Ppast$ under the conditions of
+\cref{prop:anchored}(c), where $\delta=0$ by \cref{prop:anchored-target}(a). It does not bound the
+false-\BAD{} rate on real data, where the past is non-stationary (\cref{rem:nonstat-past}); there
+the boundary size $\abd$ of the rule is estimated. (b) If the rejection probability of the rule at
+the true configuration is at least $\beta(\vartheta^*)$, then
+$\Prob(V=\GOOD)\le\Prob(\pmed>\alpha)\le1-\beta(\vartheta^*)$, which is at most $1-\bmin$ up to the
+Monte Carlo error of $\hat\beta$.
+\end{proposition}
+\begin{proof}
+(a) $\{V=\BAD\}=\{\pmed\le\alpha\}$; apply \cref{rem:combine-seeds}, and at the boundary under (c)
+use dominated convergence to pass from conditional to unconditional validity.
+(b) $\{V=\GOOD\}\subset\{\pmed>\alpha\}$.
+\end{proof}
+
+Part (b) is only as strong as its premise, which cannot be verified: the true deviation must be at
+least as detectable as $\vartheta^*$ under $\Cdesign$. \GOOD{} therefore means ``no detectable
+deviation of the pre-specified size and type'', never ``equal to the truth''. The power check is a
+design-stage calculation, like a sample-size calculation; with $R=100$ replications the standard
+error of $\hat\beta$ near $0.8$ is $0.04$, which motivates the Clopper--Pearson variant.
+
+\begin{remark}[Equivalence-test alternative]\label{rem:equivalence}
+A \GOOD{} verdict with a formal error guarantee would follow from a non-inferiority test
+\citep{schuirmann_1987_comparison}: test $\delta\ge\varepsilon_0$ against $\delta<\varepsilon_0$ and
+declare \GOOD{} if the upper $(1-\alpha)$ confidence bound for $\delta$ lies below a margin
+$\varepsilon_0$, for instance the expected anchored discrepancy at $\vartheta^*$ in the power-check
+design. The guarantee would again be conditional on the trained critic, and the margin transfers
+across configurations only to the extent that critic training behaves similarly (heuristic). We do
+not use it for the verdict.
+\end{remark}
+
+\begin{remark}[Per-ticker tests and multiple testing]\label{rem:bh}
+The per-ticker tests of E3 ($L=5$) give p-values $p_1,\dots,p_N$, calibrated against a pooled
+\GARCHt{} null (\cref{sec:emp-perticker}). The Benjamini--Hochberg procedure at level $q$ controls
+the false discovery rate of \BAD{} verdicts at $qN_0/N$ under independence or positive regression
+dependence \citep{benjamini1995controlling,benjamini2001control}. Per-ticker statistics are
+plausibly positively dependent through the market factor, which we do not prove, so the
+Benjamini--Yekutieli correction is reported as a robustness check and Storey's $\hat\pi_0$
+\citep{storey_2002_direct} as a summary. \GOOD{} is a non-rejection, so no false-discovery
+statement applies to it, and with about 60 evaluation windows per ticker few per-ticker \GOOD{}
+verdicts can be expected.
+\end{remark}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Window distances and portfolio utility}\label{sec:theory-markowitz}
+
+The Markowitz experiment E4 asks whether test results predict the utility of portfolios built
+from synthetic data. The theory of \cref{sec:mk-theory} (proofs in \cref{app:proofs-markowitz})
+predicts a link that is real but not monotone. For the unconstrained global minimum-variance
+portfolio $\wgmv(\hat\Sigma)=\hat\Sigma^{-1}\one/(\one'\hat\Sigma^{-1}\one)$, evaluated with the
+\TEST{} covariance $\Sigma$, the variance loss is a squared Mahalanobis distance to the ex-post
+optimum (\cref{lem:quad-loss}), the weights depend on $\hat\Sigma$ only up to scale, and
+\begin{equation}\label{eq:kantorovich-preview}
+  1\le\frac{V(\wgmv(\hat\Sigma))}{V(\wgmv(\Sigma))}\le\frac{(1+\kappa)^2}{4\kappa},
+  \qquad \kappa=\cond(\Sigma^{-1}\hat\Sigma),
+\end{equation}
+a sharp bound that is quadratic in the relative covariance error (\cref{prop:gmv-sensitivity}).
+In the large-sample limit the GMV utility of a generator therefore depends on it only through its
+covariance matrix, up to scale (\cref{cor:gmv-drivers}); tails, volatility clustering and jumps,
+which the critic detects, matter only through that matrix. The two criteria can disagree in both
+directions. A generator whose covariance is $c\Sigma$ with $c\neq1$ is rejected by a consistent
+critic test and loses nothing for GMV (\cref{ex:scale-blind}); a covariance error in a
+low-variance spread direction attains the bound \eqref{eq:kantorovich-preview} while $\W$ between
+the window laws tends to zero (\cref{ex:spread}); univariate tests cannot see correlations
+(\cref{ex:corr-blind}); and a drift error equal to one \TRAIN{} standard error dominates
+mean-variance utility, yet by \cref{prop:oracle-bound}(b) no level-5\% two-sample test that uses
+the 615 \TEST{} days detects it with power above $0.17$ (\cref{ex:drift}). Finally, under convex
+losses no portfolio rule trained on synthetic data beats the best rule based on the real past
+(\cref{prop:no-free-lunch}); synthetic data can only help as a regulariser. These results motivate
+the design of E4 (\cref{sec:mk-link}): an association between critic distance and GMV loss is
+plausible through covariance accuracy, little association is expected for mean-variance
+portfolios, which are driven by drift, and univariate verdicts carry no information about
+correlations. Because the real correlations themselves changed between \TRAIN{} and \TEST{}
+(\cref{tab:e4-correlation}), fidelity to the past and usefulness for the future are different
+targets.
+
+% ---------------------------------------------------------------------------------------------
+\begin{table}[tbp]
+  \centering
+  \caption{Status of the theoretical results. ``Proved'': full proof in \cref{app:proofs} or in
+  the text; ``sketch'': key steps only; ``heuristic'': argument, not a theorem.}
+  \label{tab:theory-status}
+  \small
+  \begin{tabular}{@{}p{0.43\linewidth}p{0.17\linewidth}p{0.34\linewidth}@{}}
+    \toprule
+    Result & Status & Key assumptions \\
+    \midrule
+    \Cref{prop:window-ident,prop:markov-pairs}: what windows identify & proved & stationarity; both processes Markov \\
+    \Cref{prop:unbiased}: $\E[T\mid\Gsig]=\Dcrit(\fhat)\le\Lip(\ghat)\W(P_A,Q_A)$ & proved & evaluation data independent of training \\
+    \Cref{prop:exact-level}: exact level of the permutation test & proved & conditional exchangeability (A1$'$) \\
+    \Cref{prop:consistency,cor:w1-limit}: consistency; $T\to\W$ & proved & (C1)--(C5), incl.\ hard Lipschitz constraint \\
+    \Cref{prop:bayes-logit,cor:jeffreys}: Bayes logit, Jeffreys & proved & perfect discriminator \\
+    \Cref{prop:oracle-bound}: oracle bound & proved & densities; level at the null point \\
+    \Cref{prop:local-power}: local power factor & proved (fixed $f$); sketch (learned) & differentiability in quadratic mean \\
+    \Cref{rem:lr-vs-w1}: \LRC{} vs \WC{} & heuristic & -- \\
+    \Cref{prop:anchored}(a): anchored test exact at $\QG=\Ppast$ & proved & \cref{ass:anc} \\
+    \Cref{prop:anchored}(b)--(c): weaker null; HAC & proved (standard results) & i.i.d.\ or \cref{ass:mixing}, given $\Gsig$ \\
+    \Cref{prop:anchored-target}: meaning of $\delta$ & proved & idealised critics in (b), (c) \\
+    \Cref{rem:nonstat-past}: non-stationary past & heuristic & -- \\
+    \Cref{prop:paired-boot}: paired bootstrap & sketch & \cref{ass:rel} \\
+    \Cref{prop:boundary-size}: two-critic size $>\alpha$ at boundary & proved (given \cref{prop:paired-boot}) & \cref{ass:rel}; exchangeable training \\
+    \Cref{rem:naive-perm}: naive permutation distortion & heuristic & -- \\
+    \Cref{prop:hac}: HAC test & proved (standard results) & \cref{ass:mixing}; fixed critic \\
+    \Cref{lem:decoupling}: decoupling & proved & no useful bound without a gap \\
+    \Cref{prop:ticker-bias}: ticker-split bias & proved & factor model \\
+    \Cref{prop:verdict}: verdict & proved under premises & valid $p_s$; unverifiable power premise \\
+    \Cref{sec:mk-theory}: GMV and utility results & proved; parts heuristic & positive definite matrices; convex loss \\
+    \bottomrule
+  \end{tabular}
+\end{table}

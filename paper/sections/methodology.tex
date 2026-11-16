@@ -1,0 +1,634 @@
+\section{Methodology}\label{sec:method}
+% =============================================================================================
+% Owner: methodology writer. Describes what src/synthval does (twosample/critic.py, nets.py,
+% c2st.py, mmd.py, signature.py, ks.py, relative.py; pipeline.py; experiments/e3_sp500.py for
+% the verdict). Formal statements live in Section 4 and are only referenced here.
+% Equations defined here: eq:wgan-gp, eq:critic-stat, eq:mmd-u, eq:lr-oracle, eq:perm-pvalue,
+% eq:dk-var, eq:hac-z, eq:anchored-obj, eq:anchored-stat, eq:two-critic-stat, eq:pmed,
+% eq:verdict. Tables: tab:method-tests, tab:method-defaults. Figure: fig:alg-verdict.
+% =============================================================================================
+
+This section defines the tests exactly as they are implemented in the code that produces every
+number in the paper. All of them share one template: a test function is learned on a
+\emph{training half} of the two samples and evaluated, frozen, on the held-out
+\emph{evaluation half}. What changes from one setting to another is how the evaluation
+statistic is calibrated. For independent windows we use permutation p-values, which have exact
+finite-sample level. For the serially and cross-sectionally dependent windows of real data we
+use a time-block split with Driscoll--Kraay standard errors, which is asymptotically valid. On
+top of the absolute test we build an anchored relative test and a three-valued verdict with a
+pre-specified power check. Formal properties are in \cref{sec:theory}; further implementation
+details are in \cref{app:impl}. \Cref{tab:method-tests,tab:method-defaults} summarise the tests
+and their default settings.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Windows, samples and hypotheses}\label{sec:method-setup}
+
+\paragraph{Returns and scaling.}
+The data are daily log-returns $r_{it}=\log S_{it}-\log S_{i,t-1}$ of tickers $i=1,\dots,N$.
+\TRAIN{} (2018-01-02 to 2022-12-30, $\Ttr=1258$ trading days) is the calibration period and
+\TEST{} (2023-01-03 to 2025-06-16, $\Tte=615$ days) the evaluation period. For each ticker let
+$s_i$ be the standard deviation (divisor $\Ttr-1$) of its \TRAIN{} returns. Real \emph{and}
+synthetic returns of ticker $i$ are divided by the same constant $s_i$ before anything else.
+Given \TRAIN{}, this is a fixed bijection applied to both samples, so it leaves every per-ticker
+null hypothesis unchanged; its only role is to put tickers on a common scale so that their
+windows can be pooled (\cref{rem:pooling}).
+
+\paragraph{Windows.}
+A window is a block of $L$ consecutive normalised returns. Windows do not overlap (step $L$),
+and an incomplete tail is dropped. The default is $L=20$, about one trading month; the
+per-ticker tests of E3 and the multivariate tests of E4 use $L=5$. A univariate window lies in
+$\R^{L}$. A multivariate window of $N$ assets lies in $\R^{N\times L}$ (E4: $N=30$). Each window
+carries the \emph{date rank} $\tau$ of its first day on the common trading calendar: \TRAIN{}
+days have ranks $0,\dots,\Ttr-1$ and \TEST{} days $\Ttr,\dots,\Ttr+\Tte-1$. Synthetic windows
+simulated over the \TEST{} horizon receive the \TEST{} ranks, and windows of different tickers
+that start on the same day share their rank. At $L=20$ a ticker yields 62 \TRAIN{} and 30
+\TEST{} windows, so the 100-ticker panel of E1, E3 and E5 gives 6200 and 3000 windows.
+
+\paragraph{Samples.}
+The roles of the samples never change:
+\begin{itemize}
+  \item $X_1,\dots,X_n$, with law $P$: real windows of the comparison sample. On real data
+    $X=\Rnew$, the \TEST{} windows (law $\Pnew$ in relative statements).
+  \item $Y_1,\dots,Y_m$, with law $Q$: synthetic windows from a generator $G$ (law $\QG$ in
+    relative statements). In E3, $G$ is fitted per ticker on \TRAIN{} and simulates one
+    \TEST{}-length path per ticker, started from the fitted end-of-\TRAIN{} state when the model
+    has one. Each ticker therefore contributes as many synthetic as real windows. This matters:
+    the pooled null follows from the per-ticker nulls only when the per-ticker proportions are
+    the same in both samples (\cref{rem:pooling}).
+  \item $Z_1,\dots,Z_k$, with law $\Ppast$: real past windows $\Rpast$ (\TRAIN{}). They are used
+    only by the relative tests.
+\end{itemize}
+In the simulations of E2, $X\sim P$ and $Y\sim Q$ have known laws and every window is simulated
+from its own path after a burn-in, so the windows are independent and identically distributed
+(\iid{}). On real data, and on windows cut from long simulated paths, they are not. Volatility
+clustering makes the windows of a ticker serially dependent, and common market shocks make
+windows of different tickers on the same dates dependent.
+
+\paragraph{Hypotheses.}
+The absolute null is $H_0: P=Q$ (\cref{def:abs-null}). It concerns the law of \emph{one}
+window. Dependence \emph{between} windows is not part of $H_0$; it is a nuisance that the
+inference protocol of \cref{sec:method-inference} must absorb. A window law fixes all the
+dependence of the return process up to lag $L-1$ (\cref{prop:window-ident}). A window test can
+therefore detect volatility clustering within a month, but not features that act only at longer
+horizons.
+
+Markets are not stationary. \TRAIN{} contains the 2020 crash and the 2022 drawdown, and the
+average correlation of the E4 universes fell from \TRAIN{} to \TEST{}
+(\cref{tab:e4-correlation}); E1 compares the \TRAIN{} and \TEST{} windows directly
+(\cref{tab:e1-nonstat}). A generator calibrated on \TRAIN{} cannot be expected to reproduce the
+\TEST{} law exactly, so absolute rejections are to be expected on real data. The relative
+tests of \cref{sec:method-relative} ask a weaker and more useful question: is $G$ detectably
+further from $\Rnew$ than the real past $\Rpast$ is?
+
+% ---------------------------------------------------------------------------------------------
+\subsection{The Wasserstein-critic statistic}\label{sec:method-critic}
+
+\paragraph{Split and standardisation.}
+Each sample is split into a training and an evaluation half, with index sets $\Itr,\Iev$
+(real) and $\Jtr,\Jev$ (synthetic) and sizes $n_t,n_e$ and $m_t,m_e$; the default is 50/50.
+For independent windows the halves are drawn at random within each sample (half of the windows,
+rounded, for training). For dependent windows we use the time-block split of
+\cref{sec:method-inference}. The split never depends on the values of the windows. Inputs are
+standardised by $A(x)=\Lambda^{-1}(x-m_A)$, where $m_A$ and the positive diagonal $\Lambda$ hold
+the mean and standard deviation of the pooled training half $\{X_i\}_{i\in\Itr}\cup\{Y_j\}_{j\in\Jtr}$.
+They are computed per coordinate for univariate windows and per asset channel (pooled over the
+$L$ positions) for multivariate windows. The same $A$ is applied to every window, training or
+evaluation, real or synthetic.
+
+\paragraph{Training.}
+The critic is $\fhat=\ghat\circ A$, where $\ghat$ is a neural network. It is trained \emph{alone},
+with no generator, with the gradient-penalised Wasserstein GAN objective of
+\citet{gulrajani2017improved} (see also \citealp{arjovsky2017wasserstein}):
+\begin{equation}\label{eq:wgan-gp}
+  \ghat\approx\argmax_{g}\;\Big\{\Ptr(g\circ A)-\Qtr(g\circ A)
+  -\lgp\,\E\big(\norm{\nabla g(\tilde x)}-1\big)^2\Big\},\qquad
+  \tilde x=u\,A(X)+(1-u)\,A(Y),
+\end{equation}
+where $\Ptr$ and $\Qtr$ are empirical means over the training halves, $X$ and $Y$ are training
+windows drawn independently, $u\sim U(0,1)$ is independent of them, and $\lgp=10$. The gradient
+is taken with respect to the standardised input. Each optimiser step draws $b=128$ indices with
+replacement from each training half and $b$ independent values of $u$, pairs the $r$-th real
+and synthetic draws to form $\tilde x_r$, and takes one Adam step \citep{kingma_2015_adam} on
+the mini-batch loss
+$-b^{-1}\sum_{r}\{g(A X_{i_r})-g(A Y_{j_r})\}+\lgp b^{-1}\sum_r(\norm{\nabla g(\tilde x_r)}-1)^2$.
+We follow \citet{gulrajani2017improved} for the penalty weight and the Adam moment parameters
+$(0.5,0.9)$, but use a learning rate of $10^{-3}$. With the 1000 steps we run, their rate of
+$10^{-4}$ under-trained the critic in a check run before any E2 experiment; E5 also reports
+$10^{-4}$. There is no early stopping: the weights after step 1000 are frozen.
+
+\paragraph{Statistic.}
+With $\fhat$ frozen,
+\begin{equation}\label{eq:critic-stat}
+  T=\Pev\fhat-\Qev\fhat=\frac1{n_e}\sum_{i\in\Iev}\fhat(X_i)-\frac1{m_e}\sum_{j\in\Jev}\fhat(Y_j).
+\end{equation}
+The critic is trained to score real windows high, so large values of $T$ are evidence against
+$H_0$, and every critic-based test is one-sided. Given the training $\sigma$-field $\Gsig$
+(training halves, split, training randomness), $T$ is unbiased for the critic discrepancy
+$\Dcrit(\fhat)=P\fhat-Q\fhat$, and $\Dcrit(\fhat)\le\Lip(\ghat)\,\W(P_A,Q_A)$, where $P_A$ and
+$Q_A$ are the laws of the standardised windows (\cref{prop:unbiased}). If $\ghat$ were
+1-Lipschitz, $T$ would therefore estimate a lower bound on the Wasserstein-1 distance between
+the standardised window laws (Kantorovich--Rubinstein duality, \cref{fact:kr-duality}). The
+gradient penalty enforces the Lipschitz constraint only softly and only at the interpolates, and
+WGAN critics are known to be poor estimators of $\W$ itself \citep{mallasto2019well}. We
+therefore read $T$ as an \emph{approximate} lower bound and use it only as a test statistic
+(\cref{rem:gp-soft}). The level guarantees of \cref{sec:method-inference} do not depend on any
+Lipschitz property, on the convergence of training or on the architecture: a poor critic costs
+power, never level.
+
+Why hold data out? The plug-in distance $\W(P_n,Q_m)$ and the in-sample training objective are
+biased upwards, and the bias vanishes only at rate $n^{-1/d}$ in dimension $d$
+\citep{fournier2015rate}. The held-out $T$ is conditionally unbiased and has an exact null
+distribution under exchangeability (\cref{rem:holdout}). The price is that only half of the
+data trains the critic and only half evaluates it; \cref{prop:local-power} quantifies the loss.
+The held-out-witness template is that of \citet{kirchler2020two} and \citet{kubler2022witness},
+and \citet{wang2022two} split and permute for Wasserstein testing. Our contribution is not the
+template but its instance, its validation and the protocols of
+\cref{sec:method-inference,sec:method-relative,sec:method-decision}.
+
+\paragraph{Architectures.}
+For univariate windows $\ghat$ is a multilayer perceptron $\R^L\to\R^{128}\to\R^{128}\to\R^{128}\to\R$
+with LeakyReLU activations (slope 0.2) and no normalisation layers. For multivariate windows
+$(N,L)$ (E4) it is a one-dimensional convolutional network with the assets as input channels.
+It has two blocks, each a convolution with 64 channels, kernel size $\min(5,L)$ and ``same''
+padding, followed by a LayerNorm over the $(64,L)$ feature map and a LeakyReLU. The feature map
+is then flattened and passed through a dense layer of width 64, a LeakyReLU and a linear
+output. Flattening, rather than pooling over time, keeps the position of each day inside the
+window. BatchNorm is never used: the gradient penalty is a per-window quantity, and BatchNorm
+would couple the windows of a mini-batch. \todo{Lead: the univariate architecture may change
+after the time-pooled critic pilot. If it does, update this paragraph, \cref{tab:method-defaults}
+and \cref{app:impl}, and state which experiments use which architecture (E2 families (a)--(d) ran
+with the MLP).}
+
+\begin{table}[tbp]
+  \centering
+  \caption{Default training settings of the learned tests (the code defaults used in every
+    experiment unless stated). The anchored and two-critic relative tests use the \WC{} settings.}
+  \label{tab:method-defaults}
+  \small
+  \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.21\linewidth}
+                  >{\raggedright\arraybackslash}p{0.37\linewidth}
+                  >{\raggedright\arraybackslash}p{0.36\linewidth}@{}}
+    \toprule
+    & \WC{} & \LRC{} and C2ST \\
+    \midrule
+    Network, $L$-windows & MLP $L$--128--128--128--1, LeakyReLU(0.2) & same \\
+    Network, $(N,L)$-windows & CNN: 2 $\times$ [Conv1d(64, kernel $\min(5,L)$), LayerNorm, LeakyReLU], dense 64 & same \\
+    Input scaling & per coordinate (per asset channel), pooled training half & same \\
+    Objective & WGAN-GP \eqref{eq:wgan-gp}, $\lgp=10$ & class-balanced cross-entropy \\
+    Optimiser & Adam, learning rate $10^{-3}$, $(\beta_1,\beta_2)=(0.5,0.9)$ & Adam, learning rate $10^{-3}$, $(0.9,0.999)$, weight decay $10^{-4}$ \\
+    Mini-batch & 128 per sample, drawn with replacement & 128 per class \\
+    Steps & 1000, no early stopping & at most 1000; early stopping (20\% validation, checked every 50 steps, patience 5, best checkpoint kept) \\
+    Training / evaluation & 50/50 & 50/50 \\
+    Permutations $B$ & 1000 & 1000 (accuracy: randomised ties) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Competing tests and the likelihood-ratio oracle}\label{sec:method-competitors}
+
+\paragraph{Likelihood-ratio critic and C2ST.}
+Both use the split, standardisation and architecture of the \WC{} test, but train a classifier.
+Its logit $\lhat$ (the network output) minimises the class-balanced binary cross-entropy
+$\tfrac12\{\Ptr\log(1+e^{-\lhat})+\Qtr\log(1+e^{\lhat})\}$, with real windows labelled 1 and
+mini-batches of 128 windows per class. The optimiser is Adam with learning rate $10^{-3}$,
+default moments $(0.9,0.999)$ and weight decay $10^{-4}$, for at most 1000 steps. Early stopping
+holds out a random 20\% of each training half, evaluates the balanced validation cross-entropy
+every 50 steps, stops after five evaluations without improvement and restores the best
+checkpoint. At $n=500$ the selected checkpoint is typically the first one (step 50), because
+the classifier overfits early. A pilot of alternative settings found none with higher
+power at valid size, so we keep the defaults and record the selected step instead of tuning it.
+
+With balanced classes, the Bayes-optimal logit is $\lstar=\log(p/q)$ (\cref{prop:bayes-logit};
+\citealp{goodfellow2014generative}). The \LRC{} statistic is $\Tlogit=\Pev\lhat-\Qev\lhat$. If
+$\lhat=\lstar+\text{const}$, its conditional mean is the Jeffreys divergence $\Jeff(P,Q)$
+(\cref{cor:jeffreys}), so $\Tlogit$ is a learned log-likelihood-ratio statistic
+\citep{cheng2022classification}. Unlike $T$ it has no lower-bound property: rescaling $\lhat$
+inflates it. The C2ST statistic \citep{lopezpaz2017revisiting,kim2021classification} is the
+balanced accuracy of the rule $\{\lhat>0\}$,
+$\Tacc=\tfrac12+\tfrac12(\Pev h-\Qev h)$ with $h=\one\{\lhat>0\}$; its conditional mean is at
+most $\tfrac12\{1+\TV(P,Q)\}$. The three learned statistics are thus affine functions of a
+difference of evaluation means of one function that is fixed given $\Gsig$: the critic, the
+logit or the indicator $h$. This is the only structure the inference of
+\cref{sec:method-inference} uses.
+
+\paragraph{Kernel tests.}
+The MMD test \citep{gretton2012kernel} uses the unbiased estimate
+\begin{equation}\label{eq:mmd-u}
+  \TMMD=\frac{\sum_{i\neq i'}k(X_i,X_{i'})}{n(n-1)}+\frac{\sum_{j\neq j'}k(Y_j,Y_{j'})}{m(m-1)}
+  -\frac{2}{nm}\sum_{i,j}k(X_i,Y_j),\qquad k(x,y)=e^{-\norm{x-y}^2/(2\varsigma^2)},
+\end{equation}
+on the flattened normalised windows, with no further standardisation. The bandwidth
+$\varsigma$ is the median heuristic: the median pairwise Euclidean distance in a random subset
+of at most 2000 points of the pooled sample. It depends only on the pooled sample, so it is
+invariant to the labels. Samples larger than 3000 windows are subsampled without replacement;
+E4 fixes the bandwidth per universe (\cref{sec:mk-design}). There is no training split: the
+kernel tests use all windows.
+
+The \SigMMD{} test \citep{chevyrev2022signature,kiraly2019kernels} maps a window
+$(r_1,\dots,r_L)$ to the piecewise-linear path through the points
+$(k/L,\sum_{l\le k}r_l)$, $k=0,\dots,L$: time and cumulative return. Its signature truncated at
+depth 4 is computed exactly by Chen's identity \citep{lyons1998differential,chevyrev2016primer},
+which gives $2+4+8+16=30$ features. Each feature is standardised with the mean and standard
+deviation of the pooled sample, and $\Tsig$ is the statistic \eqref{eq:mmd-u} on these features,
+with its own median-heuristic bandwidth.
+
+\paragraph{Kolmogorov--Smirnov.}
+$\TKS$ is the two-sample KS statistic between the $nL$ pooled real returns and the $mL$ pooled
+synthetic returns, with a two-sided asymptotic p-value. It sees only the one-dimensional
+marginal law of a daily return, so it has no power against deviations that leave this marginal
+unchanged (\cref{fig:e2dep-power}). Its p-value assumes \iid{} returns. That assumption fails
+when the returns of a window share a conditional variance, which makes KS oversized on GARCH
+windows (\cref{tab:e2-size}), and it fails again across dependent windows. We keep KS because
+practitioners use it, and because against deviations of the marginal (volatility level, tails,
+jumps) it is, by a wide margin, the most powerful of the two-sample tests we compare
+(\cref{sec:sim-power}).
+Any honest use of a window test has to be weighed against this baseline.
+
+\paragraph{Neyman--Pearson oracle (E2 only).}
+When $P$ and $Q$ have known window densities $p,q$, the oracle tests $Y\sim P$ against
+$Y\sim Q$ on the synthetic sample with
+\begin{equation}\label{eq:lr-oracle}
+  \TLR=\sum_{j=1}^m\log\frac{q(Y_j)}{p(Y_j)}.
+\end{equation}
+Its null distribution is computed from 2000 independent samples of $m$ windows drawn under $P$,
+and the Monte Carlo p-value with randomised tie-breaking has exact level
+\citep{dufour_2006_monte}. For i.i.d.\ returns (volatility level, tails, jumps) the window
+densities are exact, so this is the most powerful test of $P$ against $Q$, and its power bounds
+that of every level-$\alpha$ two-sample test (\cref{prop:oracle-bound}). For GARCH windows the
+density has no closed form. We integrate over the conditional variance at the start of the
+window with $M=512$ Monte Carlo draws from its law after the burn-in. The draws are shared by
+the observed and the null samples, so the test keeps exact level, and $\TLR$ approaches the
+exact log-likelihood ratio as $M$ grows.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Inference for independent and for dependent windows}\label{sec:method-inference}
+
+For the learned tests, conditionally on $\Gsig$, every statistic is a difference
+$\bar a-\bar b$ of evaluation means of a fixed function $g$, with $a_k=g(X_k)$, $k\in\Iev$, and
+$b_k=g(Y_k)$, $k\in\Jev$. Two protocols turn this difference into a p-value.
+
+\paragraph{Protocol for independent windows (E2).}
+Pool the evaluation values, $(c_1,\dots,c_{n_e+m_e})=(a,b)$. For $b=1,\dots,B$, draw a uniform
+random permutation of the pooled vector, independently of everything else, and let $T_b$ be the
+statistic recomputed with the permuted labels. The p-value is
+\begin{equation}\label{eq:perm-pvalue}
+  \pperm=\frac{1+\#\{b\le B:\ T_b\ge T\}}{1+B},
+\end{equation}
+with $B=1000$; ties with $T$ count against it (up to a relative tolerance of $10^{-12}$). The
+C2ST accuracy is discrete, so for it ties are broken at random:
+$\pperm=(\#\{T_b>T\}+U\,(1+\#\{T_b=T\}))/(1+B)$ with $U\sim U(0,1)$, which is exactly uniform
+under exchangeability. If the windows are \iid{} and the two samples are independent, the pooled
+evaluation windows are exchangeable given $\Gsig$ under $H_0$. The test then has level at most
+$\alpha$ in finite samples, for every critic, every $B$ and every split that does not depend on
+the data (\cref{prop:exact-level}; \citealp{hemerik2018exact}). The kernel tests have no training
+split. They permute the labels of the pooled sample with the kernel matrix and the bandwidth held
+fixed ($B=500$), which is exact under the same conditions.
+
+\paragraph{Why real data need another protocol.}
+Two things go wrong when windows are dependent (\cref{sec:theory-dependence}).
+\begin{enumerate}
+  \item \emph{Variance.} The real evaluation windows of a ticker are autocorrelated through
+    volatility clustering, and windows of different tickers on the same dates are correlated
+    through the market. The permutation distribution ignores both, so the test is oversized
+    (\cref{rem:naive-perm}).
+  \item \emph{Bias.} If training and evaluation windows are close in time, the critic learns the
+    realised volatility path of the training dates (``high volatility in spring 2023 means
+    real''). Real evaluation windows from the same or neighbouring dates share that path;
+    synthetic windows do not. Then $\E[T\mid\Gsig]>0$ under $H_0$. A random split of
+    consecutive windows creates this coupling. A split by ticker in a panel creates it in full,
+    because every training date is also an evaluation date (\cref{prop:ticker-bias}). No
+    variance estimator can remove a bias.
+\end{enumerate}
+The naive protocol, a ticker split with permutation p-values, is run in E1 as a comparison.
+It rejects a true null far more often than the nominal level (\todo{size of the ticker-split
+permutation test at 5\%, from \cref{tab:e1-size-sim}}).
+
+\paragraph{Protocol for dependent windows (E1, E3, E4, E5 and E2 part g).}
+It has three components.
+
+\emph{Time-block split.} The date range $[\tau_{\min},\tau_{\max}]$ of each sample is cut into
+$K=10$ intervals of equal length: a window with date rank $\tau$ gets the block label
+$\min\{K-1,\lfloor K(\tau-\tau_{\min})/(\tau_{\max}-\tau_{\min})\rfloor\}$. Labels are shared
+across samples, so the blocks of $X$ and of $Y$ that carry the same label always fall in the
+same half.
+The $K$ labels are shuffled, and the training half receives them in that order up to the point
+where the cumulative number of windows (over all samples) is closest to half the total. In E3,
+$X$ and $Y$ both cover the 30 \TEST{} window dates. Every block then holds three dates (300
+windows per sample), five blocks train and five evaluate, and each half has 15 dates and 1500
+windows per sample. Training and evaluation windows never share a date, which removes the
+common-date bias of \cref{prop:ticker-bias}. Two features of the implementation limit what the
+theory covers. The blocks interleave in time, and there is no gap between a training block and
+an adjacent evaluation block. The dependence across these boundaries is therefore not
+controlled by \cref{lem:decoupling}, which needs a gap. We measure its effect instead
+(\cref{tab:e2-dependent-size,tab:e1-size-sim}).
+
+\emph{Driscoll--Kraay variance.} Let $\tau_k$ be the date rank of evaluation window $k$ and
+$u_k=(\tau_k-\min_{k'}\tau_{k'})/L$ its position on the grid of window start dates, of length
+$U=\max_ku_k+1$. Positions without an evaluation window (the training blocks) count as zeros.
+With the date sums $\mathcal S_u=\sum_{k:\,u_k=u}(a_k-\bar a)$,
+\begin{equation}\label{eq:dk-var}
+  \widehat V_{\mathrm{DK}}(\bar a)=\frac{1}{n_e(n_e-1)}\Big[\sum_{u}\mathcal S_u^2
+  +2\sum_{h=1}^{H}\Big(1-\frac{h}{H+1}\Big)\sum_{u}\mathcal S_u\mathcal S_{u+h}\Big].
+\end{equation}
+Summing within a date absorbs arbitrary cross-sectional dependence \citep{driscoll1998consistent},
+and the Bartlett weights \citep{newey1987simple} handle serial dependence. The factor
+$n_e/(n_e-1)$, folded into the normalisation, makes \eqref{eq:dk-var} equal to the usual \iid{}
+variance estimator when $H=0$ and all dates are distinct. Lags are counted in windows of $L$
+trading days, never in days. The truncation lag $H$ follows the AR(1) plug-in rule of
+\citet{andrews1991heteroskedasticity} for the Bartlett kernel. The coefficient $\hat\rho$ is the
+lag-one autocorrelation of $(\mathcal S_u)$, computed only over adjacent grid positions that both
+carry evaluation windows (so that the holes left by the training blocks are not mistaken for low
+persistence) and clipped to $[-0.97,0.97]$. Then
+$\hat\eta=4\hat\rho^2/\{(1-\hat\rho)^2(1+\hat\rho)^2\}$ and
+$H=\lceil1.1447(\hat\eta U)^{1/3}\rceil-1$, truncated to $[0,U-1]$. If fewer than ten adjacent
+pairs are observed, the rule is applied to the sequence of observed dates. The rule of
+\citet{newey1994automatic} is an E5 robustness option. The studentised statistic and its
+p-value are
+\begin{equation}\label{eq:hac-z}
+  \zhac=\frac{\bar a-\bar b}{\sqrt{\widehat V_{\mathrm{DK}}(\bar a)+\widehat V_{\mathrm{DK}}(\bar b)}},
+  \qquad \phac=1-\Phi(\zhac).
+\end{equation}
+The two variances add because the synthetic sample is independent of the real one. For a fixed
+critic and a growing number of evaluation dates, $\zhac$ is asymptotically $N(0,1)$ under
+$H_0$ when the window sequences are mixing (\cref{prop:hac}). With only 15 evaluation dates the
+Driscoll--Kraay estimate is noisy and biased downwards, so some oversize remains. E1 measures the
+size of exactly this pipeline and reports fixed-$b$ p-values \citep{kiefer_2005_new} as
+comparison rows (\cref{rem:small-T}). Under this protocol the code also computes the permutation
+p-value under the time-block split. E1 reports its size, but it is never used for inference.
+
+\emph{Wild bootstrap for the kernel tests.} The kernel tests have no split and no witness
+function, so they cannot be studentised in this way. They use the wild bootstrap for degenerate
+V-statistics of \citet{chwialkowski2014wild}. Let $\mathsf K$ be the pooled kernel matrix and
+$v=(\one_n/n,-\one_m/m)$. The p-value refers to the V-statistic $v^\top\mathsf Kv$, the squared
+distance between the two empirical kernel mean embeddings. In replicate $b$, a stationary
+Gaussian AR(1) process $(\zeta_u)$ with $\Cov(\zeta_u,\zeta_{u'})=\exp(-\abs{u-u'}/\ell_w)$ is
+drawn on the pooled grid of window dates. Window $k$ receives $\zeta_{u_k}$, so windows that
+start on the same date share one multiplier, in both samples. The multipliers are centred
+within each sample, $\tilde\zeta$, and the replicate is $\tilde v^\top\mathsf K\tilde v$ with
+$\tilde v=(\tilde\zeta_X/n,-\tilde\zeta_Y/m)$. The p-value $\pwild$ is the share of the
+$B=500$ replicates at or above $v^\top\mathsf Kv$, computed as in \eqref{eq:perm-pvalue}. The
+correlation length is $\ell_w=(\hat\eta U)^{1/3}$, where $\hat\eta$ is now the several-series
+version of the Andrews constant \citep{andrews1991heteroskedasticity}, computed from the date
+sums of the scores on the five leading kernel principal components ($\ell_w=0$, i.e.\
+independent multipliers, when no dependence is detected). This plug-in is our heuristic:
+\citet{chwialkowski2014wild} leave $\ell_w$ as a tuning parameter, and we give no proof of
+validity in our setting (\cref{rem:wild}). The tables report $\TMMD$ and $\Tsig$ as the
+unbiased statistic \eqref{eq:mmd-u}, while $\pwild$ refers to the V-statistic.
+
+\emph{KS} is computed and reported, but flagged as invalid under this protocol.
+
+\begin{table}[tbp]
+  \centering
+  \caption{The tests as implemented. ``Dependent windows'' is the protocol of real data and of
+    windows cut from long simulated paths; ``DK'' is the Driscoll--Kraay studentisation
+    \eqref{eq:hac-z} after the time-block split.}
+  \label{tab:method-tests}
+  \footnotesize
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.13\linewidth}
+                  >{\raggedright\arraybackslash}p{0.27\linewidth}
+                  >{\raggedright\arraybackslash}p{0.15\linewidth}
+                  >{\raggedright\arraybackslash}p{0.18\linewidth}
+                  >{\raggedright\arraybackslash}p{0.19\linewidth}@{}}
+    \toprule
+    Test & Statistic (target) & Learned on training half & p-value, independent windows &
+    p-value, dependent windows \\
+    \midrule
+    \WC{} & $T=\Pev\fhat-\Qev\fhat$ (approximate lower bound on $\W(P_A,Q_A)$) & WGAN-GP critic &
+      permutation, $B=1000$ & DK $\phac$ \\
+    \LRC{} & $\Tlogit=\Pev\lhat-\Qev\lhat$ ($\Jeff(P,Q)$ if $\lhat=\lstar$) & classifier &
+      permutation, $B=1000$ & DK $\phac$ \\
+    C2ST & balanced accuracy $\Tacc$ (at most $\tfrac12\{1+\TV(P,Q)\}$) & classifier &
+      permutation, randomised ties & DK $\phac$ \\
+    MMD & $\TMMD$, Gaussian kernel on windows & none & permutation, $B=500$ &
+      wild bootstrap, $B=500$ \\
+    \SigMMD{} & $\Tsig$, Gaussian kernel on depth-4 signatures & none & permutation, $B=500$ &
+      wild bootstrap, $B=500$ \\
+    KS & $\TKS$ on pooled returns (one-dimensional marginal) & none & asymptotic (needs \iid{}
+      returns) & reported, marked invalid \\
+    \addlinespace
+    Anchored relative & $\Danc=\Ppast^{\evl}\fhat-\QG^{\evl}\fhat$ & one critic, $\Rnew$ vs pool &
+      permutation of $G$ / $\Rpast$ labels & DK (verdict p-value) \\
+    Two-critic relative & $\Dtwo$, \eqref{eq:two-critic-stat} & two critics &
+      paired bootstrap, $B=500$ & DK (secondary) \\
+    \addlinespace
+    LR oracle (E2) & $\TLR$, \eqref{eq:lr-oracle} & none (true densities) &
+      Monte Carlo, 2000 null samples & -- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Relative tests}\label{sec:method-relative}
+
+\paragraph{The anchored relative test.}
+The inputs are $\Rnew$ ($X$, $n$ windows), the synthetic sample $G$ ($Y$, $m$ windows) and
+$\Rpast$ ($Z$, $k$ windows).
+\begin{enumerate}
+  \item \emph{Split.} $Y$ and $Z$ are split into training and evaluation halves, of sizes
+    $m_t,m_e$ and $k_t,k_e$: by time blocks under the dependent protocol, at random otherwise.
+    The block labels are shared, so a block of $G$ (one tenth of \TEST{}) and the block of
+    $\Rpast$ with the same label (the corresponding tenth of \TRAIN{}) fall in the same half; in
+    E3 this puts about half of each sample in each half. $\Rnew$ is not split: all of it is
+    used for training, and none of it for evaluation.
+  \item \emph{Training.} One critic $\fhat=\ghat\circ A$, with the architecture and optimiser of
+    the \WC{} test and $A$ fitted on all training windows, is trained to separate $\Rnew$
+    (positive class) from the pool $Y^{\trn}\cup Z^{\trn}$ (negative class). Inside the pool the
+    two parts carry equal total weight, whatever their sizes:
+    \begin{equation}\label{eq:anchored-obj}
+      \ghat\approx\argmax_g\Big\{\widehat P_{\mathrm{new}}(g\circ A)
+      -\tfrac12\QG^{\trn}(g\circ A)-\tfrac12\Ppast^{\trn}(g\circ A)
+      -\lgp\,\E\big(\norm{\nabla g(\tilde x)}-1\big)^2\Big\},
+    \end{equation}
+    where $\widehat P_{\mathrm{new}}$ is the empirical measure of all $\Rnew$ windows and
+    $\QG^{\trn},\Ppast^{\trn}$ are those of the two training halves. In practice each mini-batch
+    draws pool windows with replacement, with probability $1/(2m_t)$ for each window of
+    $Y^{\trn}$ and $1/(2k_t)$ for each window of $Z^{\trn}$, and the penalty is evaluated at
+    interpolates between an $\Rnew$ window and a pool window.
+  \item \emph{Statistic.} With $\fhat$ frozen,
+    \begin{equation}\label{eq:anchored-stat}
+      \Danc=\Ppast^{\evl}\fhat-\QG^{\evl}\fhat
+      =\frac1{k_e}\sum_{Z_l\in Z^{\evl}}\fhat(Z_l)-\frac1{m_e}\sum_{Y_j\in Y^{\evl}}\fhat(Y_j).
+    \end{equation}
+\end{enumerate}
+The critic scores ``$\Rnew$-likeness''. $\Danc>0$ means that real past windows look more like
+the new data than synthetic windows do: $G$ is worse than simply replaying history. The test is
+one-sided against $\Danc>0$, and its conditional target is $\delta=\Ppast\fhat-\QG\fhat$, with
+null $\delta\le0$ (\cref{def:rel-null}). The name ``anchored'' refers to the role of $\Rnew$.
+For one shared critic, the difference of the two absolute discrepancies is
+$(\Pnew\fhat-\QG\fhat)-(\Pnew\fhat-\Ppast\fhat)=\Ppast\fhat-\QG\fhat$: the $\Rnew$ terms cancel
+exactly. $\Rnew$ anchors what the critic looks for, but is never evaluated, which is why all of
+it can be used for training.
+
+\emph{p-values.} For independent windows, the labels of the pooled $G$ and $\Rpast$ evaluation
+windows are permuted with $\fhat$ fixed ($B=1000$), and the p-value is \eqref{eq:perm-pvalue}
+with $(a,b)=(\fhat(Z^{\evl}),\fhat(Y^{\evl}))$. At the boundary $\Law(G)=\Law(\Rpast)$ this test
+is exact for every critic and every law of $\Rnew$ (\cref{prop:anchored}). Given $\Gsig$, the
+$G$ and $\Rpast$ evaluation windows are then \iid{} from one law, whatever the training did. The
+pool weights affect power only. In the interior of the null, with unequal evaluation sizes, the
+plain permutation is only approximately calibrated. The code therefore also reports the
+studentised permutation p-value (Welch statistic recomputed under each permutation), which is
+asymptotically valid for $\delta\le0$ and still exact at the boundary
+\citep{janssen1997studentized,chung2013exact}. For dependent windows the p-value is
+\eqref{eq:hac-z} with $(a,b)=(\fhat(Z^{\evl}),\fhat(Y^{\evl}))$, each Driscoll--Kraay variance
+computed on its own date ranks. This HAC p-value enters the verdict, and the reported interval
+is $\Danc\pm1.96\,\widehat{\mathrm{se}}_{\mathrm{DK}}$.
+
+\emph{Caveats.} (i) $G$ is calibrated on $\Rpast$, so independence between $G$ and the $\Rpast$
+windows is an idealisation; for parametric generators each past window moves the fitted
+parameters by $O(1/k)$, and we treat the effect as negligible without proof
+(\cref{rem:rel-guarantee}). (ii) The stationary bootstrap generator copies blocks of $\Rpast$.
+Some synthetic evaluation windows then duplicate windows that the critic saw as pool negatives,
+exchangeability fails, and the test is invalid; its verdict is \INVALID{}. E2 part e runs this
+case with a naive and with a grouped split (\cref{tab:e2-relative-boundary}). (iii) On real data
+$\Rpast$ is not stationary (2020, 2022). The boundary is then the pooled \TRAIN{} window law,
+and the time-block split compares the critic's view of $G$ with a random half of the \TRAIN{}
+history. A single-seed p-value is not calibrated in this situation. The verdict therefore uses
+the seed-combined p-value of \cref{sec:method-decision}, whose power and boundary size are
+estimated under a design with the real \TRAIN{} volatility path (design D2 below). (iv) The last \TRAIN{} block
+borders the first \TEST{} dates. Under volatility clustering the critic can learn a regime
+shared by $\Rnew$ and the end of $\Rpast$, a small effect in the direction of rejection.
+
+\paragraph{The two-critic relative test (secondary).}
+All three samples are split, with shared block labels under the dependent protocol. Two critics
+are trained separately with the same settings: $\fhat_G$ on $(X^{\trn},Y^{\trn})$ and $\fhat_P$
+on $(X^{\trn},Z^{\trn})$. The statistic is the difference of the two held-out discrepancies,
+\begin{equation}\label{eq:two-critic-stat}
+  \Dtwo=\big(\Pev\fhat_G-\QG^{\evl}\fhat_G\big)-\big(\Pev\fhat_P-\Ppast^{\evl}\fhat_P\big),
+\end{equation}
+a sum of three evaluation means given $\Gsig$. The p-value comes from a paired bootstrap with
+$B=500$ replicates. In each replicate the $\Rnew$ evaluation windows are resampled once and used
+for both critics, and the $G$ and $\Rpast$ evaluation windows are resampled independently. The
+p-value is centred, $(1+\#\{\Dtwo_{*b}-\Dtwo\ge\Dtwo\})/(1+B)$ \citep{hall1991two}, and the
+interval is the percentile interval; under the dependent protocol the three Driscoll--Kraay
+variances are added instead. This test is valid conditionally on the two trained critics
+(\cref{prop:paired-boot}) but anti-conservative at the boundary $\Law(G)=\Law(\Rpast)$
+(\cref{prop:boundary-size}). There, the conditional target $\Dcrit_G-\Dcrit_P$ is the difference
+of two exchangeable replicates of a quantity that depends on training. It is symmetric about
+zero, with a spread of the order of the evaluation noise, and for fixed critics and growing
+evaluation sets the rejection probability tends to $1/2$. We report it for comparison only; it
+never enters the verdict.
+
+\paragraph{Kernel version.}
+For MMD and \SigMMD{} there is no learned witness. The relative test then follows
+\citet{bounliphone2016test}: $\TMMD(\Rnew,G)-\TMMD(\Rnew,\Rpast)$ with one kernel (median
+heuristic on the three pooled samples). Its normal p-value uses the variance of the first-order
+Hoeffding projections, with Driscoll--Kraay variances of the projections under dependence. The
+approximation degenerates when all three laws coincide. This version is available in the code
+but is not used for any verdict.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{The decision rule}\label{sec:method-decision}
+
+\paragraph{Seeds.}
+A single anchored p-value depends on the synthetic path and on the randomness of the test (block
+assignment, initialisation, mini-batches). Reporting the most favourable of several draws would
+be invalid. E3 therefore runs $S=5$ synthetic seeds per generator. Seed $s$ draws a fresh
+synthetic path for every ticker and fresh test randomness, and the seeds are shared across
+generators, so at a given seed every generator faces the same block assignment and critic
+initialisation (common random numbers). With $p_s$ the HAC p-value of the anchored test at seed
+$s$, the seeds are combined by
+\begin{equation}\label{eq:pmed}
+  \pmed=\min\big\{1,\;2\med(p_1,\dots,p_S)\big\},
+\end{equation}
+which is a valid p-value under arbitrary dependence between the $p_s$
+\citep{meinshausen_2009_pvalues}; see \cref{rem:combine-seeds}. With $S=5$ the median is the
+third smallest $p_s$.
+
+\paragraph{Power check.}
+A non-rejection is evidence of quality only if the test could have detected a deviation of
+relevant size. The power check (\cref{def:power-check}) simulates the whole rule, five seeds
+included, with the anchored \WC{} test, the dependent protocol and the real sample sizes,
+scales, date ranks and split. The pre-specified deviation $\vartheta^*$ multiplies synthetic
+volatility by 1.2. There are two reference designs.
+\begin{itemize}
+  \item \emph{D1 (stationary).} The reference model is the per-ticker \GARCHt{} fitted on
+    \TRAIN{} (the E3 fits). In each replication, $\Rpast^*$ is a \TRAIN{}-length path started
+    from stationarity (250 burn-in days), and $\Rnew^*$ is an independent \TEST{}-length path
+    started from the fitted end-of-\TRAIN{} state. For each seed the alternative $G^*$ is 1.2
+    times an independent \TEST{}-length draw from the end-of-\TRAIN{} state. The boundary
+    generator $G^0$ is an independent \TEST{}-length draw started from stationarity, so that
+    $\Law(G^0)=\Law(\Rpast^*)$ exactly. $G^*$ and $G^0$ are tested with the same test randomness.
+  \item \emph{D2 (real volatility path).} Let $v_{ij}$ be the root mean square of the
+    normalised real \TRAIN{} window $j$ of ticker $i$. Window $(i,j)$ of $\Rpast^*$ is
+    $v_{ij}\,\xi$ with $\xi\sim N(0,I_L)$, drawn once per replication; this keeps the 2020
+    and 2022 regimes and their co-movement across tickers. $\Rnew$ is the real \TEST{} sample.
+    For each seed, the $j'$-th window of ticker $i$ in $G^0$ is $v_{iU}\,\xi'$ with $U$ uniform
+    over the \TRAIN{} windows of ticker $i$, so $G^0$ has exactly the pooled \TRAIN{} window law
+    of each ticker; it carries the \TEST{} date ranks. The alternative is $G^*=1.2\,G^0$. The boundary of D2 is a
+    placebo of the anchored test under the real non-stationarity of $\Rpast$.
+\end{itemize}
+Each design runs $R=100$ replications. The estimated power $\hat\beta_{\mathrm{D}}$ is the share
+of replications with $\pmed\le\alpha$ under the alternative; the boundary size
+$\hat\alpha_{\mathrm{bd},\mathrm{D}}$ is the same share under $G^0$. Both are reported with
+Wilson intervals, and the power with its one-sided Clopper--Pearson lower bound $\betaL$
+\citep{clopper_1934_use}. The power of the rule is the smaller of the two,
+$\hat\beta=\min(\hat\beta_{\mathrm{D1}},\hat\beta_{\mathrm{D2}})$. The designs, the deviation and
+the threshold were fixed before the full real-data runs, and the check does not involve the
+generators being evaluated (\cref{tab:e3-power}).
+
+\paragraph{Verdict.}
+With $\alpha=0.05$ and $\bmin=0.8$,
+\begin{equation}\label{eq:verdict}
+  V=\begin{cases}
+    \BAD & \text{if } \pmed\le\alpha,\\
+    \GOOD & \text{if } \pmed>\alpha \text{ and } \hat\beta\ge\bmin,\\
+    \INCONCL & \text{otherwise,}
+  \end{cases}
+\end{equation}
+and $V=\INVALID$ for the stationary bootstrap, whose relative test is invalid (caveat (ii)
+above). \Cref{def:verdict} restates the rule formally, and \cref{prop:verdict} states what it
+controls. The variant that requires the Clopper--Pearson bounds of both designs to reach $\bmin$
+is reported alongside. Each verdict comes with $\pmed$ of the absolute \WC{} test over the same
+seeds, the median and range of $\Danc$ over seeds, and the boundary sizes of both designs
+(\cref{tab:e3-verdicts}). The combination ``absolute test rejects, relative test does not''
+reads ``distinguishable from the future, but not worse than history''. It is a finding, not a
+failure of the method.
+
+\paragraph{What the verdict means.}
+\BAD{} is a rejection of the anchored null for the trained critics. Its error rate at the
+boundary is at most $\alpha$ with independent windows (exactly $\alpha$ for a single seed; the
+seed combination is conservative), controlled only asymptotically under the dependent
+protocol, and on real data it is the estimated boundary size of the rule, which we report
+rather than assume. \GOOD{} means ``no detectable deviation of the pre-specified size and type
+in designs that resemble the data''. It never means ``equal to the truth''. Its guarantee rests
+on a premise that cannot be verified: the actual deviation must be at least as detectable as a
+20\% volatility error in D1 and D2 (\cref{prop:verdict}). The per-ticker tests of E3 ($L=5$,
+calibrated p-values, Benjamini--Hochberg; \cref{sec:emp-perticker,rem:bh}) are descriptive and
+do not enter the verdict. \Cref{fig:alg-verdict} collects the steps.
+
+\begin{figure}[tbp]
+  \centering
+  \fbox{\begin{minipage}{0.95\linewidth}
+  \small
+  \textbf{Input.} Real \TRAIN{} and \TEST{} panels (100 tickers); a generator class
+  $\mathcal M$; $L=20$, $K=10$, $S=5$, $\alpha=0.05$, $\bmin=0.8$, $R=100$.
+  \begin{enumerate}
+    \setlength{\itemsep}{1pt}
+    \item \emph{Power check} (once, for all generators). For $\mathrm D\in\{\mathrm{D1},\mathrm{D2}\}$
+      and $r=1,\dots,R$: draw $\Rpast^*$ (and $\Rnew^*$ in D1); for $s=1,\dots,S$ draw $G^*_s$ and
+      $G^0_s$ and run step 4 on each; set $p^{\mathrm{alt}}_r$ and $p^{\mathrm{bd}}_r$ by
+      \eqref{eq:pmed}. Then $\hat\beta_{\mathrm D}=R^{-1}\sum_r\one\{p^{\mathrm{alt}}_r\le\alpha\}$,
+      $\hat\alpha_{\mathrm{bd},\mathrm D}=R^{-1}\sum_r\one\{p^{\mathrm{bd}}_r\le\alpha\}$ and
+      $\hat\beta=\min_{\mathrm D}\hat\beta_{\mathrm D}$.
+    \item \emph{Fit.} Fit $\mathcal M$ on the \TRAIN{} returns of each ticker.
+    \item \emph{Simulate} (for $s=1,\dots,S$). One \TEST{}-length path per ticker with seed $s$,
+      from the fitted end-of-\TRAIN{} state where the model has one; divide by $s_i$; cut
+      windows; assign \TEST{} date ranks.
+    \item \emph{Anchored test} (for each $s$). Time-block split of $G_s$ and $\Rpast$ (shared
+      labels); train one \WC{} on all of $\Rnew$ against the pool with weights $\tfrac12,\tfrac12$
+      \eqref{eq:anchored-obj}; compute $\Danc_s$ \eqref{eq:anchored-stat} and
+      $p_s=1-\Phi(\zhac)$ from \eqref{eq:dk-var}--\eqref{eq:hac-z}.
+    \item \emph{Combine.} $\pmed=\min\{1,2\med_sp_s\}$.
+    \item \emph{Verdict.} \INVALID{} if $G$ resamples $\Rpast$ (stationary bootstrap); else
+      \BAD{} if $\pmed\le\alpha$, \GOOD{} if $\hat\beta\ge\bmin$, \INCONCL{} otherwise.
+    \item \emph{Report.} $V$; the Clopper--Pearson variant; $\hat\beta_{\mathrm D}$ and
+      $\hat\alpha_{\mathrm{bd},\mathrm D}$; the median and range of $\Danc_s$; $\pmed$ of the
+      absolute \WC{} test (time-block split, $\phac$) over the same seeds.
+  \end{enumerate}
+  \end{minipage}}
+  \caption{The decision rule for one generator, as run in E3. Step 1 does not involve the
+    generators under evaluation.}
+  \label{fig:alg-verdict}
+\end{figure}

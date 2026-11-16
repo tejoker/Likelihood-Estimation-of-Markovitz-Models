@@ -1,0 +1,27 @@
+% =============================================================================================
+% ABSTRACT (input inside \begin{abstract}...\end{abstract} in main.tex; no \section here).
+% Target: 180-220 words, one paragraph, no citations, no numbers that are not in a generated
+% table. Plan: paper/OUTLINE.md, "Abstract".
+%
+% Planned content, in this order:
+%  1. Problem: synthetic return data is used for back-testing, data sharing and portfolio
+%     construction, but its quality is judged by stylized facts or uncalibrated scores.
+%  2. Method: the critic of a Wasserstein GAN, trained alone on a training split of real versus
+%     synthetic windows, gives a held-out two-sample statistic; exact permutation level for
+%     independent windows; time-block split + Driscoll-Kraay HAC inference for dependent panels;
+%     an anchored relative test (is the generator worse than the real past?) that is exact at its
+%     boundary; a pre-specified power check and a three-valued verdict (GOOD / BAD /
+%     INCONCLUSIVE).
+%  3. Theory: exact level, consistency under idealised training, Neyman-Pearson upper bound and
+%     the local-power factor, anti-conservativeness of the two-critic relative test, bias of
+%     ticker splits on common dates.
+%  4. Simulation: valid size everywhere with independent windows; window tests detect volatility
+%     clustering; the pooled KS test is more powerful against marginal deviations but invalid
+%     under within-window dependence and blind to dependence-only deviations. State plainly that
+%     the critic is not uniformly most powerful.
+%  5. Application: S&P 500 (2018-2025), five univariate generators, verdicts, agreement with
+%     likelihood benchmarks; Markowitz portfolios trained on synthetic data and whether the
+%     verdicts predict utility (they need not: Section 8). Headline numbers: \todo until the
+%     E3/E4 tables are final.
+% =============================================================================================
+\todo{Abstract to be written last, from the final tables (see OUTLINE.md).}

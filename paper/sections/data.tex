@@ -1,0 +1,36 @@
+\section{Data and generators}\label{sec:data}
+% =============================================================================================
+% Target length: 2.5 pages including 2 tables and 1 figure (fit details in \cref{app:data}).
+% Sources: docs/DESIGN.md Section 2 and Change log; src/synthval/data.py, models/*.py;
+% experiments/e3_sp500.py parts fit and stylized. Plan: OUTLINE.md, Section 6.
+%
+% Planned subsections (labels):
+%  \subsection{The S\&P 500 panel}                                 \label{sec:data-panel}
+%     Bloomberg PX_LAST of the 503 current constituents, 2018-01-02 to 2025-06-16; complete
+%     universe = no missing price (internal gaps <= 3 days forward-filled, never back-filled):
+%     481 tickers; two data errors excluded by a stated rule (max |log-return| > 1 or >= 20
+%     zero-volume days: KDP, unadjusted special dividend; AMCR, stale pre-listing quotes) ->
+%     479; main panel = 100 tickers drawn with a fixed seed; E4 universes = 30 x 30 from the 479.
+%     TRAIN 2018-01-02 to 2022-12-30 (1258 days), TEST 2023-01-03 to 2025-06-16 (615 days);
+%     windows: 62 per ticker in TRAIN (6200), 30 in TEST (3000) at L = 20. Survivorship bias
+%     (current constituents) stated as a limitation.
+%  \subsection{Generators}                                         \label{sec:data-generators}
+%     univariate (per ticker, fitted on TRAIN): GBM (MLE), Merton (MLE, truncated Poisson sum),
+%     GARCH(1,1)-t (MLE, variance targeting, persistence cap 0.995), Heston (Andersen QE scheme,
+%     c <= sqrt(1.5) to avoid zero-variance days, SMM on variance, tail quantile ratio,
+%     ACF(r^2) at 1/5/10/20, leverage), stationary bootstrap (Politis-White block length);
+%     simulation over TEST from the fitted end state; likelihood available for GBM, Merton,
+%     GARCH-t only. Multivariate (E4): MV Gaussian, MV Student-t (ECME), CCC-GARCH-t (Gaussian
+%     copula), MV stationary bootstrap, factor GARCH-t. Fit diagnostics: tab:e3-fit-diagnostics;
+%     Heston moment match (simulated kurtosis below the data): tab:e3-heston-moments (appendix).
+%  \subsection{Stylized facts}                                     \label{sec:data-stylized}
+%     tab:e3-stylized and fig:e3-stylized: real TEST vs each generator (panel median and IQR of
+%     moments, ACF of |r|, tails, aggregational Gaussianity, leverage).
+% Tables/figures:
+%   tables/e3_fit_diagnostics.tex -> tab:e3-fit-diagnostics (main)
+%   tables/e3_stylized.tex -> tab:e3-stylized (main);  figures/e3_stylized.pdf -> fig:e3-stylized (main)
+%   tables/e3_heston_moments.tex -> tab:e3-heston-moments (appendix)
+% =============================================================================================
+\todo{Section to be written (OUTLINE.md, Section 6). Anchor citations:
+\citet{cont2001empirical}, \citet{heston1993closed}, \citet{politis1994stationary},
+\citet{brown1992survivorship}.}

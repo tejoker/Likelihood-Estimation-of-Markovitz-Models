@@ -1,0 +1,247 @@
+% =============================================================================================
+% main.tex -- paper skeleton. Owner of the preamble and notation macros: outline agent.
+% Notation reference: paper/notation.md. Section plan and label registry: paper/OUTLINE.md.
+% Compile from paper/:  latexmk -pdf -interaction=nonstopmode main.tex
+% Section writers edit only their own file under sections/. New macros go here (ask the
+% outline owner) so that every section uses the same notation.
+% =============================================================================================
+\documentclass[11pt,a4paper]{article}
+
+% --- Fonts and page --------------------------------------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}          % scalable T1 fonts (the bitmap cm-super T1 font is not installed)
+\usepackage{microtype}
+\usepackage[margin=2.5cm]{geometry}
+
+% --- Mathematics -----------------------------------------------------------------------------
+\usepackage{amsmath,amssymb,amsthm,mathtools,bm}
+
+% --- Bibliography ----------------------------------------------------------------------------
+\usepackage[authoryear,round]{natbib}
+
+% --- Tables and figures ----------------------------------------------------------------------
+\usepackage{booktabs}
+\usepackage{threeparttable}
+\usepackage{siunitx}
+\sisetup{detect-all, group-separator={,}, group-minimum-digits=4}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{adjustbox}        % \fittable: shrink a generated tabular to the text width if needed
+\usepackage[font=small,labelfont=bf,skip=4pt]{caption}
+\usepackage{xcolor}
+
+% --- Cross-references (cleveref must be loaded last) -----------------------------------------
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=blue!50!black, citecolor=green!35!black,
+            urlcolor=blue!60!black, pdftitle={Is Synthetic Financial Data Good Enough?}}
+\usepackage{aliascnt}         % one alias counter per theorem type (see below)
+\usepackage[capitalise,noabbrev]{cleveref}
+
+% =============================================================================================
+% Theorem environments. One counter for all numbered statements, reset in each section
+% (Proposition 4.1, Remark 4.2, ...; Lemma A.1 in the appendix). Each environment gets an alias
+% of the shared counter (aliascnt), so that \cref prints the right name ("Proposition 4.1",
+% not "Theorem 4.1"; cleveref alone does not tell shared counters apart with this TeX Live).
+% Write heuristics as remarks whose title says "(heuristic)".
+% =============================================================================================
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\crefname{theorem}{Theorem}{Theorems}
+% \sharedthm[style]{env}{Name}{Names}: numbered like theorem, cross-referenced as Name.
+\newcommand{\sharedthm}[4][plain]{%
+  \theoremstyle{#1}\newaliascnt{#2}{theorem}\newtheorem{#2}[#2]{#3}\aliascntresetthe{#2}%
+  \crefname{#2}{#3}{#4}}
+\sharedthm{proposition}{Proposition}{Propositions}
+\sharedthm{lemma}{Lemma}{Lemmas}
+\sharedthm{corollary}{Corollary}{Corollaries}
+\sharedthm{fact}{Fact}{Facts}                       % standard result quoted with a reference
+\sharedthm[definition]{definition}{Definition}{Definitions}
+\sharedthm[definition]{assumption}{Assumption}{Assumptions}
+\sharedthm[definition]{example}{Example}{Examples}
+\sharedthm[remark]{remark}{Remark}{Remarks}
+\theoremstyle{plain}
+
+\crefname{equation}{equation}{equations}
+\Crefname{equation}{Equation}{Equations}
+\crefname{appendix}{Appendix}{Appendices}       % \crefalias{section}{appendix} after \appendix
+
+\numberwithin{equation}{section}
+
+% =============================================================================================
+% Editorial macros
+% =============================================================================================
+% \todo{...}: visible red placeholder for anything not yet available (numbers from running
+% experiments, missing references, decisions). Works in text, math and captions.
+\newcommand{\todoinner}[1]{\textcolor{red}{\textbf{[TODO:}~#1\textbf{]}}}
+\DeclareRobustCommand{\todo}[1]{\ifmmode\text{\todoinner{#1}}\else\todoinner{#1}\fi}
+
+% Generated tables and figures. They may not exist yet: these wrappers print a \todo instead of
+% stopping the compilation. Templates: paper/OUTLINE.md, Section 11.
+%   \inputtable{e2_llr}    -> tables/e2_llr.tex (a bare tabular written by the experiments);
+%                             use it inside threeparttable when the table fits the text width
+%   \fittable{e3_power}    -> the same, shrunk to \linewidth if it is wider (never enlarged).
+%                             NOT inside threeparttable (it cannot measure a boxed tabular):
+%                             put the notes in \tablenote{...} instead
+%   \tablenote{text}       -> table notes in a \linewidth minipage, \footnotesize
+%   \inputnote{e2_size_note} -> tables/e2_size_note.tex (generated notes), inside
+%                             \tablenote{} or a tablenotes \item[]
+%   \inputfigure[width]{e2_power} -> figures/e2_power.pdf (default width \linewidth)
+\newcommand{\inputtable}[1]{%
+  \IfFileExists{tables/#1.tex}{\input{tables/#1.tex}}{\todo{table \texttt{\detokenize{#1}.tex} not yet generated}}}
+\newcommand{\fittable}[1]{%
+  \IfFileExists{tables/#1.tex}%
+    {\adjustbox{max width=\linewidth}{\input{tables/#1.tex}}}%
+    {\todo{table \texttt{\detokenize{#1}.tex} not yet generated}}}
+\newcommand{\tablenote}[1]{%
+  \par\smallskip\begin{minipage}{\linewidth}\footnotesize\raggedright #1\end{minipage}}
+\newcommand{\inputnote}[1]{%
+  \IfFileExists{tables/#1.tex}{\input{tables/#1.tex}}{\todo{note \texttt{\detokenize{#1}.tex} not yet generated}}}
+\newcommand{\inputfigure}[2][\linewidth]{%
+  \IfFileExists{figures/#2.pdf}{\includegraphics[width=#1]{#2}}%
+    {\fbox{\parbox{0.9\linewidth}{\centering\todo{figure \texttt{\detokenize{#2}.pdf} not yet generated}}}}}
+
+% =============================================================================================
+% Notation macros (meaning of every macro: paper/notation.md). Use them; do not retype.
+% =============================================================================================
+% --- Probability, analysis -------------------------------------------------------------------
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Prob}{\mathbb{P}}
+\DeclareMathOperator{\Var}{Var}
+\DeclareMathOperator{\Cov}{Cov}
+\DeclareMathOperator{\Corr}{Corr}
+\DeclareMathOperator{\Law}{Law}
+\newcommand{\W}{W_{1}}                          % Wasserstein-1 distance: \W(P,Q)
+\DeclareMathOperator{\Lip}{Lip}                 % Lipschitz constant / class: \Lip(f), \Lip_c
+\DeclareMathOperator{\KL}{KL}
+\DeclareMathOperator{\TV}{TV}
+\DeclareMathOperator{\MMD}{MMD}
+\newcommand{\Jeff}{J}                           % Jeffreys divergence KL(P||Q)+KL(Q||P)
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\Tr}{tr}                   % trace
+\DeclareMathOperator{\med}{med}                 % median
+\DeclareMathOperator{\cond}{cond}               % condition number
+\DeclareMathOperator{\supp}{supp}
+\newcommand{\one}{\mathbf{1}}                   % indicator \one\{A\} and vector of ones \one
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Nat}{\mathbb{N}}                   % (N is the number of assets)
+\newcommand{\Pspace}[1]{\mathcal{P}_{#1}}       % measures with finite #1-th moment
+\newcommand{\iid}{i.i.d.}
+\newcommand{\eqd}{\overset{d}{=}}
+\newcommand{\dto}{\rightsquigarrow}             % convergence in distribution
+\newcommand{\pto}{\xrightarrow{\ \Prob\ }}      % convergence in probability
+\newcommand{\indep}{\perp\!\!\!\perp}
+\DeclarePairedDelimiter{\norm}{\lVert}{\rVert}
+\DeclarePairedDelimiter{\abs}{\lvert}{\rvert}
+\newcommand{\Gsig}{\mathcal{G}}                 % sigma-field of the training data and randomness
+
+% --- Data, samples, periods ------------------------------------------------------------------
+\newcommand{\TRAIN}{\textsc{train}}             % 2018-01-02 to 2022-12-30 (calibration, real past)
+\newcommand{\TEST}{\textsc{test}}               % 2023-01-03 to 2025-06-16 (evaluation, real new)
+\newcommand{\Ttr}{T_{\mathrm{tr}}}              % TRAIN length in trading days (1258)
+\newcommand{\Tte}{T_{\mathrm{te}}}              % TEST length in trading days (615)
+\newcommand{\Rpast}{R_{\mathrm{past}}}          % real windows of TRAIN
+\newcommand{\Rnew}{R_{\mathrm{new}}}            % real windows of TEST
+\newcommand{\Ppast}{P_{\mathrm{past}}}          % window law of R_past
+\newcommand{\Pnew}{P_{\mathrm{new}}}            % window law of R_new
+\newcommand{\QG}{Q_{G}}                         % window law of the generator G
+
+% --- Train / evaluation split ----------------------------------------------------------------
+\newcommand{\trn}{\mathrm{tr}}                  % superscript/subscript "training half"
+\newcommand{\evl}{\mathrm{ev}}                  % superscript/subscript "evaluation half"
+\newcommand{\Itr}{I_{\trn}}
+\newcommand{\Iev}{I_{\evl}}
+\newcommand{\Jtr}{J_{\trn}}
+\newcommand{\Jev}{J_{\evl}}
+\newcommand{\Pev}{P^{\evl}}                     % empirical mean over real eval windows: \Pev f
+\newcommand{\Qev}{Q^{\evl}}
+\newcommand{\Ptr}{P^{\trn}}
+\newcommand{\Qtr}{Q^{\trn}}
+
+% --- Critic, statistics, p-values ------------------------------------------------------------
+\newcommand{\fhat}{\widehat{f}}                 % trained critic (network o standardisation)
+\newcommand{\ghat}{\widehat{g}}                 % network part, \fhat = \ghat \circ A
+\newcommand{\lhat}{\widehat{\ell}}              % learned logit (LR-critic, C2ST)
+\newcommand{\lstar}{\ell^{*}}                   % Bayes-optimal logit
+\newcommand{\lgp}{\lambda_{\mathrm{GP}}}        % gradient-penalty weight (10)
+\newcommand{\Dcrit}{D}                          % critic discrepancy D(f) = Pf - Qf (target of T)
+\newcommand{\Tlogit}{T_{\mathrm{logit}}}
+\newcommand{\Tacc}{T_{\mathrm{acc}}}
+\newcommand{\TMMD}{T_{\mathrm{MMD}}}
+\newcommand{\Tsig}{T_{\mathrm{sig}}}
+\newcommand{\TKS}{T_{\mathrm{KS}}}
+\newcommand{\TLR}{T_{\mathrm{LR}}}              % Neyman-Pearson oracle statistic
+\newcommand{\Danc}{\Delta}                      % anchored relative statistic (primary)
+\newcommand{\Dtwo}{\Delta^{\mathrm{2c}}}        % two-critic relative statistic (secondary)
+\newcommand{\pperm}{p_{\mathrm{perm}}}
+\newcommand{\phac}{p_{\mathrm{hac}}}
+\newcommand{\pwild}{p_{\mathrm{wild}}}
+\newcommand{\pmed}{p_{\mathrm{med}}}            % min(1, 2 x median p over synthetic seeds)
+\newcommand{\zhac}{z_{\mathrm{hac}}}
+\newcommand{\LRV}{\Omega}                       % long-run variance of a sequence of critic values
+\newcommand{\bNP}{\beta_{\mathrm{NP}}}          % power of the Neyman-Pearson oracle
+\newcommand{\Sig}{\mathrm{Sig}}                 % truncated path signature
+
+% --- Decision rule ---------------------------------------------------------------------------
+\newcommand{\GOOD}{\textsf{GOOD}}
+\newcommand{\BAD}{\textsf{BAD}}
+\newcommand{\INCONCL}{\textsf{INCONCLUSIVE}}
+\newcommand{\INVALID}{\textsf{INVALID}}
+\newcommand{\Cdesign}{\mathcal{C}_{\mathrm{ref}}}  % reference design of the power check
+\newcommand{\abd}{\alpha_{\mathrm{bd}}}         % boundary size of the relative test
+\newcommand{\bmin}{\beta_{\min}}                % required power (0.8)
+\newcommand{\betaL}{\beta_{L}}                  % Clopper-Pearson lower bound of the power
+
+% --- Tests and models (names in text) --------------------------------------------------------
+\newcommand{\WC}{W-critic}                      % write \WC{} test
+\newcommand{\LRC}{LR-critic}
+\newcommand{\SigMMD}{Sig-MMD}
+\newcommand{\GARCHt}{GARCH(1,1)-$t$}
+
+% --- Portfolios ------------------------------------------------------------------------------
+\newcommand{\wgmv}{w_{\mathrm{gmv}}}
+\newcommand{\wmv}{w_{\mathrm{mv}}}
+\newcommand{\CE}{\mathrm{CE}}
+\newcommand{\SR}{\mathrm{SR}}
+\newcommand{\SigLW}{\widehat{\Sigma}_{\mathrm{LW}}}
+
+% =============================================================================================
+\title{Is Synthetic Financial Data Good Enough?\\[0.3em]
+  \large A Validated Critic Two-Sample Test with Likelihood Benchmarks and Markowitz Utility}
+\author{\todo{Author names and affiliations}}
+\date{Draft of \today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\input{sections/abstract}
+\end{abstract}
+
+\noindent\textbf{Keywords:} two-sample test; Wasserstein critic; synthetic data; permutation
+test; HAC inference; likelihood ratio; generative models; portfolio choice.\\
+\noindent\textbf{JEL codes:} C12, C14, C15, C45, C52, C58, G11.
+\todo{confirm keywords and JEL codes}
+
+\input{sections/introduction}
+\input{sections/literature}
+\input{sections/methodology}
+\input{sections/theory}
+\input{sections/simulation}
+\input{sections/data}
+\input{sections/empirical}
+\input{sections/markowitz}
+\input{sections/robustness}
+\input{sections/conclusion}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\clearpage
+\appendix
+\crefalias{section}{appendix}   % \cref{app:proofs} -> "Appendix A"
+\input{sections/appendix}
+
+\end{document}

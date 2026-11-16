@@ -1,0 +1,224 @@
+\section{Introduction}\label{sec:intro}
+% =============================================================================================
+% Draft (to be revised once E1, E2 part e/f/g, E2-dep, E3 and E4 are final). Plan and claims:
+% paper/OUTLINE.md, Section 3. Notation: notation.md. No tables or figures in this section.
+% Numbers quoted here come only from final generated tables: tab:e2-size, tab:e2-power
+% (E2 main, families a-d) and tab:e4-correlation. The 45% figure is the theory.md pilot and is
+% quoted as a pilot only. Every other number is a \todo pointing to the label that will hold it.
+% =============================================================================================
+
+Synthetic return data, simulated from a fitted model or from a trained generative network, now
+serve several purposes in finance. They are used to back-test trading strategies on many paths
+instead of the single historical one, which a strategy selected in-sample tends to overfit
+\citep{bailey2017probability}; to share data that cannot be disclosed for confidentiality or
+privacy reasons \citep{assefa2020generating}; to train hedging strategies
+\citep{buehler2019deep,kondratyev2019market}; and to augment short samples, for instance when
+portfolio inputs are estimated \citep{buehler2020data,cetingoz2026synthetic}. The generators
+range from classical parametric models (geometric Brownian motion, jump-diffusions, GARCH,
+stochastic volatility) to generative networks
+\citep{wiese2020quant,takahashi2019modeling,buehler2020data,ni2021sig}. Each of these uses
+assumes an answer to the question in our title: is the synthetic data good enough?
+
+The question is usually answered informally. Most papers compare stylized facts of real and
+generated paths, such as heavy tails, volatility clustering and leverage
+\citep{cont2001empirical}, visually or through summary statistics, and evaluation practice varies
+widely \citep{stenger2024evaluation}. Discriminator-based scores, such as the held-out error of a
+classifier trained to tell real from synthetic series, are used without a null distribution
+\citep{yoon2019time,francopedroso2018ets,storchan2021learning}. Without a null distribution and a
+known power, a low score cannot be told apart from a weak classifier. Formal two-sample tests have
+been used
+to evaluate market generators \citep{buehler2020data,chevyrev2022signature}, but without an
+analysis of their size and power on financial data. Different evaluation criteria for generative
+models can also disagree sharply \citep{theis2016note}, so a criterion has to answer a precise
+statistical question and, ideally, say something about the intended use.
+
+We treat the question as a hypothesis test. A yes/no answer that a statistician can defend needs
+five things.
+\begin{enumerate}
+  \item[(i)] \emph{Level control on dependent data.} Real return windows are serially dependent
+  through volatility clustering and cross-sectionally dependent through common market shocks, so
+  permutation p-values, which assume exchangeability, are not valid for them. With windows of many
+  stocks pooled and the training and evaluation halves split by ticker, a pilot simulation of a
+  one-factor panel with the dimensions of our data rejected a true null in about 45\% of
+  replications at nominal 5\% (\todo{rejection rate of this naive protocol in the full placebo,
+  \cref{tab:e1-size-sim}}).
+  \item[(ii)] \emph{Power against the deviations that matter in finance}, quantified before the
+  test is applied to real data. Without known power, a non-rejection says nothing about quality.
+  \item[(iii)] \emph{A null that respects non-stationarity.} A generator $G$ is calibrated on the
+  real past $\Rpast$ and judged against later real data $\Rnew$. Requiring $\Law(G)=\Law(\Rnew)$
+  sets a bar that the real past may fail itself (\todo{\TRAIN{} against \TEST{} rejection rates,
+  \cref{tab:e1-nonstat}}). The honest benchmark is the past, not the unknown future law.
+  \item[(iv)] \emph{A link to likelihood-based evaluation.} Econometricians trust it, and where a
+  likelihood exists it provides a benchmark verdict and a power envelope.
+  \item[(v)] \emph{Evidence on use}: whether the verdict predicts how useful the data are for a
+  given decision.
+\end{enumerate}
+
+This paper builds such a test around the critic of a Wasserstein GAN, trained alone, with no
+generator. A critic is a neural-network test function chosen to maximise a mean difference
+between two samples under a Lipschitz penalty \citep{arjovsky2017wasserstein,gulrajani2017improved}.
+Let $X_1,\dots,X_n$ be windows of $L$ consecutive daily returns of real data, with law $P$, and let
+$Y_1,\dots,Y_m$ be windows simulated from $G$, with law $Q$. We split both samples into a training
+half and an evaluation half and train the critic $\fhat$ on the training halves. The statistic for
+the absolute null $P=Q$ (\cref{def:abs-null}) is the held-out mean difference
+\begin{equation*}
+  T=\Pev\fhat-\Qev\fhat=\frac{1}{n_e}\sum_{i\in\Iev}\fhat(X_i)-\frac{1}{m_e}\sum_{j\in\Jev}\fhat(Y_j).
+\end{equation*}
+Given the training half, $T$ is unbiased for $P\fhat-Q\fhat$. This quantity is bounded by the
+Lipschitz constant of the network times the Wasserstein-1 distance between the standardised
+window laws (\cref{prop:unbiased}). We read $T$ as a learned moment that can be evaluated window
+by window (\cref{sec:emp-witness}), not as an estimate of $\W$.
+
+For an econometrician the construction is a learned, sample-split relative of the consistent
+specification tests of \citet{bierens1990consistent} and \citet{stinchcombe1998consistent}: they
+use a whole class of test functions, whereas we select one on a training split and test with it
+on the other. It is also close in spirit to the simulation-based specification tests of
+\citet{corradi2005bootstrap}, with one difference that matters. Their null is that the model class
+is correctly specified. Ours is that the fitted generator, with parameters estimated on a
+calibration period and then held fixed, reproduces the window law of a later evaluation period
+(\cref{sec:lit-econometrics}). None of the building blocks is new on its own, and
+\cref{sec:lit-summary} lists what we take from earlier work.
+
+\paragraph{Contributions.}
+\begin{enumerate}
+  \item \emph{A critic test with known level.} For independent windows, the permutation test with
+  the critic held fixed has exact finite-sample level whatever the training did
+  (\cref{prop:exact-level}). For dependent panels we split by contiguous time blocks rather than
+  by ticker, so that training and evaluation windows cover disjoint dates, and we studentise $T$
+  with a Driscoll--Kraay variance \citep{driscoll1998consistent}. The resulting p-value is
+  asymptotically valid for a fixed critic under mixing conditions (\cref{prop:hac}). A ticker
+  split on common dates would instead couple the two halves through the realised market path,
+  and the statistic is then biased under the null (\cref{prop:ticker-bias}). The time-block split
+  leaves some dependence between training and evaluation blocks, which our theory does not
+  control, so we measure the size of the complete real-data pipeline in a simulated placebo panel
+  calibrated to the data (\cref{sec:emp-placebo}).
+
+  \item \emph{An anchored relative test and a three-valued verdict.} Relative similarity tests
+  compare two candidate models with one reference sample \citep{bounliphone2016test}. In ours one
+  candidate is the real past, so the null states that $G$ is at least as close to the future as
+  the past is. A single critic is trained to separate $\Rnew$ from an equally weighted pool of
+  synthetic and past training windows. The statistic $\Danc$ is its mean on held-out past windows
+  minus its mean on held-out synthetic windows (\cref{eq:anchored-stat}). At the boundary
+  $\Law(G)=\Law(\Rpast)$ the two held-out samples are exchangeable given the critic, so for
+  independent windows the permutation test is exact for every critic (\cref{prop:anchored}). The
+  obvious alternative, the difference of two separately trained critic statistics, is
+  anti-conservative at that boundary, and for fixed critics its size tends to $1/2$
+  (\cref{prop:boundary-size}). A generator is \BAD{} if the anchored test rejects. It is \GOOD{}
+  if the test does not reject and a power check, specified before any real-data test was run,
+  shows that in simulated reference designs the same pipeline detects a synthetic volatility 20\%
+  too high with probability at least $0.8$. It is \INCONCL{} otherwise
+  (\cref{def:power-check,def:verdict,prop:verdict}). On real data, where the past is itself
+  non-stationary, the verdict combines several synthetic seeds and the power check also reports
+  the size of this rule at the boundary (\cref{sec:method-decision}).
+
+  \item \emph{Calibration against ground truth and likelihood-ratio oracles.} On independent
+  simulated windows we measure the size and power of the \WC{} test and of five competitors: MMD
+  \citep{gretton2012kernel}, a signature MMD \citep{chevyrev2022signature}, the classifier
+  two-sample test \citep[C2ST;][]{lopezpaz2017revisiting}, a learned log-likelihood-ratio
+  statistic \citep[\LRC{};][]{cheng2022classification} and the Kolmogorov--Smirnov (KS) test on
+  pooled returns. The benchmark is the Neyman--Pearson oracle, which no two-sample test can beat
+  (\cref{prop:oracle-bound}). The theory predicts a large gap. With a 50/50 split and equal sample
+  sizes, the local noncentrality of any fixed-critic test is at most half the oracle's
+  (\cref{prop:local-power}; proved for a fixed critic, sketched for a trained one). The comparison
+  states where simpler tests win, and it includes alternatives that change only the dependence
+  within a window (\cref{sec:sim}).
+
+  \item \emph{Likelihood benchmarks on S\&P~500 data.} Five univariate generators (GBM, Merton,
+  \GARCHt{}, Heston and the stationary bootstrap) are fitted to 100 stocks on 2018--2022 and
+  evaluated on 2023-01-03 to 2025-06-16. Three of them have a tractable likelihood (GBM, Merton,
+  \GARCHt{}). For these we compare the verdicts with out-of-sample predictive log-likelihood,
+  probability-integral-transform tests and Amisano--Giacomini comparisons
+  \citep{diebold1998evaluating,berkowitz2001testing,amisano2007comparing}. Heston has no
+  closed-form likelihood \citep{aitsahalia2007maximum} and the bootstrap no parametric one; these
+  are the cases that call for a likelihood-free test (\cref{sec:emp}).
+
+  \item \emph{A link to Markowitz utility.} We show that critic distance and portfolio utility can
+  disagree in both directions (\cref{sec:mk-theory}). The utility of the global minimum-variance
+  (GMV) portfolio depends on the covariance matrix only up to scale, so a generator whose only
+  error is a scalar factor loses nothing for GMV, yet a consistent critic test rejects it
+  (\cref{ex:scale-blind}). Conversely, an error in a low-variance direction, which GMV weights
+  heavily, can be nearly invisible in $\W$ (\cref{ex:spread}). Empirically, we build GMV and
+  mean-variance portfolios from the output of five multivariate generators, evaluate them on the
+  real evaluation period against the same portfolios estimated on the real calibration period,
+  and relate the utility losses to multivariate critic and MMD statistics
+  (\cref{sec:markowitz}).
+\end{enumerate}
+
+\paragraph{Summary of findings.}
+We call \emph{window tests} the tests that compare the laws of whole windows (\WC{}, \LRC{}, C2ST,
+MMD, \SigMMD{}), as opposed to KS on the $nL$ pooled returns. With independent windows every
+window test holds its level: in each family and at both sample sizes, the Wilson 95\% interval of
+its rejection rate at nominal 5\% contains 0.05 (\cref{tab:e2-size}). KS does not hold its level.
+Returns within a GARCH window are dependent through their conditional variance, and KS rejects a
+true null at rate 0.110 [0.074, 0.161] with $n=500$ windows and 0.080 [0.050, 0.126] with
+$n=2000$ (Wilson 95\% intervals in brackets). Against volatility clustering at matched
+unconditional variance, the window tests have power. With $n=2000$ windows per sample and GARCH
+persistence 0.95 for the synthetic law against 0.98 for the real one, the rejection rates are 0.79
+for the \WC{} test, 0.93 for MMD, 0.86 for \SigMMD{}, 0.55 for C2ST and 0.30 for the \LRC{}
+statistic (\cref{tab:e2-power,fig:e2-power}).
+
+Against deviations of the one-dimensional marginal (volatility level, tails, jumps), KS is far more
+powerful than every window test. At $n=2000$ it rejects Gaussian against Student-$t_4$ returns at
+matched variance, and a variance-matched GBM against a Merton jump-diffusion, in every
+replication. The \WC{} test is the most powerful window test in both cases and rejects at rates
+0.67 and 0.20. No window test dominates the others. A kernel test (MMD or \SigMMD{}) is the most
+powerful window test, or tied for it, at every alternative of volatility level and of clustering,
+while the \WC{} test is the most powerful against the lightest-tailed alternatives to the
+Student-$t_4$ law ($t_{30}$ and Gaussian). At the smaller deviations all window tests remain far
+below the oracle, whose power is at least 0.98 at every alternative of the four families. KS has
+no power, by construction, against deviations that leave the marginal unchanged. Against such
+alternatives the window tests
+\todo{dependence-only families: power of the window tests, \cref{fig:e2dep-power}}. At the
+relative boundary $\Law(G)=\Law(\Rpast)$, the anchored test rejects at
+\todo{rate, \cref{tab:e2-relative-boundary}} and the two-critic test at
+\todo{rate, \cref{tab:e2-relative-boundary}}. \todo{One sentence on how close the learned logit
+is to the exact log-likelihood ratio, \cref{tab:e2-llr}; one on consecutive GARCH windows,
+\cref{tab:e2-dependent-size}.}
+
+On the real-data pipeline, the placebo panel gives \todo{size of the time-block Driscoll--Kraay
+protocol against the naive protocol, with the residual oversize, \cref{tab:e1-size-sim}}.
+\todo{Whether real \TRAIN{} and \TEST{} windows are distinguishable, \cref{tab:e1-nonstat}; if
+they are, the absolute null is too strict a bar.} The pre-specified power check gives
+\todo{power and boundary size of the verdict rule under both reference designs,
+\cref{tab:e3-power}}. On the S\&P~500 panel, \todo{absolute-test outcome per generator and the
+verdicts, \cref{tab:e3-pooled-tests,tab:e3-verdicts}; whether ``distinguishable from the future
+but not worse than history'' occurs}. \todo{Agreement of the critic ranking with the
+predictive log-likelihood ranking and with the Berkowitz verdicts, \cref{tab:e3-agreement}.}
+Fitting is itself informative. Simulated with the quadratic-exponential scheme of
+\citet{andersen_2008_simple}, Heston needs a bounded volatility of variance to avoid days with
+zero variance, and it then falls well short of the kurtosis of the data
+(\cref{tab:e3-heston-moments}).
+
+In the Markowitz study, the average pairwise correlation of real returns fell from 0.419 in
+\TRAIN{} to 0.268 in \TEST{} (\cref{tab:e4-correlation}). A generator that reproduces the past
+correlation structure more faithfully is therefore not necessarily more useful for the evaluation
+period.
+\todo{Utility of synthetic-trained portfolios relative to real-trained ones, \cref{tab:e4-utility};
+association between test statistics and utility losses, \cref{tab:e4-link}.}
+
+\paragraph{What we do not claim.}
+The \WC{} test is one well-calibrated and interpretable tool within a validated protocol, not a
+uniformly most powerful test. KS is more powerful against marginal deviations, and a kernel test
+is at least as powerful as the \WC{} test at every alternative of volatility level and of
+clustering in our simulations. We do not compare with
+power-optimised deep-kernel tests
+\citep{liu2020learning}. The protocol contributes exact or asymptotically valid inference on
+dependent panels, the relative null, the link with likelihood and an extension to multivariate
+windows, where pooled KS sees only the marginal. A \GOOD{} verdict means that a procedure with
+demonstrated power against a deviation of pre-specified size did not detect one. It never means
+that the generator equals the truth, and its error control rests on a premise that cannot be
+verified (\cref{prop:verdict}). A rejection is conditional on the fitted parameters, so it does not
+separate misspecification from estimation error or from parameter drift between the two periods;
+the relative test is designed to absorb the drift. Univariate verdicts say nothing about the
+cross-sectional dependence that drives portfolio risk (\cref{ex:corr-blind}). Finally, the panel
+consists of current S\&P~500 constituents and is subject to survivorship bias
+\citep{brown1992survivorship,shumway1997delisting}.
+
+\paragraph{Outline.}
+\Cref{sec:lit} reviews related work and \cref{sec:method} defines the procedure. \Cref{sec:theory}
+states the theory: exact level, consistency, the likelihood link, the relative test, inference
+under dependence and what the verdict controls. \Cref{sec:sim} reports the simulation evidence,
+\cref{sec:data} describes the data and the generators, \cref{sec:emp} gives the S\&P~500 results
+and \cref{sec:markowitz} studies Markowitz utility. \Cref{sec:robust} checks robustness and
+\cref{sec:concl} concludes. Proofs are in \cref{app:proofs}, implementation details in
+\cref{app:impl} and further results in \cref{app:sim,app:data,app:emp,app:mk,app:robust}.

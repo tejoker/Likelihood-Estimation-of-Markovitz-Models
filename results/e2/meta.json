@@ -1,0 +1,150 @@
+{
+  "experiment": "e2",
+  "run_id": "20261115T234201-213",
+  "started": "2026-11-15T23:42:01",
+  "updated": "2026-11-15T23:42:03",
+  "elapsed_s": 1.912,
+  "git": {
+    "commit": "b7c16b830085aca7de70730ce67e12bc4975c9ae",
+    "dirty": true,
+    "dirty_paths": [
+      "src",
+      "experiments"
+    ],
+    "n_dirty_files": 2,
+    "dirty_files": [
+      " M experiments/run_full.sh",
+      "?? experiments/e2_dependence.py"
+    ]
+  },
+  "code": {
+    "sha256": "32ae8a7681db62a5fc27a9c5bd774fe3f6947dd146f4712e5bb67095e2d25dca",
+    "n_files": 22,
+    "dir": "src/synthval"
+  },
+  "script": {
+    "path": "experiments/e2_ground_truth.py",
+    "sha256": "e8889e7c4928d3f8b6191ba56cca7e999910e399ecd460bf4114550717c24fae"
+  },
+  "data": {
+    "path": "data/sp500_price_volume.csv",
+    "bytes": 13345909,
+    "sha256": "ddfd0d23dc274a58f8089e53b3872754005033447d77eb2650a0795382f832dc"
+  },
+  "packages": {
+    "python": "3.12.16",
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "scipy": "1.18.1",
+    "statsmodels": "0.15.0",
+    "matplotlib": "3.11.2",
+    "torch": "2.15.0+cpu",
+    "arch": "9.0.0",
+    "scikit-learn": "1.9.1"
+  },
+  "platform": {
+    "system": "Linux",
+    "release": "7.0.0-43-generic",
+    "machine": "x86_64",
+    "cpu_count": 16
+  },
+  "workers": 4,
+  "argv": [
+    "experiments/e2_ground_truth.py",
+    "--plots-only"
+  ],
+  "config": {
+    "quick": false,
+    "parts": [
+      "main_a",
+      "main_b",
+      "main_c",
+      "main_d",
+      "e",
+      "f",
+      "g"
+    ],
+    "plots_only": true,
+    "cfg": {
+      "n_list": [
+        500,
+        2000
+      ],
+      "reps_h0": 200,
+      "reps_h1": 100,
+      "tests": {},
+      "oracle_B": 2000,
+      "oracle_K": 512,
+      "oracle_chunk": 20,
+      "e_n_list": [
+        500
+      ],
+      "e_reps": 200,
+      "e_tests": {},
+      "e_n_boot": 500,
+      "f_reps": 20,
+      "f_n_train": 2000,
+      "f_n_fresh": 2000,
+      "f_tests": {},
+      "f_K": 2048,
+      "f_variants": {
+        "default": {},
+        "fixed": {
+          "early_stopping": false
+        },
+        "long_lowlr": {
+          "early_stopping": false,
+          "n_steps": 3000,
+          "lr": 0.0001
+        }
+      },
+      "g_n": 500,
+      "g_reps": 200,
+      "g_tests": {},
+      "g_time_blocks": 10,
+      "blocks": {
+        "main": 10,
+        "e": 2,
+        "f": 1,
+        "g": 5
+      }
+    },
+    "oracle_mc_init": true
+  },
+  "files": {
+    "e2_rejection.csv": {
+      "kind": "csv",
+      "rows": 280,
+      "cols": 20,
+      "written": "2026-11-15T23:42:02"
+    },
+    "e2_size.csv": {
+      "kind": "csv",
+      "rows": 48,
+      "cols": 20,
+      "written": "2026-11-15T23:42:02"
+    },
+    "e2_relative.csv": {
+      "kind": "csv",
+      "rows": 14,
+      "cols": 18,
+      "written": "2026-11-15T23:42:02"
+    },
+    "e2_llr.csv": {
+      "kind": "csv",
+      "rows": 10,
+      "cols": 17,
+      "written": "2026-11-15T23:42:02"
+    },
+    "e2_dependent.csv": {
+      "kind": "csv",
+      "rows": 10,
+      "cols": 14,
+      "written": "2026-11-15T23:42:03"
+    }
+  },
+  "timing": {
+    "wall_compute_s": 0.02116682199994102,
+    "wall_outputs_s": 1.2046327740026754
+  }
+}

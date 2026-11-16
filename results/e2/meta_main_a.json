@@ -1,0 +1,339 @@
+{
+  "experiment": "e2",
+  "part": "main_a",
+  "quick": false,
+  "written": "2026-11-15T19:45:51",
+  "config": {
+    "seed": 20251115,
+    "L": 20,
+    "burn": 250,
+    "families": {
+      "a": {
+        "P": {
+          "kind": "t",
+          "nu": 5.0,
+          "vol": 0.02
+        },
+        "Q": [
+          {
+            "kind": "t",
+            "nu": 5.0,
+            "vol": 0.02
+          },
+          {
+            "kind": "t",
+            "nu": 5.0,
+            "vol": 0.021
+          },
+          {
+            "kind": "t",
+            "nu": 5.0,
+            "vol": 0.022000000000000002
+          },
+          {
+            "kind": "t",
+            "nu": 5.0,
+            "vol": 0.024
+          },
+          {
+            "kind": "t",
+            "nu": 5.0,
+            "vol": 0.026000000000000002
+          }
+        ],
+        "levels": [
+          0.0,
+          0.05,
+          0.1,
+          0.2,
+          0.3
+        ]
+      },
+      "b": {
+        "P": {
+          "kind": "t",
+          "nu": 4.0,
+          "vol": 0.02
+        },
+        "Q": [
+          {
+            "kind": "t",
+            "nu": 4.0,
+            "vol": 0.02
+          },
+          {
+            "kind": "t",
+            "nu": 6.0,
+            "vol": 0.02
+          },
+          {
+            "kind": "t",
+            "nu": 10.0,
+            "vol": 0.02
+          },
+          {
+            "kind": "t",
+            "nu": 30.0,
+            "vol": 0.02
+          },
+          {
+            "kind": "gbm",
+            "vol": 0.02
+          }
+        ],
+        "levels": [
+          4.0,
+          6.0,
+          10.0,
+          30.0,
+          Infinity
+        ]
+      },
+      "c": {
+        "P": {
+          "kind": "garch",
+          "pers": 0.98
+        },
+        "Q": [
+          {
+            "kind": "garch",
+            "pers": 0.98
+          },
+          {
+            "kind": "garch",
+            "pers": 0.95
+          },
+          {
+            "kind": "garch",
+            "pers": 0.9
+          },
+          {
+            "kind": "garch",
+            "pers": 0.8
+          },
+          {
+            "kind": "garch",
+            "pers": 0.0
+          }
+        ],
+        "levels": [
+          0.98,
+          0.95,
+          0.9,
+          0.8,
+          0.0
+        ]
+      },
+      "d": {
+        "P": {
+          "kind": "merton"
+        },
+        "Q": [
+          {
+            "kind": "mix",
+            "delta": 0.0
+          },
+          {
+            "kind": "mix",
+            "delta": 0.25
+          },
+          {
+            "kind": "mix",
+            "delta": 0.5
+          },
+          {
+            "kind": "mix",
+            "delta": 0.75
+          },
+          {
+            "kind": "mix",
+            "delta": 1.0
+          }
+        ],
+        "levels": [
+          0.0,
+          0.25,
+          0.5,
+          0.75,
+          1.0
+        ]
+      }
+    },
+    "tests": {
+      "critic": {
+        "n_steps": 1000,
+        "batch_size": 128,
+        "lr": 0.001,
+        "weight_decay": 0.0,
+        "arch": "auto",
+        "hidden": null,
+        "depth": 3,
+        "layer_norm": false,
+        "train_frac": 0.5,
+        "n_perm": 1000,
+        "early_stopping": false,
+        "val_frac": 0.2,
+        "eval_every": 50,
+        "patience": 5,
+        "min_steps": 0,
+        "curve_points": 100,
+        "hac_lags": null,
+        "inference": "permutation",
+        "tie_break": "conservative",
+        "time_blocks": null,
+        "gp_lambda": 10.0
+      },
+      "lrcritic": {
+        "n_steps": 1000,
+        "batch_size": 128,
+        "lr": 0.001,
+        "weight_decay": 0.0001,
+        "arch": "auto",
+        "hidden": null,
+        "depth": 3,
+        "layer_norm": false,
+        "train_frac": 0.5,
+        "n_perm": 1000,
+        "early_stopping": true,
+        "val_frac": 0.2,
+        "eval_every": 50,
+        "patience": 5,
+        "min_steps": 0,
+        "curve_points": 100,
+        "hac_lags": null,
+        "inference": "permutation",
+        "tie_break": "conservative",
+        "time_blocks": null,
+        "statistic": "logit",
+        "name": "lrcritic",
+        "stat_offset": 0.0,
+        "stat_scale": 1.0
+      },
+      "c2st": {
+        "n_steps": 1000,
+        "batch_size": 128,
+        "lr": 0.001,
+        "weight_decay": 0.0001,
+        "arch": "auto",
+        "hidden": null,
+        "depth": 3,
+        "layer_norm": false,
+        "train_frac": 0.5,
+        "n_perm": 1000,
+        "early_stopping": true,
+        "val_frac": 0.2,
+        "eval_every": 50,
+        "patience": 5,
+        "min_steps": 0,
+        "curve_points": 100,
+        "hac_lags": null,
+        "inference": "permutation",
+        "tie_break": "randomized",
+        "time_blocks": null,
+        "statistic": "accuracy",
+        "name": "c2st",
+        "stat_offset": 0.5,
+        "stat_scale": 0.5
+      },
+      "mmd": {
+        "n_perm": 500,
+        "max_n": 3000,
+        "multi_bandwidth": false,
+        "bandwidth": null,
+        "standardize": false,
+        "perm_block": 100,
+        "inference": "permutation",
+        "wild_block": null
+      },
+      "sigmmd": {
+        "depth": 4,
+        "time_aug": true,
+        "lead_lag": false,
+        "standardize": true,
+        "mmd.n_perm": 500,
+        "mmd.max_n": 3000,
+        "mmd.multi_bandwidth": false,
+        "mmd.bandwidth": null,
+        "mmd.standardize": false,
+        "mmd.perm_block": 100,
+        "mmd.inference": "permutation",
+        "mmd.wild_block": null
+      },
+      "ks": {
+        "method": "asymp"
+      }
+    },
+    "oracle_B": 2000,
+    "oracle_K": 512,
+    "oracle_mc_init": true,
+    "base": {
+      "mu": 0.0003,
+      "vol": 0.02,
+      "garch_alpha": 0.08,
+      "garch_nu": 5.0,
+      "merton": [
+        0.0007999999999999999,
+        0.01774823934929885,
+        0.05,
+        -0.01,
+        0.04
+      ]
+    },
+    "code_models": "4a126fd58c171a4e",
+    "code_tests": "21019c83b3d2459e",
+    "n_list": [
+      500,
+      2000
+    ],
+    "reps_h0": 200,
+    "reps_h1": 100
+  },
+  "config_hash": "c0616f7a055b",
+  "timing": {
+    "oracle_null_s": 0.0012987970003450755,
+    "main_s": 1.1060708289987815
+  },
+  "workers": 5,
+  "argv": [
+    "experiments/e2_ground_truth.py",
+    "--part",
+    "main",
+    "--workers",
+    "5"
+  ],
+  "git": {
+    "commit": "b7c16b830085aca7de70730ce67e12bc4975c9ae",
+    "dirty": true,
+    "dirty_paths": [
+      "src",
+      "experiments"
+    ],
+    "n_dirty_files": 2,
+    "dirty_files": [
+      " M experiments/run_full.sh",
+      "?? experiments/e2_dependence.py"
+    ]
+  },
+  "code": {
+    "sha256": "32ae8a7681db62a5fc27a9c5bd774fe3f6947dd146f4712e5bb67095e2d25dca",
+    "n_files": 22,
+    "dir": "src/synthval"
+  },
+  "packages": {
+    "python": "3.12.16",
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "scipy": "1.18.1",
+    "statsmodels": "0.15.0",
+    "matplotlib": "3.11.2",
+    "torch": "2.15.0+cpu",
+    "arch": "9.0.0",
+    "scikit-learn": "1.9.1"
+  },
+  "platform": {
+    "system": "Linux",
+    "release": "7.0.0-43-generic",
+    "machine": "x86_64",
+    "cpu_count": 16
+  }
+}

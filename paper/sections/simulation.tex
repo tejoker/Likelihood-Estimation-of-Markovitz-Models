@@ -1,0 +1,48 @@
+\section{Simulation evidence}\label{sec:sim}
+% =============================================================================================
+% Target length: 5 pages including 2 figures and 3 tables (rest in \cref{app:sim}).
+% Experiments: E2 (experiments/e2_ground_truth.py: parts main_a..main_d, e, f, g) and E2-dep
+% (experiments/e2_dependence.py: families mix, block). Independent windows (one burned-in path
+% per window) => permutation p-values exact, except part g. Numbers only from the generated
+% tables; quote rates with their Wilson intervals. Plan: OUTLINE.md, Section 5.
+%
+% Planned subsections (labels):
+%  \subsection{Design}                                             \label{sec:sim-design}
+%     base laws (daily vol 0.02, mean 3e-4): t(5); t(4); GARCH(1,1)-t a = 0.08, b = 0.90, nu = 5;
+%     Merton (lambda_J = 0.05, jumps N(-0.01, 0.04^2)); GBM. Families (a) volatility level,
+%     (b) tails, (c) clustering at matched variance, (d) jumps (window mixture); n in
+%     {500, 2000} windows of L = 20; 200 replications under H_0, 100 otherwise; common random
+%     numbers across levels; oracle exact for (a), (b), (d), Monte Carlo GARCH density (512
+%     draws) for (c). E2-dep: marginal held exactly fixed, dependence changed (mix, block);
+%     \todo{E2-dep sizes as run: n = 2000 only, 100/50 replications (compute budget)}.
+%  \subsection{Size}                                               \label{sec:sim-size}
+%     all window tests hold their level with independent windows (tab:e2-size in appendix,
+%     summarised here); KS oversized in family (c) (within-window dependence).
+%  \subsection{Power against marginal and dependence deviations}   \label{sec:sim-power}
+%     fig:e2-power + tab:e2-power: clustering at matched variance -> window tests have power
+%     (critic close to MMD and Sig-MMD, above C2ST and LR-critic); marginal deviations (vol
+%     level, tails, jumps) -> pooled KS far more powerful than every window test; distance to
+%     the oracle; interpret with prop:local-power (factor <= 1/2) and prop:oracle-bound.
+%     fig:e2dep-power: dependence-only deviations, KS powerless by construction (and invalid).
+%     State plainly where simpler tests win.
+%  \subsection{The relative test at its boundary}                  \label{sec:sim-relative}
+%     tab:e2-relative-boundary (+ note): anchored size at Law(G) = Law(R_past) versus two-critic
+%     over-rejection (prop:boundary-size, prop:anchored); interior cells (G = P_new better,
+%     GARCH 0.90 / GBM worse); resample generator: grouped split (size) vs naive split
+%     (leakage demonstration, not a size). n = 500 only (budget).
+%  \subsection{Learned versus exact log-likelihood ratio}          \label{sec:sim-llr}
+%     tab:e2-llr (+ note), fig:e2-llr-scatter (appendix): Spearman / calibration slope of the
+%     learned logit vs log p/q for GBM vs Merton and GARCH 0.98 vs 0.90, three training budgets.
+%  \subsection{Dependent windows}                                  \label{sec:sim-dependent}
+%     tab:e2-dependent-size: consecutive windows of one GARCH path; random-split permutation
+%     oversized; time-block + HAC and wild bootstrap closer to nominal; motivates the real-data
+%     protocol (link to rem:naive-perm, prop:hac).
+% Tables/figures (file -> label; wrapper template in OUTLINE.md):
+%   figures/e2_power.pdf -> fig:e2-power (main)        tables/e2_power.tex (+e2_power_note) -> tab:e2-power (main)
+%   figures/e2dep_power.pdf -> fig:e2dep-power (main)  tables/e2_relative_boundary.tex (+note) -> tab:e2-relative-boundary (main)
+%   tables/e2_dependent_size.tex -> tab:e2-dependent-size (main)
+%   tables/e2_llr.tex (+e2_llr_note) -> tab:e2-llr (main or appendix)
+%   appendix: tab:e2-size, tab:e2-power-ci, tab:e2dep-size, tab:e2dep-power, fig:e2-llr-scatter
+% =============================================================================================
+\todo{Section to be written (OUTLINE.md, Section 5). Anchor citations:
+\citet{bollerslev1986generalized}, \citet{merton1976option}, \citet{lehmann2022testing}.}

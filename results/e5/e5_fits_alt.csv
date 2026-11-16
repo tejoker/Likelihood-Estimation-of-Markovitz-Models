@@ -1,0 +1,6 @@
+split,model,fit_file,n_tickers,n_any_at_bound,fit_seconds_median,fit_seconds_total,at_bound_counts
+alt,GBM,results/e5/fits/alt_GBM_c7755d5043da.pkl,100,0,3.723499867192004e-05,0.004174343994236551,
+alt,Merton,results/e5/fits/alt_Merton_55c18a32f111.pkl,100,3,0.22838149800190877,22.98056798998732,lam:3
+alt,GARCHt,results/e5/fits/alt_GARCHt_fa4dfe4c8b3e.pkl,100,0,0.025442108999413904,2.545369055995252,
+alt,Heston,results/e5/fits/alt_Heston_6550347403e9.pkl,100,52,22.588771246999386,2372.0028056319934,c:27;kappa:4;rho:32
+alt,Bootstrap,results/e5/fits/alt_Bootstrap_0b8fd9dde3ba.pkl,100,0,0.0004023460005555535,0.055089129018597305,

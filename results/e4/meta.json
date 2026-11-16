@@ -1,0 +1,95 @@
+{
+  "experiment": "e4",
+  "run_id": "20261115T214149-110",
+  "started": "2026-11-15T21:41:49",
+  "updated": "2026-11-15T21:41:55",
+  "elapsed_s": 6.177,
+  "git": {
+    "commit": "b7c16b830085aca7de70730ce67e12bc4975c9ae",
+    "dirty": true,
+    "dirty_paths": [
+      "src",
+      "experiments"
+    ],
+    "n_dirty_files": 2,
+    "dirty_files": [
+      " M experiments/run_full.sh",
+      "?? experiments/e2_dependence.py"
+    ]
+  },
+  "code": {
+    "sha256": "32ae8a7681db62a5fc27a9c5bd774fe3f6947dd146f4712e5bb67095e2d25dca",
+    "n_files": 22,
+    "dir": "src/synthval"
+  },
+  "script": {
+    "path": "experiments/e4_markowitz.py",
+    "sha256": "245effc6031198fd405d28c305a5ee8649805b9f66c246a095593633cab73073"
+  },
+  "data": {
+    "path": "data/sp500_price_volume.csv",
+    "bytes": 13345909,
+    "sha256": "ddfd0d23dc274a58f8089e53b3872754005033447d77eb2650a0795382f832dc"
+  },
+  "packages": {
+    "python": "3.12.16",
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "scipy": "1.18.1",
+    "statsmodels": "0.15.0",
+    "matplotlib": "3.11.2",
+    "torch": "2.15.0+cpu",
+    "arch": "9.0.0",
+    "scikit-learn": "1.9.1"
+  },
+  "platform": {
+    "system": "Linux",
+    "release": "7.0.0-43-generic",
+    "machine": "x86_64",
+    "cpu_count": 16
+  },
+  "workers": 4,
+  "argv": [
+    "experiments/e4_markowitz.py",
+    "--plots-only",
+    "--test-seeds",
+    "2",
+    "--placebo-reps",
+    "60"
+  ],
+  "config": {
+    "quick": false,
+    "parts": [
+      "utility",
+      "tests",
+      "placebo",
+      "link"
+    ],
+    "plots_only": true,
+    "cfg": {
+      "n_universes": 30,
+      "n_assets": 30,
+      "n_replicas": 20,
+      "burn_in": 250,
+      "L": 5,
+      "test_seeds": 2,
+      "test_kw": {},
+      "n_placebo": 60,
+      "n_boot_link": 2000,
+      "n_perm_link": 2000,
+      "alpha": 0.05
+    },
+    "root_seed": 20251118,
+    "caveats": [
+      "Wilson 95% CI across universes assumes independent universes; universes share every TEST date and overlap in tickers, so it is descriptive",
+      "nominal HAC / wild p-values are oversized in this configuration; part placebo measures the size and gives size-adjusted shares (placebo pooled over universes)",
+      "critic inputs are standardised with the pooled training half (generator-dependent scale; no library option for a fixed scale)",
+      "the link has 5 generators: pooled and within-universe correlations mostly rank them; the generator-level correlation has n = 5"
+    ],
+    "universes_hash": "684a3b6dba14",
+    "universe_size": 479
+  },
+  "timing": {
+    "wall_outputs_s": 3.7225816909995046
+  }
+}

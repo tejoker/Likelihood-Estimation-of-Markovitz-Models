@@ -1,0 +1,247 @@
+\section{Related literature}\label{sec:lit}
+% =============================================================================================
+% Source: docs/literature.md (entries, "Closest competitors", "Positioning for a CREST
+% audience", "Citation map"). Only keys of references.bib, except two proposed keys that are
+% listed in OUTLINE.md Section 13 (kiefer_2005_new, zhou_2025_anchor). Positioning only: no
+% results, no numbers. Never "first". Subsection labels: OUTLINE.md Section 12, plus
+% sec:lit-summary (added here).
+% =============================================================================================
+
+This section positions the paper in five literatures; \cref{sec:lit-summary} summarises what is
+and is not ours.
+
+\subsection{Generative models for financial time series and their evaluation}
+\label{sec:lit-synthetic}
+
+Synthetic return data is used for back-testing, data sharing and hedging
+\citep{assefa2020generating,kondratyev2019market,buehler2019deep,bailey2017probability}.
+Generators include GANs \citep{wiese2020quant,takahashi2019modeling}, restricted Boltzmann
+machines \citep{kondratyev2019market}, signature-based variational autoencoders
+\citep{buehler2020data}, generators trained with signature losses
+\citep{ni2021sig,liao2024sig,issa2023nonadversarial}, generic time-series GANs
+\citep{esteban2017real,yoon2019time} and generators with use-specific losses such as portfolio
+tail risk \citep{cont2026tail}. Parametric models remain natural benchmarks (GARCH(1,1), for
+instance, is hard to beat out of sample; \citealp{hansen2005forecast}); together with a stationary
+bootstrap they are the generators of this paper (\cref{sec:data-generators}).
+
+Evaluation practice is heterogeneous \citep{stenger2024evaluation}. Most papers compare stylized
+facts \citep{cont2001empirical} visually or through summary statistics
+\citep{wiese2020quant,takahashi2019modeling,vyetrenko2020get}. Others report fidelity scores
+\citep{alaa2022faithful} or discriminator scores: the held-out error of a classifier trained after
+the fact \citep{yoon2019time}, a real-versus-simulated classification competition
+\citep{francopedroso2018ets}, or a discriminator output used to calibrate a market simulator
+\citep{storchan2021learning}. Such scores have no null distribution, and a low discriminative score
+cannot be told apart from a weak classifier unless the power of the procedure is known; hence the
+pre-specified power check in our decision rule (\cref{sec:method-decision}).
+
+Formal testing of market generators is not new. \Citet{buehler2020data} argue for two-sample tests
+as evaluation metrics and apply marginal Kolmogorov--Smirnov tests and the signature-MMD test of
+\citet{chevyrev2022signature}, whose distribution-free threshold is valid for every null law and
+hence conservative; they report no size or power analysis. \Citet{bai2026calibrating} come closer
+to this paper: to calibrate non-identifiable simulators, among them a limit-order-book market
+simulator, they compare real and simulated outputs through a feature map, possibly the output of a
+trained WGAN critic, with Bonferroni-corrected Kolmogorov--Smirnov or mean-difference statistics
+and asymptotic guarantees for independent outputs. A WGAN critic has thus already been used, with
+frequentist guarantees, to validate a financial simulator against real data. Our goal differs (a
+verdict on one fitted generator, not a set of eligible parameters), and so does the statistic:
+their critic is a fixed pre-trained feature map (the most conservative of their features), ours is
+trained on one half of the two samples and its mean difference on the other half is the statistic.
+Dependent windows, a relative null and the likelihood-ratio oracle are outside their scope.
+
+\subsection{Two-sample tests with learned test functions}\label{sec:lit-tests}
+
+An integral probability metric (IPM) is $\sup_{f\in\mathcal F}\abs{Pf-Qf}$ over a class
+$\mathcal F$ of test functions \citep{muller1997integral}; over the 1-Lipschitz functions it is
+$\W$, by Kantorovich--Rubinstein duality \citep{villani2009optimal}. The critic of a Wasserstein GAN maximises the empirical
+objective over a class of networks \citep{arjovsky2017wasserstein}, with a gradient penalty in
+place of the Lipschitz constraint in WGAN-GP \citep{gulrajani2017improved}. Our critic, trained
+alone, is a neural-network test function chosen to maximise a mean difference under a Lipschitz
+penalty. An IPM over a restricted class is estimable at the parametric rate
+\citep{sriperumbudur2012empirical}, whereas the empirical measure converges in $\W$ at rate
+$n^{-1/d}$ for $d\ge3$ \citep{fournier2015rate}. A finite critic measures a weaker ``neural net distance''
+\citep{arora2017generalization}, and with a soft penalty a good critic need not estimate $\W$ well
+\citep{mallasto2019well}. Our statistic is therefore an IPM over trained critics, whose
+conditional mean is bounded by the critic's Lipschitz constant times $\W$ between the standardised
+window laws (\cref{prop:unbiased,rem:gp-soft}), not an estimate of $\W$.
+
+The MMD test compares kernel mean embeddings \citep{gretton2012kernel}; \citet{liu2020learning}
+learn a deep kernel on a training split to maximise a power proxy (MMD-D). The classifier
+two-sample test (C2ST) of \citet{lopezpaz2017revisiting} tests whether held-out accuracy differs
+from one half. Accuracy discards magnitude: in the Gaussian mean-shift problem accuracy tests are
+only $1/\sqrt{\pi}$ as efficient as Hotelling-type tests \citep{kim2021classification}. The
+held-out difference of mean logits \citep{cheng2022classification} keeps it; since the Bayes logit
+is the log density ratio
+\citep{goodfellow2014generative,nguyen2010estimating,cranmer2015approximating}, it is a learned
+log-likelihood-ratio statistic, our \LRC{} competitor (\cref{sec:method-competitors}).
+
+The \WC{} test instantiates a known template: learn a real-valued witness on one split and test the
+equality of its means on the other, with a permutation null \citep{kubler2022witness}; see also
+the location tests on learned representations of \citet{kirchler2020two}, the logit instance of
+\citet{cheng2022classification} and the witness-based model criticism of
+\citet{lloyd2015statistical}. The split-then-permute structure of a Wasserstein test is not ours
+either: \citet{wang2022two} (linear version: \citealp{wang2021two}) train a kernel projector on one
+split to maximise the Wasserstein distance between projected samples and permute on the held-out
+split with the projector fixed. \Citet{hu2026neural} use a deep, approximately 1-Lipschitz
+witness, as we do, but with learned projections, max-type aggregation and asymptotically pivotal
+calibration for \iid{} data; see also \citet{ramdas2017wasserstein}. Our test is the template
+with a WGAN-GP critic: the statistic is the held-out mean difference of one network (no transport
+problem is solved on the evaluation split), calibrated by permutation for independent windows and
+by a Driscoll--Kraay variance for dependent ones. We claim this instance, its validation and the
+protocol around it, not the template. We do not show that it is more powerful than MMD-D, which is
+not among our baselines (\cref{sec:concl-limitations}), and it does not beat the baselines we run
+against every deviation: against changes of the one-dimensional marginal of returns, the pooled
+Kolmogorov--Smirnov test is far more powerful than every window test in our simulations, although
+it is invalid when returns within a window are dependent and blind to deviations that leave the
+marginal unchanged (\cref{sec:sim-power}).
+
+\Citet{chevyrev2022signature} show that (robust) signature moments characterise laws of
+stochastic processes and build an MMD test on them
+\citep[see also][]{lyons1998differential,kiraly2019kernels}. Signature discrepancies also serve as
+training losses for market generators \citep{ni2021sig,liao2024sig,issa2023nonadversarial}, one
+reason to evaluate with a test that was not the training objective. Our \SigMMD{} baseline is a
+truncated (depth-4) signature-feature MMD in their spirit, without tensor normalisation; it does
+not inherit their characteristic property.
+
+A relative test compares two candidate models with one reference sample.
+\Citet{bounliphone2016test} use the difference of two MMD estimates and their joint asymptotic
+normality, which requires independent \iid{} samples and two candidates that both differ from the
+reference, the MMD U-statistic being degenerate at equality; our MMD relative test follows them
+and inherits this condition. See also \citet{jitkrittum2018informative},
+\citet{gerber2024likelihood} on deciding which of two simulators produced the data, and
+\citet{zhou_2025_anchor} on relative tests with a discrepancy maximised over deep kernels.
+% zhou_2025_anchor: description to be checked against arXiv:2510.10477 (lead).
+In our relative null one candidate is the real past $\Rpast$: is $G$ as good a proxy for the future
+$\Rnew$ as history is? With learned critics, the difference of two separately trained
+discrepancies compares IPMs over two data-dependent classes and is anti-conservative at the
+boundary $\QG=\Ppast$ (\cref{prop:boundary-size}). The anchored test trains one critic to separate
+$\Rnew$ from a balanced pool of synthetic and past windows and compares its means on held-out
+synthetic and past windows, which is exact at the boundary for every critic
+(\cref{prop:anchored}). The argument is the elementary fixed-witness one; its value is exactness
+at the boundary, where the other two versions are not exact.
+
+\subsection{Specification testing and density forecast evaluation in econometrics}
+\label{sec:lit-econometrics}
+
+For an econometrician the natural frame is the specification testing of simulation-based models.
+Models without a closed-form likelihood are estimated by simulated moments
+\citep{mcfadden1989method,duffie1993simulated}, indirect inference
+\citep{gourieroux1993indirect,smith1993estimating}, the efficient method of moments
+\citep{gallant1996which} or simulated maximum likelihood \citep{fermanian2004nonparametric}; see
+\citet{gourieroux1997simulation}, and \citet{bernton2019approximate} and \citet{cherief2022finite}
+for Wasserstein ABC and minimum-MMD estimation under misspecification. Discriminators are accepted econometric objects: in the
+adversarial estimator of \citet{kaji2023adversarial} a logistic discriminator gives optimally
+weighted simulated moments and the oracle discriminator maximum likelihood \citep[see
+also][]{kaji2023metropolis}. Our paper is a testing counterpart: we test a calibrated generator
+instead of estimating one, use an IPM instead of cross-entropy, and work with serially dependent
+windows, which their theory excludes. Their bridge from discriminators to maximum likelihood is the
+estimation counterpart of our comparison of the \LRC{} statistic with the Neyman--Pearson oracle
+(\cref{prop:bayes-logit,prop:oracle-bound}).
+
+Specification tests of financial models compare the marginal density of a diffusion with a kernel
+estimate \citep{aitsahalia1996testing} or test transition densities through probability integral
+transforms \citep{hong2005nonparametric}, which requires the transition density. Closest to us,
+\citet{corradi2005bootstrap} and \citet{bhardwaj2008simulation} compare the empirical (marginal,
+respectively conditional) distribution of the data with that of data simulated from the fitted
+model, covering stochastic volatility without a closed-form likelihood, with block-bootstrap
+critical values that account for serial dependence and parameter estimation error. Our test
+differs in three respects. (a) \emph{Null}: they test the model class at the pseudo-true
+parameter, so estimation error must be corrected; we test the fitted generator (parameters
+estimated on \TRAIN{} and held fixed, null $\QG=\Pnew$ on \TEST{}), so no correction is needed,
+but a rejection does not separate misspecification from estimation error or parameter drift, which
+the relative test is designed to absorb. (b) \emph{Statistic}: a fixed Kolmogorov-type functional
+versus a learned function. (c) \emph{Calibration}: a block bootstrap versus permutation or a
+Driscoll--Kraay variance, conditional on the fitted parameters and the critic.
+
+In this language the critic is a test function chosen from the data. Consistent specification
+tests use a whole class of test functions, such as exponential weights
+\citep{bierens1990consistent} or neural hidden units indexed by a nuisance parameter present only
+under the alternative \citep{stinchcombe1998consistent,lee1993testing}, with a supremum or integral
+over the class and asymptotic calibration. The \WC{} test is a learned, sample-split relative: it
+selects one function on a training split and calibrates on the other. The analogy concerns the test
+functions only (their null is a conditional moment restriction), and the \WC{} test inherits the
+power of the learned function, not the consistency of Bierens-type tests; it is consistent only
+under conditions on training (\cref{prop:consistency,rem:c-realism}).
+
+When a likelihood exists, density forecast evaluation supplies trusted benchmarks: probability
+integral transforms are \iid{} uniform under a correct predictive density
+\citep{diebold1998evaluating}, \citet{berkowitz2001testing} tests their normal transforms against a
+Gaussian AR(1), the log score is strictly proper \citep{gneiting2007strictly}, and density forecasts
+are compared by out-of-sample log-likelihood ratios with a HAC variance
+\citep{amisano2007comparing}, in the spirit of \citet{vuong1989likelihood}. We use them for GBM,
+Merton and GARCH-$t$ (\cref{sec:emp-likelihood}); Heston has no closed-form likelihood
+\citep{aitsahalia2007maximum} and the stationary bootstrap no parametric likelihood. Likelihoods rank models by
+Kullback--Leibler divergence and critics by an IPM, so disagreement is informative
+(\cref{rem:kl-vs-w1}). The relative test is a loss-differential comparison
+\citep{diebold1995comparing} that, like \citet{giacomini2006tests}, evaluates a forecasting method
+(``use the real past''); its closest econometric relative is the simulation-based comparison of
+misspecified diffusion models by \citet{corradi2011predictive}.
+
+\subsection{Inference under dependence}\label{sec:lit-dependence}
+
+A permutation test is exact when the pooled observations are exchangeable under the null
+\citep{lehmann2022testing}, also with random permutations and the $+1$ correction
+\citep{hemerik2018exact,phipson2010permutation}; with a critic fixed by the training half this
+gives exact level for independent windows (\cref{prop:exact-level}). Studentised permutation tests
+are asymptotically valid for the weaker null of equal means, for independent samples
+\citep{janssen1997studentized,chung2013exact}; under time-series dependence the closest results
+concern autocorrelation tests \citep{romano2022permutation}. Real return windows are not
+exchangeable: consecutive windows share volatility regimes, and windows of different stocks on the
+same dates share market shocks. We studentise the held-out mean difference with a Bartlett-kernel
+HAC variance \citep{newey1987simple} and the bandwidth of \citet{andrews1991heteroskedasticity},
+after summing centred critic values by date \citep{driscoll1998consistent}. The normal
+approximation rests on a central limit theorem for mixing sequences \citep{herrndorf1984functional},
+and GARCH and a class of stochastic-volatility models are $\beta$-mixing
+\citep{carrasco2002mixing}. With few time periods HAC tests over-reject; fixed-$b$ critical values
+\citep{kiefer_2005_new} are one correction, reported for comparison (\cref{rem:small-T}). The MMD
+statistic is a degenerate U-statistic under the null rather than a mean, and
+\citet{chwialkowski2014wild} calibrate it under dependence by a wild bootstrap with dependent
+multipliers, which we use for MMD and \SigMMD{} (\cref{rem:wild}); block bootstraps
+\citep{kunsch1989jackknife,politis1994stationary,lahiri2003resampling} are the alternative.
+
+Two features are less standard. First, the critic is trained on data that depend on the evaluation
+data. A ticker split puts both halves on the same dates and biases the statistic
+(\cref{prop:ticker-bias}); a split by contiguous time blocks removes this bias, and the remaining
+dependence across block boundaries, bounded under mixing (\cref{lem:decoupling}), is controlled
+empirically in our design (\cref{sec:sim-dependent,sec:emp-placebo}). Second, per-ticker tests are
+dependent through the market factor: Benjamini--Hochberg control relies on positive regression
+dependence, and arbitrary dependence needs the Benjamini--Yekutieli correction
+\citep{benjamini1995controlling,benjamini2001control}.
+
+\subsection{Portfolio choice and use-based evaluation}\label{sec:lit-portfolio}
+
+Mean-variance portfolios \citep{markowitz1952portfolio} are very sensitive to estimation error
+\citep{michaud1989markowitz,chopra1993effect,kan2007optimal}; shrinkage \citep{ledoit2004well},
+long-only constraints \citep{jagannathan2003risk} and the equally weighted portfolio
+\citep{demiguel2009optimal} are standard responses. A generator fitted on \TRAIN{} is a randomised
+function of \TRAIN, so its output carries no more information about the future than \TRAIN{}
+itself. \Citet{cetingoz2026synthetic} make this precise for Markowitz and minimum-variance
+portfolios: the initial sample size limits what synthetic data can add, generating far more data
+than was available can bias the estimated statistic, and generic generators fit high-variance
+principal components that matter little for minimum-variance portfolios; they argue for
+use-targeted evaluation. Synthetic-trained portfolios can thus beat a specific real-data rule, such
+as the sample-covariance GMV portfolio, only when a parsimonious generator acts as a structured,
+shrinkage-like estimator (\cref{prop:no-free-lunch}).
+
+Judging synthetic data by a downstream decision is the train-on-synthetic, test-on-real (TSTR)
+principle \citep{esteban2017real,yoon2019time}; in econometrics, \citet{athey2024using} judge
+generated data by the ranking of estimators it produces, and evaluation criteria for generative
+models are known to disagree \citep{theis2016note}. Our Markowitz study uses TSTR as the utility
+measure but asks whether a distributional test verdict predicts the TSTR utility gap across
+universes and generators, which \citet{cetingoz2026synthetic} do not address. Theory suggests at
+most a weak link (\cref{sec:mk-theory}): GMV utility depends on second moments only, so critic
+distance and utility can disagree in both directions, and under non-stationarity a generator that
+reproduces the past better is not necessarily more useful (\cref{tab:e4-correlation}).
+
+\subsection{Summary of the positioning}\label{sec:lit-summary}
+
+None of the following is ours: a witness learned on one split and tested on the other
+\citep{kubler2022witness,kirchler2020two,cheng2022classification}; a split-then-permute
+Wasserstein test \citep{wang2022two}; a WGAN critic used to validate a financial simulator
+\citep{bai2026calibrating}; a formal two-sample test of a market generator
+\citep{buehler2020data}; a specification test comparing real data with data simulated from the
+fitted model, with dependence handled by a block bootstrap \citep{corradi2005bootstrap}. What the paper
+adds is their combination and its validation, as listed in \cref{sec:intro}: an inference protocol
+for dependent panels with measured size, an anchored relative null benchmarked on the real past,
+oracle-based power comparisons that show where simpler tests win, a likelihood link and a
+Markowitz study. The \WC{} test is one well-calibrated, interpretable tool within this protocol,
+not a uniformly more powerful test.

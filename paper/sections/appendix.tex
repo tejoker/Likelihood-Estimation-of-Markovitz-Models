@@ -1,0 +1,53 @@
+% =============================================================================================
+% APPENDIX (input after \appendix in main.tex; sections are lettered A, B, ...).
+% Target length: 15-25 pages in total. Plan: OUTLINE.md, "Appendix".
+% =============================================================================================
+
+\section{Proofs}\label{app:proofs}
+% Proofs of Section 4 and of Section 8.1 statements, in the order of the main text, each headed
+% "Proof of \cref{...}". Source: docs/theory.md (proof text exists for every proved statement).
+% Includes lem:exchangeable (Lemma 3.2), lem:rank (Lemma 3.3), lem:uniform-lip (Lemma 4.1),
+% proofs of prop:window-ident, prop:markov-pairs, prop:unbiased, prop:exact-level,
+% prop:consistency, cor:w1-limit, prop:bayes-logit, prop:oracle-bound, prop:local-power (sketch),
+% prop:anchored (new), prop:paired-boot (sketch), prop:boundary-size, prop:hac, lem:decoupling,
+% prop:ticker-bias, prop:verdict, lem:quad-loss, prop:gmv-sensitivity, cor:gmv-drivers(i),
+% prop:no-free-lunch, examples 9.5-9.8. Target 6-8 pages.
+\todo{Proofs to be written (source docs/theory.md).}
+
+\section{Implementation details}\label{app:impl}
+% B.1 critic and classifier architectures, optimiser, standardisation, early stopping (C2ST,
+%     LR-critic: early stopping keeps the first checkpoint at n = 500, DESIGN change log);
+% B.2 time-block split (labels per sample, random assignment of blocks, no gap), DK variance,
+%     Andrews AR(1) plug-in lag, grid of date ranks; fixed-b p-values (E1 comparison rows);
+% B.3 wild bootstrap (AR(1) multipliers shared by date, block-length plug-in) and signature
+%     features (Chen identity, depth 4);
+% B.4 model fitting: Merton multistart MLE, GARCH-t variance targeting and cap, Heston QE + SMM
+%     (moments, weights, profiling, bounds), stationary bootstrap block length, MV models;
+% B.5 seeds, checkpoints, compute budget actually used (seeds and replication counts as run;
+%     list every cut relative to DESIGN Section 4). Target 3-4 pages.
+\todo{Implementation details to be written (src/synthval, experiments/README.md).}
+
+\section{Additional simulation results}\label{app:sim}
+% tab:e2-size (+ e2_size_note), tab:e2-power-ci, tab:e2dep-size (+ note), tab:e2dep-power
+% (+ note), fig:e2-llr-scatter; E2-dep marginal check. Target 3-4 pages.
+\todo{Additional simulation tables to be inserted.}
+
+\section{Data details}\label{app:data}
+% universe construction, gap rule, the two excluded anomalies (KDP, AMCR) with the rule,
+% panel tickers, tab:e3-heston-moments. Target 1-2 pages.
+\todo{Data details to be written.}
+
+\section{Additional empirical results}\label{app:emp}
+% tab:e1-size-real, tab:e1-nonstat (if not in the main text), tab:e3-perticker-null,
+% tab:e3-likelihood-ag. Target 2-3 pages.
+\todo{Additional empirical tables to be inserted.}
+
+\section{Markowitz experiment: details}\label{app:mk}
+% tab:e4-trtr, tab:e4-utility-agg, tab:e4-placebo (+ note), fig:e4-placebo-size,
+% tab:e4-link-pooled. Target 2-3 pages.
+\todo{Markowitz details to be inserted.}
+
+\section{Robustness: details}\label{app:robust}
+% tab:e5-simpower, tab:e5-calibration (if produced). Target 1-2 pages.
+\todo{Robustness details to be inserted. Anchor citations: \citet{hemerik2018exact},
+\citet{chwialkowski2014wild}.}

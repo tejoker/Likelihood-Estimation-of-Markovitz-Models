@@ -1,0 +1,25 @@
+\section{Robustness}\label{sec:robust}
+% =============================================================================================
+% Target length: 1.5 pages including 2 tables and 1 figure (details in \cref{app:robust}).
+% Experiment: E5 (experiments/e5_robustness.py), parts run: grid, split, simpower
+% (gridsize, gridpower, gridrealvol not run: compute budget, DESIGN change log). Plan:
+% OUTLINE.md, Section 9.
+%
+% Planned content:
+%  - One-at-a-time grid (L in {5, 10, 60}; width x depth 32x2, 256x4; steps 500, 3000;
+%    lr 1e-4; GP weight 1; 4 time blocks; train fraction 0.3, 0.7; Newey-West lag rule):
+%    changes of the absolute and relative decisions and of the verdicts against the default
+%    (tab:e5-sensitivity, fig:e5-sensitivity). Without gridsize/gridpower the per-configuration
+%    size and power are not re-estimated: say which verdict changes are therefore uninterpretable
+%    (\todo{check what e5_calibration.tex contains as run}).
+%  - Alternative split TRAIN 2018-2021 / TEST 2022-2025 (full E3 battery, rule power with 25
+%    replications as run): tab:e5-split.
+%  - Critic training settings on simulated alternatives (lr x steps, n_perm 200 vs 1000):
+%    tab:e5-simpower (appendix).
+% Tables/figures (file -> label):
+%   e5_sensitivity.tex -> tab:e5-sensitivity (main); e5_sensitivity.pdf -> fig:e5-sensitivity (main)
+%   e5_split.tex -> tab:e5-split (main); e5_simpower.tex -> tab:e5-simpower (appendix)
+%   e5_calibration.tex -> tab:e5-calibration (appendix, if produced)
+% =============================================================================================
+\todo{Section to be written (OUTLINE.md, Section 9). Anchor citations:
+\citet{andrews1991heteroskedasticity}, \citet{newey1994automatic}.}

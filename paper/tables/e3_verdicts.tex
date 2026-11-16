@@ -1,0 +1,13 @@
+\begin{tabular}{lrrrrrrrr}
+\toprule
+ & \multicolumn{2}{c}{Absolute W-critic} & \multicolumn{2}{c}{Anchored relative} & \multicolumn{2}{c}{Rule} & \multicolumn{2}{c}{Verdict} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7} \cmidrule(lr){8-9}
+Model & $2\times$median $p$ & seeds rej. & $\Delta$ median [range] & $2\times$median $p$ & power $\hat\beta$ [95\% CI] & boundary size [CP 95\%] & $\hat\beta\ge0.8$ & $\beta_L\ge0.8$ \\
+\midrule
+GBM & $<$0.001 & 5/5 & 0.672 [0.108, 0.772] & $<$0.001 & 0.45 [0.36, 0.55] (D2) & 0.080 [0.035, 0.152] (D2) & BAD & BAD \\
+Merton & $<$0.001 & 5/5 & 0.457 [$-$0.164, 0.564] & 0.005 & 0.45 [0.36, 0.55] (D2) & 0.080 [0.035, 0.152] (D2) & BAD & BAD \\
+GARCH-t & $<$0.001 & 4/5 & 0.109 [$-$0.399, 0.236] & 0.432 & 0.45 [0.36, 0.55] (D2) & 0.080 [0.035, 0.152] (D2) & INCONCLUSIVE & INCONCLUSIVE \\
+Heston & $<$0.001 & 5/5 & 0.363 [$-$0.323, 0.504] & 0.017 & 0.45 [0.36, 0.55] (D2) & 0.080 [0.035, 0.152] (D2) & BAD & BAD \\
+Stat. bootstrap & $<$0.001 & 4/5 & 0.215 [$-$0.421, 0.333]$^{\ddagger}$ & 0.116$^{\ddagger}$ & 0.45 [0.36, 0.55] (D2) & 0.080 [0.035, 0.152] (D2) & INVALID & INVALID \\
+\bottomrule
+\end{tabular}
