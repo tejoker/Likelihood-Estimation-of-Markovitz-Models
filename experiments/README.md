@@ -149,6 +149,21 @@ unchanged and paired replication by replication with the experiment it is compar
 Tables: `e5_arch_sim.tex`, `e5_arch_real.tex` (+ notes). The pooled critic costs about ten times
 the MLP per test (about 65 s against 6 s on one thread).
 
+### E6 `e6_neural.py`: neural generators under the E3 protocol (v2)
+
+QuantGAN-style TCN generator (`synthval.models.neural.QuantGAN`, specification in
+`docs/PROTOCOL_v2.md`) trained once on the pooled, per-ticker standardised TRAIN returns of the
+E3 panel, then evaluated exactly as E3's models: same synthetic seeds, absolute W-critic and
+anchored test (time blocks + HAC), stylized facts, and E3's decision rule with E3's power designs
+D1/D2 (read from `<results>/e3/e3_power_raw.csv`, `e3_realvol_raw.csv`; run E3 `power,realvol`
+first).
+
+| part | what | v2 run (GPU) |
+|---|---|---|
+| `fit` | train QuantGAN (10,000 generator steps, WGAN-GP) | `PYTHONPATH=src uv run --project envs/gpu python experiments/v2.py e6 --part fit` |
+| `pooled`, `stylized` | tests per synthetic seed; stylized facts against Real and E3's models | `... experiments/v2.py e6 --part pooled,stylized --workers 4` |
+| `verdict` | decision rule; tables `e6_*.tex` | `... experiments/v2.py e6 --plots-only` |
+
 After all parts of an experiment: `uv run python experiments/<script>.py --plots-only`.
 
 ## Measured times and memory

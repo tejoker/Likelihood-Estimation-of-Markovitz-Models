@@ -19,8 +19,14 @@ _MULTIVARIATE = {
     "MVBootstrap": "synthval.models.multivariate:MVStationaryBootstrap",
     "FactorGARCHt": "synthval.models.multivariate:FactorGARCHt",
 }
+#: Panel models: ONE univariate model trained on the pooled (per-series standardised) columns of a
+#: panel; ``pipeline.fit_panel`` returns per-ticker views of it (``QuantGAN.series_models``).
+_PANEL = {
+    "QuantGAN": "synthval.models.neural:QuantGAN",
+}
 UNIVARIATE_MODELS = list(_UNIVARIATE)
 MULTIVARIATE_MODELS = list(_MULTIVARIATE)
+PANEL_MODELS = list(_PANEL)
 
 
 def _load(spec: str):
@@ -38,5 +44,10 @@ def get_mv_model(name: str, **kwargs) -> MultiReturnModel:
     return _load(_MULTIVARIATE[name])(**kwargs)
 
 
-__all__ = ["ReturnModel", "MultiReturnModel", "get_model", "get_mv_model",
-           "UNIVARIATE_MODELS", "MULTIVARIATE_MODELS"]
+def get_panel_model(name: str, **kwargs):
+    """Instantiate a pooled panel model by registry name (``PANEL_MODELS``, e.g. QuantGAN)."""
+    return _load(_PANEL[name])(**kwargs)
+
+
+__all__ = ["ReturnModel", "MultiReturnModel", "get_model", "get_mv_model", "get_panel_model",
+           "UNIVARIATE_MODELS", "MULTIVARIATE_MODELS", "PANEL_MODELS"]

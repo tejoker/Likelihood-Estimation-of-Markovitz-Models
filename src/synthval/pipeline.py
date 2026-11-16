@@ -69,7 +69,8 @@ import pandas as pd
 from scipy import stats
 
 from . import config, data
-from .models import MULTIVARIATE_MODELS, MultiReturnModel, ReturnModel, get_model
+from .models import (MULTIVARIATE_MODELS, PANEL_MODELS, MultiReturnModel, ReturnModel,
+                     get_model, get_panel_model)
 from .twosample import TEST_REGISTRY, relative_test
 from .utils import parallel_map, spawn_rngs
 
@@ -397,7 +398,9 @@ def fit_panel(model_name: str, returns_train: pd.DataFrame, *, n_workers: int | 
         Univariate registry name (``models.UNIVARIATE_MODELS``: ``"GBM"``, ``"Merton"``,
         ``"GARCHt"``, ``"Heston"``, ``"Bootstrap"``). Multivariate models are fitted once on the
         whole panel (``models.get_mv_model(name).fit(train.to_numpy())``) and passed to
-        :func:`simulate_panel` directly.
+        :func:`simulate_panel` directly. Pooled panel models (``models.PANEL_MODELS``:
+        ``"QuantGAN"``) are trained once on all tickers and returned as per-ticker views
+        (:func:`_fit_pooled_panel`; ``n_workers`` is ignored).
     returns_train : DataFrame (T, N)
         TRAIN log-returns, one column per ticker (an ndarray gets tickers ``"0", "1", ...``).
     n_workers : int, optional
@@ -432,6 +435,8 @@ def fit_panel(model_name: str, returns_train: pd.DataFrame, *, n_workers: int | 
     tickers = list(returns_train.columns)
     if len(set(tickers)) != len(tickers):
         raise ValueError("duplicated ticker columns")
+    if model_name in PANEL_MODELS:
+        return _fit_pooled_panel(model_name, returns_train, fit_seed=fit_seed, **model_kw)
     seeds: list[Any] = ([None] * len(tickers) if fit_seed is None
                         else np.random.SeedSequence(int(fit_seed)).spawn(len(tickers)))
     items = [(model_name, t, returns_train[t].to_numpy(dtype=np.float64), dict(model_kw), s)
@@ -463,6 +468,49 @@ def fit_panel(model_name: str, returns_train: pd.DataFrame, *, n_workers: int | 
     table.index.name = "ticker"
     table.attrs["model"] = model_name
     table.attrs["model_kw"] = dict(model_kw)
+    return fitted, table
+
+
+def _fit_pooled_panel(model_name: str, returns_train: pd.DataFrame, *, fit_seed: int | None,
+                      **model_kw: Any) -> tuple[dict[str, ReturnModel], pd.DataFrame]:
+    """:func:`fit_panel` for pooled panel models (``models.PANEL_MODELS``, e.g. ``"QuantGAN"``).
+
+    ONE model is trained (in this process, on ``nets.get_device()``) on all columns of
+    ``returns_train``, each standardised by its own mean and std; ``fit_seed`` seeds
+    ``default_rng(fit_seed)`` (default: the model's own ``seed``). Returns per-ticker views
+    (``model.series_models(tickers)``, :class:`~synthval.models.ReturnModel` objects sharing the
+    trained network), so :func:`simulate_panel` and :func:`evaluate_model` use them like
+    per-ticker fits, and a table with one row per ticker: the ticker's ``mean`` / ``std``, the
+    shared scalar ``fit_info_`` entries (same value in every row), ``at_bound``, ``n_at_bound``
+    and ``fit_seconds`` = total fit time / number of tickers (so the column sums to the total).
+    """
+    model = get_panel_model(model_name, **model_kw)
+    rng = None if fit_seed is None else np.random.default_rng(int(fit_seed))
+    t0 = time.perf_counter()
+    model.fit(returns_train.to_numpy(dtype=np.float64), rng=rng)
+    secs = time.perf_counter() - t0
+    tickers = list(returns_train.columns)
+    fitted: dict[str, ReturnModel] = model.series_models(tickers)
+    info = dict(getattr(model, "fit_info_", {}) or {})
+    at = [str(a) for a in info.pop("at_bound", [])]
+    info.pop("seconds", None)
+    shared = {k: (v.item() if hasattr(v, "item") else v) for k, v in info.items()
+              if _is_scalar(v)}
+    rows: dict[str, dict[str, Any]] = {}
+    for ticker, view in fitted.items():
+        row: dict[str, Any] = {k: float(v) for k, v in view.params().items()}
+        row["at_bound"] = ";".join(at)
+        row["n_at_bound"] = len(at)
+        for k, v in shared.items():
+            row[k if k not in row else f"info_{k}"] = v
+        row["fit_seconds"] = secs / len(tickers)
+        rows[ticker] = row
+    logger.info("fit_panel(%s, pooled): %d tickers in %.1f s", model_name, len(tickers), secs)
+    table = pd.DataFrame.from_dict(rows, orient="index")
+    table.index.name = "ticker"
+    table.attrs["model"] = model_name
+    table.attrs["model_kw"] = dict(model_kw)
+    table.attrs["pooled"] = True
     return fitted, table
 
 

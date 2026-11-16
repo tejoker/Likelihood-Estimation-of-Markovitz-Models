@@ -3,7 +3,7 @@ replication counts, separate output tree.
 
     PYTHONPATH=src uv run --project envs/gpu python experiments/v2.py <exp> [script arguments]
 
-``<exp>`` is one of e1, e2, e2dep, e3, e4, e5, e5arch. The v1 scripts are not modified: this
+``<exp>`` is one of e1, e2, e2dep, e3, e4, e5, e5arch, e6. The v1 scripts are not modified: this
 runner sets the v2 environment *before* importing synthval, applies the v2 overrides of the
 script's ``FULL`` configuration (the compute cuts of the v1 run are undone, DESIGN section 4
 values), records the runtime environment and calls the script's ``main``.
@@ -44,7 +44,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 MODULES = {"e1": "e1_placebo", "e2": "e2_ground_truth", "e2dep": "e2_dependence",
            "e3": "e3_sp500", "e4": "e4_markowitz", "e5": "e5_robustness",
-           "e5arch": "e5_architecture"}
+           "e5arch": "e5_architecture", "e6": "e6_neural"}
 
 #: v2 overrides of each script's FULL dict: the DESIGN section 4 values that the v1 run cut for
 #: compute (DESIGN change log 2026-11-15), unless noted.
@@ -56,6 +56,7 @@ OVERRIDES: dict[str, dict] = {
     "e4": {},  # FULL already holds 10 test seeds and 200 placebo replications
     "e5": {"n_seeds": 10, "power_reps_default": 200, "power_reps": 50, "split_power_reps": 50},
     "e5arch": {},
+    "e6": {},  # E6 reads n_seeds and the test settings from E3's FULL (overridden above)
 }
 
 
