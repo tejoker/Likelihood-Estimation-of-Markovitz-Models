@@ -32,7 +32,7 @@ from .critic import (CriticTest, LearnedTest, andrews_hac_lags, hac_var_mean,
 from .ks import KSTest
 from .mmd import (MMDTest, median_heuristic, mmd2_biased, mmd2_unbiased, mmd2_wild_bootstrap,
                   wild_block_length)
-from .nets import ConvCritic, MLPCritic, build_network
+from .nets import ConvCritic, MLPCritic, PooledConvCritic, build_network
 from .relative import relative_test, relative_test_learned, relative_test_mmd
 from .signature import SigMMDTest, signature, signature_features, windows_to_paths
 
@@ -58,6 +58,7 @@ __all__ = [
     "KSTest",
     "MLPCritic",
     "ConvCritic",
+    "PooledConvCritic",
     "build_network",
     "relative_test",
     "relative_test_learned",

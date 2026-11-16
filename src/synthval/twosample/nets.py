@@ -14,6 +14,8 @@ Design rules (see ``docs/DESIGN.md`` section 3.7):
 from __future__ import annotations
 
 import contextlib
+import functools
+import os
 from collections.abc import Iterator
 from typing import Literal
 
@@ -21,16 +23,18 @@ import numpy as np
 import torch
 from torch import nn
 
-Arch = Literal["auto", "mlp", "conv"]
+Arch = Literal["auto", "mlp", "conv", "pooled"]
 
 __all__ = [
     "MLPCritic",
     "ConvCritic",
+    "PooledConvCritic",
     "build_network",
     "Standardizer",
     "Witness",
     "torch_seed",
     "to_tensor",
+    "get_device",
 ]
 
 
@@ -133,6 +137,64 @@ class ConvCritic(nn.Module):
         return self.head(self.features(x)).squeeze(-1)
 
 
+class PooledConvCritic(nn.Module):
+    """Time-pooled 1D convolutional critic for inputs ``(n, C, L)`` (or ``(n, L)``).
+
+    Architecture: ``n_conv`` blocks of ``Conv1d(kernel_size, padding="same") -> LeakyReLU``
+    (optionally with per-sample LayerNorm over channels), then the **mean over time**, then
+    ``Linear(hidden, hidden) -> LeakyReLU -> Linear(hidden, 1)``. The critic is therefore an
+    average of one learned function of local patches (receptive field
+    ``n_conv * (kernel_size - 1) + 1`` days), i.e. it is invariant to shifts of those patches
+    inside the window. This stationarity bias lets it pool the evidence of every day of the window
+    (as a test on pooled returns does) while still seeing short-range dependence such as
+    volatility clustering within the receptive field. Unlike :class:`ConvCritic`, it cannot see
+    where in the window a pattern occurs.
+
+    Parameters
+    ----------
+    in_channels : int
+        Number of channels ``C`` (1 for univariate windows).
+    hidden : int, default 64
+        Number of convolution channels and width of the dense head.
+    n_conv : int, default 2
+        Number of convolution blocks.
+    kernel_size : int, default 5
+        Convolution kernel size.
+    layer_norm : bool, default False
+        Per-sample LayerNorm over channels after each convolution (never BatchNorm).
+    negative_slope : float, default 0.2
+        Slope of the LeakyReLU activations.
+    """
+
+    def __init__(self, in_channels: int, hidden: int = 64, *, n_conv: int = 2,
+                 kernel_size: int = 5, layer_norm: bool = False,
+                 negative_slope: float = 0.2) -> None:
+        super().__init__()
+        if in_channels < 1 or hidden < 1 or n_conv < 1 or kernel_size < 1:
+            raise ValueError("in_channels, hidden, n_conv and kernel_size must be positive")
+        self.convs = nn.ModuleList()
+        self.norms = nn.ModuleList()
+        c = in_channels
+        for _ in range(n_conv):
+            self.convs.append(nn.Conv1d(c, hidden, kernel_size=kernel_size, padding="same"))
+            self.norms.append(nn.LayerNorm(hidden) if layer_norm else nn.Identity())
+            c = hidden
+        self.act = nn.LeakyReLU(negative_slope)
+        self.head = nn.Sequential(nn.Linear(hidden, hidden), nn.LeakyReLU(negative_slope),
+                                  nn.Linear(hidden, 1))
+        self.in_channels = in_channels
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Return one scalar per input, shape ``(n,)``."""
+        if x.dim() == 2:
+            if self.in_channels != 1:
+                raise ValueError("(n, L) input requires in_channels == 1")
+            x = x.unsqueeze(1)
+        for conv, norm in zip(self.convs, self.norms):
+            x = self.act(norm(conv(x).transpose(1, 2)).transpose(1, 2))
+        return self.head(x.mean(dim=-1)).squeeze(-1)
+
+
 def build_network(input_shape: tuple[int, ...], arch: Arch = "auto", *,
                   hidden: int | None = None, depth: int = 3, layer_norm: bool = False,
                   kernel_size: int = 5) -> nn.Module:
@@ -142,9 +204,10 @@ def build_network(input_shape: tuple[int, ...], arch: Arch = "auto", *,
     ----------
     input_shape : tuple of int
         Shape of one sample: ``(d,)`` / ``(L,)`` or ``(C, L)``.
-    arch : {"auto", "mlp", "conv"}
+    arch : {"auto", "mlp", "conv", "pooled"}
         ``"auto"``: :class:`MLPCritic` for rank-1 samples, :class:`ConvCritic` for rank-2 samples.
         ``"conv"`` with a rank-1 sample treats it as ``(1, L)``. ``"mlp"`` flattens anything.
+        ``"pooled"``: :class:`PooledConvCritic` (time-pooled CNN; rank-1 samples as ``(1, L)``).
     hidden : int, optional
         Hidden width (default 128 for the MLP, 64 for the CNN).
     depth : int, default 3
@@ -177,6 +240,15 @@ def build_network(input_shape: tuple[int, ...], arch: Arch = "auto", *,
         else:
             raise ValueError(f"ConvCritic needs (L,) or (C, L) samples, got {shape}")
         return ConvCritic(c, L, hidden=hidden or 64, kernel_size=kernel_size)
+    if arch == "pooled":
+        if len(shape) == 1:
+            c = 1
+        elif len(shape) == 2:
+            c = shape[0]
+        else:
+            raise ValueError(f"PooledConvCritic needs (L,) or (C, L) samples, got {shape}")
+        return PooledConvCritic(c, hidden=hidden or 64, kernel_size=kernel_size,
+                                layer_norm=layer_norm)
     raise ValueError(f"unknown arch {arch!r}")
 
 
@@ -215,9 +287,31 @@ class Standardizer:
         return (np.asarray(Z, dtype=np.float64) - self.mean_) / self.scale_
 
 
+@functools.lru_cache(maxsize=None)
+def _resolve_device(name: str) -> torch.device:
+    dev = torch.device(name)
+    if dev.type == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError(f"SYNTHVAL_DEVICE={name!r} but CUDA is not available (CPU build of "
+                           "torch, or no access to the GPU devices)")
+    return dev
+
+
+def get_device() -> torch.device:
+    """Device of the networks: ``$SYNTHVAL_DEVICE`` (default ``"cpu"``; e.g. ``"cuda"``).
+
+    Only tensors and networks move to the device. Every random draw (initial weights, mini-batch
+    indices, gradient-penalty interpolation weights) stays on the CPU generator seeded by
+    :func:`torch_seed`, so a GPU run sees the same batches and initial weights as a CPU run and
+    differs only by floating-point rounding (and non-deterministic GPU kernels).
+    """
+    return _resolve_device(os.environ.get("SYNTHVAL_DEVICE", "cpu") or "cpu")
+
+
 def to_tensor(Z: np.ndarray) -> torch.Tensor:
-    """float32 torch tensor (networks run in single precision on CPU)."""
-    return torch.from_numpy(np.ascontiguousarray(Z, dtype=np.float32))
+    """float32 torch tensor on :func:`get_device` (networks run in single precision)."""
+    t = torch.from_numpy(np.ascontiguousarray(Z, dtype=np.float32))
+    dev = get_device()
+    return t if dev.type == "cpu" else t.to(dev)
 
 
 class Witness:
@@ -246,7 +340,8 @@ class Witness:
         out = np.empty(Zs.shape[0], dtype=np.float64)
         with torch.no_grad():
             for i in range(0, Zs.shape[0], self.batch_size):
-                out[i:i + self.batch_size] = self.net(to_tensor(Zs[i:i + self.batch_size])).double().numpy()
+                out[i:i + self.batch_size] = (
+                    self.net(to_tensor(Zs[i:i + self.batch_size])).double().cpu().numpy())
         return out
 
 

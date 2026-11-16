@@ -131,8 +131,8 @@ class C2ST(LearnedTest):
         # BCE(label 1) = softplus(-s), BCE(label 0) = softplus(s).
         lx = torch.nn.functional.softplus(-s_x)
         ly = torch.nn.functional.softplus(s_y)
-        mx = lx.mean() if wx is None else (wx.to(lx.dtype) * lx).sum()
-        my = ly.mean() if wy is None else (wy.to(ly.dtype) * ly).sum()
+        mx = lx.mean() if wx is None else (wx.to(device=lx.device, dtype=lx.dtype) * lx).sum()
+        my = ly.mean() if wy is None else (wy.to(device=ly.device, dtype=ly.dtype) * ly).sum()
         return 0.5 * (mx + my)
 
     def _train(self, net: torch.nn.Module, Xt: torch.Tensor, Yt: torch.Tensor,
@@ -153,8 +153,8 @@ class C2ST(LearnedTest):
         for step in range(1, self.n_steps + 1):
             # Weighted training (wx / wy given): indices drawn with those probabilities, so the
             # mini-batch loss is an unbiased estimate of the weighted BCE.
-            ix = _draw_indices(nx, b, wx)
-            iy = _draw_indices(ny, b, wy)
+            ix = _draw_indices(nx, b, wx, Xt.device)
+            iy = _draw_indices(ny, b, wy, Yt.device)
             loss = self._balanced_bce(net, Xt[ix], Yt[iy])
             opt.zero_grad(set_to_none=True)
             loss.backward()

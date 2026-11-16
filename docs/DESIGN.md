@@ -431,3 +431,13 @@ Compile with `latexmk -pdf main.tex` from `paper/`.
 - 2026-11-15 (lead): new experiments/e2_dependence.py (E2 dependence-only families "mix" and "block",
   exact marginal, so KS has no power by construction) after preliminary E2 results showed pooled KS
   dominating every family that changes the marginal.
+- 2026-11-16 (lead, post hoc): critic architecture ablation. A pilot on four E2 designs at n = 500 showed
+  a time-pooled CNN critic (two Conv1d blocks, kernel 5, 64 channels, mean over time, dense head) far
+  more powerful than the default MLP at the same size. New `arch="pooled"`
+  (`synthval.twosample.nets.PooledConvCritic`; the default stays the MLP, so no earlier result changes)
+  and experiments/e5_architecture.py: (sim) E2 families a-d at two alternative levels (+ H0 in a, c)
+  and E2-dep mix/block at level 2, 50 replications, paired with E2/E2-dep (same windows and test
+  streams); (real) E3 protocol with the pooled critic via E5's grid and design machinery: absolute +
+  anchored at E3's 5 seeds, D1/D2 rule power and boundary size with 20 replications x 5 seeds (paired
+  with E3's first 20). Chosen after the MLP's real-data results were known: reported as a post-hoc
+  ablation; the pre-specified verdicts remain those of the MLP critic.

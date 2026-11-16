@@ -57,7 +57,8 @@ from scipy import stats
 
 from ..config import N_PERM
 from .base import TestResult, TwoSampleTest
-from .nets import Arch, Standardizer, Witness, build_network, to_tensor, torch_seed
+from .nets import (Arch, Standardizer, Witness, build_network, get_device, to_tensor,
+                   torch_seed)
 
 logger = logging.getLogger(__name__)
 
@@ -133,12 +134,13 @@ def _subset_weights(w: np.ndarray | None, idx: np.ndarray) -> np.ndarray | None:
     return ws / ws.sum()
 
 
-def _draw_indices(n: int, b: int, w: torch.Tensor | None) -> torch.Tensor:
+def _draw_indices(n: int, b: int, w: torch.Tensor | None,
+                  device: torch.device | None = None) -> torch.Tensor:
     """Mini-batch indices: uniform (``torch.randint``, the default) or drawn with replacement
-    with sampling probabilities ``w`` (weighted training)."""
-    if w is None:
-        return torch.randint(0, n, (b,))
-    return torch.multinomial(w, b, replacement=True)
+    with sampling probabilities ``w`` (weighted training). Drawn on the CPU generator, then moved
+    to ``device`` (so CPU and GPU runs draw the same indices)."""
+    idx = torch.randint(0, n, (b,)) if w is None else torch.multinomial(w, b, replacement=True)
+    return idx if device is None or device.type == "cpu" else idx.to(device)
 
 
 # ----------------------------------------------------------------------------------------------
@@ -835,7 +837,7 @@ class LearnedTest(TwoSampleTest):
                 wx, wy = _subset_weights(wx, ix_t), _subset_weights(wy, iy_t)
         with torch_seed(rng):
             net = build_network(X_tr.shape[1:], self.arch, hidden=self.hidden, depth=self.depth,
-                                layer_norm=self.layer_norm)
+                                layer_norm=self.layer_norm).to(get_device())
             if weighted:
                 tw = [None if w is None else torch.as_tensor(w, dtype=torch.float64)
                       for w in (wx, wy, wxv, wyv)]
@@ -988,6 +990,7 @@ class CriticTest(LearnedTest):
                                                                     torch.Tensor]:
         """Return ``(mean f(xb) - mean f(yb), gradient penalty, f(x_hat))`` in one forward pass."""
         shape = (-1,) + (1,) * (xb.dim() - 1)
+        eps = eps.to(device=xb.device, dtype=xb.dtype)
         x_hat = (eps.view(shape) * xb + (1.0 - eps.view(shape)) * yb).requires_grad_(True)
         b = xb.shape[0]
         out = net(torch.cat([xb, yb, x_hat], dim=0))
@@ -1012,16 +1015,16 @@ class CriticTest(LearnedTest):
         if Xv is not None and Yv is not None:
             # Fixed validation pairs and interpolation weights (paired random indices).
             m_v = max(Xv.shape[0], Yv.shape[0])
-            vix = _draw_indices(Xv.shape[0], m_v, wxv)
-            viy = _draw_indices(Yv.shape[0], m_v, wyv)
+            vix = _draw_indices(Xv.shape[0], m_v, wxv, Xv.device)
+            viy = _draw_indices(Yv.shape[0], m_v, wyv, Yv.device)
             veps = torch.rand(m_v)
         step = 0
         net.train()
         for step in range(1, self.n_steps + 1):
             # Pair random indices: sizes may differ, each interpolate uses one real and one synthetic point.
             # (Weighted training: indices drawn with the sampling probabilities wx / wy.)
-            ix = _draw_indices(nx, b, wx)
-            iy = _draw_indices(ny, b, wy)
+            ix = _draw_indices(nx, b, wx, Xt.device)
+            iy = _draw_indices(ny, b, wy, Yt.device)
             eps = torch.rand(b)
             wd, gp, _ = self._gp_terms(net, Xt[ix], Yt[iy], eps, create_graph=True)
             loss = -wd + self.gp_lambda * gp

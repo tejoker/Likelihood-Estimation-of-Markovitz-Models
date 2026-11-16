@@ -1,0 +1,197 @@
+{
+  "experiment": "e5arch",
+  "run_id": "20261116T112635-7",
+  "started": "2026-11-16T11:26:35",
+  "updated": "2026-11-16T12:06:39",
+  "elapsed_s": 2404.202,
+  "git": {
+    "commit": "38595f69831d33306afc1ec3c050b75f01911279",
+    "dirty": true,
+    "dirty_paths": [
+      "src",
+      "experiments"
+    ],
+    "n_dirty_files": 6,
+    "dirty_files": [
+      " M experiments/README.md",
+      " M src/synthval/twosample/__init__.py",
+      " M src/synthval/twosample/c2st.py",
+      " M src/synthval/twosample/critic.py",
+      " M src/synthval/twosample/nets.py",
+      "?? experiments/e5_architecture.py"
+    ]
+  },
+  "code": {
+    "sha256": "ada27d81b08e7c8a1dc91166e97b5e49dad90c80b0375aef60f3c6db1b8d89ed",
+    "n_files": 22,
+    "dir": "src/synthval"
+  },
+  "script": {
+    "path": "experiments/e5_architecture.py",
+    "sha256": "08ffb2fe2805127295b4443dd5cc540ebc6412d63a9399611294cb1ac38c80d2"
+  },
+  "data": {
+    "path": "data/sp500_price_volume.csv",
+    "bytes": 13345909,
+    "sha256": "ddfd0d23dc274a58f8089e53b3872754005033447d77eb2650a0795382f832dc"
+  },
+  "packages": {
+    "python": "3.12.16",
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "scipy": "1.18.1",
+    "statsmodels": "0.15.0",
+    "matplotlib": "3.11.2",
+    "torch": "2.15.0+cpu",
+    "arch": "9.0.0",
+    "scikit-learn": "1.9.1"
+  },
+  "platform": {
+    "system": "Linux",
+    "release": "7.0.0-43-generic",
+    "machine": "x86_64",
+    "cpu_count": 16
+  },
+  "workers": 4,
+  "argv": [
+    "experiments/e5_architecture.py",
+    "--part",
+    "sim",
+    "--workers",
+    "10"
+  ],
+  "config": {
+    "quick": false,
+    "parts": [
+      "sim"
+    ],
+    "cfg": {
+      "sim_reps": 50,
+      "h0_reps": 200,
+      "e2_n": 500,
+      "dep_n": 2000,
+      "power_reps": 20,
+      "n_perm": null,
+      "blocks": {
+        "sim": 5
+      }
+    },
+    "arch": {
+      "arch": "pooled"
+    },
+    "pooled_config": {
+      "config": "pooled",
+      "factor": "Critic architecture",
+      "setting": "time-pooled CNN",
+      "L": 20,
+      "kw": {
+        "arch": "pooled"
+      }
+    },
+    "code": "800085fba37eda7f"
+  },
+  "files": {
+    "e5arch_sim_raw.csv": {
+      "kind": "csv",
+      "rows": 900,
+      "cols": 12,
+      "written": "2026-11-16T12:06:39",
+      "config": {
+        "part": "sim",
+        "arch": {
+          "arch": "pooled"
+        },
+        "e2_seed": 20251115,
+        "dep_seed": 20251116,
+        "n_perm": null,
+        "code": "800085fba37eda7f",
+        "sim_reps": 50,
+        "h0_reps": 200
+      }
+    },
+    "e5arch_sim_summary.csv": {
+      "kind": "csv",
+      "rows": 12,
+      "cols": 15,
+      "written": "2026-11-16T12:06:39",
+      "config": {
+        "part": "sim_summary"
+      }
+    },
+    "e5arch_real_summary.csv": {
+      "kind": "csv",
+      "rows": 5,
+      "cols": 9,
+      "written": "2026-11-16T12:06:39",
+      "config": {
+        "part": "real_summary",
+        "designs": {
+          "D1": {
+            "pooled": {
+              "alternative": [
+                20,
+                20
+              ],
+              "boundary": [
+                0,
+                20
+              ]
+            },
+            "mlp_paired": {
+              "alternative": [
+                20,
+                20
+              ],
+              "boundary": [
+                0,
+                20
+              ]
+            },
+            "mlp_full": {
+              "alternative": [
+                100,
+                100
+              ],
+              "boundary": [
+                0,
+                100
+              ]
+            }
+          },
+          "D2": {
+            "pooled": {
+              "alternative": [
+                9,
+                20
+              ],
+              "boundary": [
+                4,
+                20
+              ]
+            },
+            "mlp_paired": {
+              "alternative": [
+                9,
+                20
+              ],
+              "boundary": [
+                4,
+                20
+              ]
+            },
+            "mlp_full": {
+              "alternative": [
+                45,
+                100
+              ],
+              "boundary": [
+                8,
+                100
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

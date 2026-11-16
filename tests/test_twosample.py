@@ -84,6 +84,34 @@ def test_build_network_dispatch():
         build_network((2, 3, 4))
 
 
+def test_pooled_conv_critic_shapes_dispatch_and_shift_invariance():
+    from synthval.twosample import PooledConvCritic
+    net = build_network((20,), "pooled")
+    assert isinstance(net, PooledConvCritic) and net.in_channels == 1
+    x = torch.randn(7, 20, dtype=torch.float64)
+    assert net.double()(x).shape == (7,)
+    mv = build_network((3, 20), "pooled", hidden=8)
+    assert isinstance(mv, PooledConvCritic) and mv(torch.randn(5, 3, 20)).shape == (5,)
+    assert not any(isinstance(m, torch.nn.modules.batchnorm._BatchNorm) for m in net.modules())
+    assert any(isinstance(m, torch.nn.LayerNorm)
+               for m in build_network((20,), "pooled", layer_norm=True).modules())
+    # identical inputs map to identical outputs (no batch coupling)
+    z = torch.zeros(3, 20, dtype=torch.float64)
+    out = net(z)
+    assert torch.allclose(out, out[0].expand(3))
+    with pytest.raises(ValueError):
+        build_network((2, 3, 4), "pooled")
+
+
+def test_critic_test_pooled_arch_runs_and_detects_scale():
+    rng = np.random.default_rng(0)
+    X = rng.standard_normal((300, 20))
+    Y = 1.5 * rng.standard_normal((300, 20))
+    res = CriticTest(arch="pooled", n_steps=150, n_perm=100)(X, Y, rng=np.random.default_rng(1))
+    assert res.extra["arch"] == "PooledConvCritic"
+    assert res.pvalue < 0.05
+
+
 def test_witness_standardises_with_pooled_training_stats():
     rng = np.random.default_rng(0)
     Xtr = 3.0 + 2.0 * rng.standard_normal((100, 5))

@@ -1,0 +1,18 @@
+\begin{tabular}{lllllll}
+\toprule
+ & \multicolumn{2}{c}{Absolute W-critic, $2\times$median $p$ (seeds rej.)} & \multicolumn{2}{c}{Anchored relative, $2\times$median $p$} & \multicolumn{2}{c}{Verdict} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
+Model & MLP & pooled & MLP & pooled & MLP & pooled \\
+\midrule
+GBM & $<$0.001 (5/5) & $<$0.001 (5/5) & $<$0.001 & $<$0.001 & BAD & BAD \\
+Merton & $<$0.001 (5/5) & $<$0.001 (5/5) & 0.005 & 0.008 & BAD & BAD \\
+GARCH-t & $<$0.001 (4/5) & $<$0.001 (4/5) & 0.432 & 0.334 & INCONCLUSIVE & INCONCLUSIVE \\
+Heston & $<$0.001 (5/5) & $<$0.001 (5/5) & 0.017 & 0.014 & BAD & BAD \\
+Stat. bootstrap & $<$0.001 (4/5) & $<$0.001 (4/5) & 0.116 & 0.100 & INVALID & INVALID \\
+\midrule
+D1 rule power & \multicolumn{2}{l}{MLP 1.00 [0.96, 1.00] (100 reps); same 20 reps 1.00 [0.84, 1.00]} & \multicolumn{4}{l}{pooled 1.00 [0.84, 1.00] (20 reps)} \\
+D1 rule boundary size & \multicolumn{2}{l}{MLP 0.00 [0.00, 0.04] (100 reps); same 20 reps 0.00 [0.00, 0.16]} & \multicolumn{4}{l}{pooled 0.00 [0.00, 0.16] (20 reps)} \\
+D2 rule power & \multicolumn{2}{l}{MLP 0.45 [0.36, 0.55] (100 reps); same 20 reps 0.45 [0.26, 0.66]} & \multicolumn{4}{l}{pooled 0.45 [0.26, 0.66] (20 reps)} \\
+D2 rule boundary size & \multicolumn{2}{l}{MLP 0.08 [0.04, 0.15] (100 reps); same 20 reps 0.20 [0.08, 0.42]} & \multicolumn{4}{l}{pooled 0.20 [0.08, 0.42] (20 reps)} \\
+\bottomrule
+\end{tabular}

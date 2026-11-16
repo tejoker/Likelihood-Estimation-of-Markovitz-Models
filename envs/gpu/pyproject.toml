@@ -1,0 +1,36 @@
+# GPU environment for synthval (NVIDIA; CUDA 13.2 build of the SAME torch version as the CPU
+# environment). The main environment (repo root, CPU build) produced the published numbers and is
+# left untouched. synthval itself is not installed here (its pyproject pins the CPU torch index);
+# it is imported from src/ via PYTHONPATH. Keep the dependency list in sync with ../../pyproject.toml.
+# Usage, from the repo root:
+#     uv sync --project envs/gpu
+#     PYTHONPATH=src uv run --project envs/gpu python experiments/<script>.py ...
+# GPU access needs /dev/nvidia* (run outside a sandbox that hides it).
+[project]
+name = "synthval-gpu-env"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.4",
+    "pandas>=3.1.1",
+    "scipy>=1.18.1",
+    "statsmodels>=0.15.0",
+    "tabulate>=0.10.0",
+    "torch==2.15.0",
+    "arch>=9.0.0",
+    "pytest>=9.2.0",
+    "scikit-learn>=1.9.1",
+]
+
+[tool.uv]
+package = false
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+
+[[tool.uv.index]]
+name = "pytorch-cu132"
+url = "https://download.pytorch.org/whl/cu132"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu132" }

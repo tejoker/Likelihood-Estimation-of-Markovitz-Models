@@ -127,6 +127,28 @@ about 4 min.
 heavy` covers those two. `--power-reps` and `--power-reps-default` change the replication
 counts; finished replications are reused.
 
+### E2-dep `e2_dependence.py`: dependence-only alternatives (exact marginal)
+
+Family `mix` (a fraction delta of the Q windows has L independent returns with the GARCH marginal)
+and family `block` (Q windows are concatenations of independent GARCH blocks of length b in
+{20, 10, 5, 2, 1}). The marginal law of every return is that of P, so KS has no power by
+construction. All tests of E2 plus an approximate Monte Carlo LR oracle. Run as executed:
+n = 2000, 100 replications under H0, 50 per alternative.
+`uv run python experiments/e2_dependence.py --workers 4`
+
+### E5 ablation `e5_architecture.py`: time-pooled CNN critic (post hoc)
+
+The critic with `arch="pooled"` (`PooledConvCritic`) in place of the default MLP; everything else
+unchanged and paired replication by replication with the experiment it is compared with.
+
+| part | what | full run |
+|---|---|---|
+| `real` | E3 protocol via E5's grid/design machinery (results in `results/e5arch/`): absolute W-critic + anchored test at E3's 5 seeds; D1/D2 rule power and boundary size, 20 replications x 5 seeds | `uv run python experiments/e5_architecture.py --part real --workers 8` |
+| `sim` | E2 families a-d at two alternative levels (+ H0 in a and c) and E2-dep mix/block at level 2, n as in E2 / E2-dep, 50 replications | `uv run python experiments/e5_architecture.py --part sim --workers 8` |
+
+Tables: `e5_arch_sim.tex`, `e5_arch_real.tex` (+ notes). The pooled critic costs about ten times
+the MLP per test (about 65 s against 6 s on one thread).
+
 After all parts of an experiment: `uv run python experiments/<script>.py --plots-only`.
 
 ## Measured times and memory
