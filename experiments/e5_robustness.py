@@ -149,6 +149,7 @@ from scipy import stats  # noqa: E402
 
 import synthval  # noqa: E402
 from synthval import config, data, pipeline, plotting, utils  # noqa: E402
+from synthval.batched import batched_key  # noqa: E402
 from synthval.models import get_model, get_mv_model  # noqa: E402
 
 logger = logging.getLogger("experiments.e5")
@@ -320,6 +321,18 @@ def e3_key(kind: str) -> dict[str, Any]:
            "D1": (e3.power_rep_rows, e3._anchored_row, e3.seed_int),
            "D2": (e3.realvol_rep_rows, e3.realvol_inputs, e3._anchored_row)}[kind]
     return {"e3_root_seed": e3.ROOT_SEED, "e3_source": source_hash(*fns)}
+
+
+def batched_design_key(*designs: str) -> dict[str, Any]:
+    """Checkpoint-key entry of the power designs run with a critic bank (``SYNTHVAL_BATCHED=1``):
+    ``{}`` when batching is off (keys unchanged), else the ``synthval.batched`` code hash and the
+    source hash of E3's batched functions of ``designs``."""
+    key = batched_key(code=True)
+    if key:
+        fns = {"D1": (e3.power_rep_rows_batched, e3._anchored_rows_batched),
+               "D2": (e3.realvol_rep_rows_batched, e3._anchored_rows_batched)}
+        key["batched"]["e3_source"] = {d: source_hash(*fns[d]) for d in designs}
+    return key
 
 
 def check_e3_alignment() -> dict[str, bool]:
@@ -546,10 +559,13 @@ def _design_rep(cell: dict, rep: int, rng: np.random.Generator) -> list[dict[str
     """One replication of power design D1 or D2: E3's own function with the cell's settings."""
     del rng  # E3's streams, keyed by the replication only (common to every configuration)
     panel = get_panel(cell["data_split"], cell["_n_tickers"], cell["L"])
+    batched = bool(cell["_c"].get("batched"))  # SYNTHVAL_BATCHED=1: one critic bank per rep
     if cell["design"] == "D1":
-        rows = e3.power_rep_rows(panel, _load_fits(cell["_fits"]), rep, cell["_c"])
+        fn = e3.power_rep_rows_batched if batched else e3.power_rep_rows
+        rows = fn(panel, _load_fits(cell["_fits"]), rep, cell["_c"])
     else:
-        rows = e3.realvol_rep_rows(panel, rep, cell["_c"])
+        fn = e3.realvol_rep_rows_batched if batched else e3.realvol_rep_rows
+        rows = fn(panel, rep, cell["_c"])
     rss = _max_rss_mb()
     for r in rows:
         r["max_rss_mb"] = rss
@@ -727,7 +743,8 @@ def _design_cell(name: str, g: dict, design: str, data_split: str, cfg: dict,
             "design": design, "L": int(g["L"]), "data_split": data_split,
             "_n_tickers": cfg["n_tickers"], "_fits": fits,
             "_c": {"base_kw": config_kw(g, cfg), "n_boot": cfg["n_boot"],
-                   "n_seeds": int(cfg["n_seeds"] if n_seeds is None else n_seeds)},
+                   "n_seeds": int(cfg["n_seeds"] if n_seeds is None else n_seeds),
+                   **e3._batched_flag()},
             "_cost": _cost(g)}
 
 
@@ -802,7 +819,8 @@ def run_design_part(ctx: common.ExpContext, cfg: dict, design: str) -> dict[str,
         fit, keys = f[pipeline.POWER_MODEL], fit_keys(f)
     cells = [_design_cell(f"{design}__{g['config']}", g, design, "main", cfg, fit) for g in GRID]
     pc = part_config(cfg, part, design=design, n_seeds=cfg["n_seeds"], n_boot=cfg["n_boot"],
-                     vol_factor=pipeline.POWER_VOL_FACTOR, fits=keys, **e3_key(design))
+                     vol_factor=pipeline.POWER_VOL_FACTOR, fits=keys, **e3_key(design),
+                     **batched_design_key(design))
     nr = _design_reps(cfg)
     df = run_part(_design_rep, cells, part=part, ctx=ctx, n_reps=nr, config=pc,
                   block_size=cfg["blocks"]["power"], workers=part_workers(ctx, part),
@@ -847,7 +865,7 @@ def run_split(ctx: common.ExpContext, cfg: dict) -> dict[str, float]:
     ppc = part_config(cfg, "split_power", n_seeds=cfg["n_seeds"], n_boot=cfg["n_boot"],
                       vol_factor=pipeline.POWER_VOL_FACTOR, fits=fit_keys(gk),
                       alt_split=SPLITS["alt"],
-                      e3={d: e3_key(d) for d in DESIGNS})
+                      e3={d: e3_key(d) for d in DESIGNS}, **batched_design_key(*DESIGNS))
     dp = run_part(_design_rep, dcells, part="split_power", ctx=ctx,
                   n_reps=cfg["split_power_reps"], config=ppc, block_size=cfg["blocks"]["power"],
                   workers=part_workers(ctx, "split_power"))

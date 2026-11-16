@@ -58,6 +58,31 @@ E3 at start-up and, after both full runs, against E3's CSVs (`e5_e3_alignment.cs
 fits use variance targeting with the 0.995 persistence cap in E3, E5 and E4 (CCC-GARCH-t
 margins, factor GARCH-t), and in E1's factor panel.
 
+## Critic banks on the GPU (opt-in, `SYNTHVAL_BATCHED=1`)
+
+A GPU worker process needs about 1.8 GB of host RAM for the CUDA libraries, so only a few fit,
+and one small critic per process leaves the GPU mostly idle. With `SYNTHVAL_BATCHED=1`, E3's
+`power` and `realvol` parts and E5's `gridpower`, `gridrealvol` and `split` power designs train
+the 2 x `n_seeds` anchored critics of a replication as one *critic bank* (`synthval.batched`:
+grouped convolutions, one process). Random streams, splits, initial weights, mini-batches and
+permutations are the sequential ones; statistics differ only by floating-point rounding
+amplified by training, about as much as running the sequential code with another number of CPU
+threads (`tests/test_batched.py`). At the full settings that amplification is not small for
+either: in a check of 4 anchored tests at E3 sizes on CPU, 1 vs 4 threads moved Delta by up to
+0.55 se_hac and the bank by up to 1.2 se_hac (one boundary p_hac 0.81 / 0.88 / 0.67), so single
+p-values are not reproducible across thread counts, CPU/GPU or banks, while their distribution
+(size, power) is the same. The batched mode adds a `batched` entry to those parts'
+checkpoint keys (separate blocks); unset, nothing changes. `SYNTHVAL_BANK_MAX` caps the critics
+per bank.
+
+```bash
+# throughput: K tests one by one vs as one bank
+SYNTHVAL_DEVICE=cuda PYTHONPATH=src uv run --project envs/gpu python experiments/bench_batched.py
+# E3 / E5 power designs with critic banks
+SYNTHVAL_BATCHED=1 PYTHONPATH=src uv run --project envs/gpu python experiments/v2.py e3 --part power,realvol --workers 1
+SYNTHVAL_BATCHED=1 PYTHONPATH=src uv run --project envs/gpu python experiments/v2.py e5 --part gridpower,gridrealvol --workers 1
+```
+
 ## What each part does and the full-run command
 
 ### E1 `e1_placebo.py`: size of the real-data pipeline under H0

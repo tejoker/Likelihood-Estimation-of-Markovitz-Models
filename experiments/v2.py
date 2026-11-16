@@ -14,6 +14,11 @@ Environment (defaults; an existing value is kept):
     SYNTHVAL_ARCH_2D=pooled       arch="auto" -> PooledConvCritic for (C, L) windows
     SYNTHVAL_RESULTS_DIR=results_v2, SYNTHVAL_TAB_DIR=results_v2/tables,
     SYNTHVAL_FIG_DIR=results_v2/figures
+
+Opt-in (recorded in the run log, not set here): ``SYNTHVAL_BATCHED=1`` trains the anchored
+critics of each replication of E3's ``power`` / ``realvol`` and E5's ``gridpower`` /
+``gridrealvol`` / ``split`` power designs as one critic bank (``synthval.batched``; own
+checkpoint keys), ``SYNTHVAL_BANK_MAX`` caps the critics per bank.
 """
 from __future__ import annotations
 
@@ -34,6 +39,9 @@ ENV_V2 = {
     "SYNTHVAL_TAB_DIR": "results_v2/tables",
     "SYNTHVAL_FIG_DIR": "results_v2/figures",
 }
+#: Opt-in settings recorded in the run log when set (not defaults of v2): critic banks for the
+#: power designs of E3 / E5 (synthval.batched) and their size cap.
+ENV_OPTIONAL = ("SYNTHVAL_BATCHED", "SYNTHVAL_BANK_MAX")
 for _k, _v in ENV_V2.items():
     os.environ.setdefault(_k, _v)
 for _k in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
@@ -94,7 +102,8 @@ def main() -> None:
     out = Path(config.RESULTS_DIR)
     out.mkdir(parents=True, exist_ok=True)
     rec = {"exp": exp, "module": MODULES[exp], "argv": argv, "overrides": applied,
-           "env": {k: os.environ.get(k) for k in ENV_V2}, "runtime": runtime_config(),
+           "env": {k: os.environ.get(k) for k in (*ENV_V2, *ENV_OPTIONAL)},
+           "runtime": runtime_config(),
            **_gpu_info(), "python": platform.python_version(),
            "started": time.strftime("%Y-%m-%d %H:%M:%S")}
     log = out / "v2_runs.jsonl"

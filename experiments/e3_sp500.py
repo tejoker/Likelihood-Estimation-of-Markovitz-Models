@@ -134,6 +134,18 @@ Clopper-Pearson interval of theory.md Definition 8.1) and every p-value row reco
 (``pvalue_type``: hac, wild, permutation, asymptotic_iid, calibrated; Berkowitz / PIT-KS / AG:
 asymptotic).
 
+Critic banks (opt-in): with ``SYNTHVAL_BATCHED=1`` the ``power`` and ``realvol`` parts (and E5's
+power designs, which call the same functions) train the 2 x ``n_seeds`` anchored critics of a
+replication as one bank (``synthval.batched``; ``power_rep_rows_batched``,
+``realvol_rep_rows_batched``): same random streams, splits, initial weights, mini-batches and
+permutations as the sequential functions, statistics equal up to floating-point rounding
+amplified by training (of the order of the difference made by changing the number of CPU threads,
+which at the full settings can reach the order of se_hac for a single test: single p-values are
+not reproducible across threads, CPU/GPU or banks; rejection rates are). One GPU process then keeps
+the GPU busy. The batched mode adds a ``batched`` entry to the parts' checkpoint key, so it never
+mixes with sequential blocks; unset, keys and results are unchanged. ``SYNTHVAL_BANK_MAX`` caps
+the critics per bank (GPU memory).
+
 Checkpoints: fits are stored under a hash of the fit configuration (E5 reads them there); every
 downstream part's checkpoint key includes a hash of the fitted parameter table, so a refit with
 different results never reuses stale blocks. Library changes to a model class are detected (a
@@ -165,6 +177,8 @@ from scipy import stats  # noqa: E402
 from synthval import config, data, plotting, stylized  # noqa: E402
 from synthval import likelihood as lik  # noqa: E402
 from synthval import pipeline as pl  # noqa: E402
+from synthval.batched import (AnchoredJob, anchored_relative_tests, bank_max,  # noqa: E402
+                              batched_enabled, batched_key)
 from synthval.models import get_model  # noqa: E402
 from synthval.twosample.critic import time_block_labels, train_eval_split  # noqa: E402
 
@@ -524,8 +538,8 @@ def _power_rep(cell: dict, rep: int, rng: np.random.Generator) -> list[dict[str,
     streams (common random numbers).
     """
     del rng
-    return power_rep_rows(get_panel(cell["_tickers"]), load_fits(cell["_fit_path"]), rep,
-                          cell["_cfg"])
+    fn = power_rep_rows_batched if cell["_cfg"].get("batched") else power_rep_rows
+    return fn(get_panel(cell["_tickers"]), load_fits(cell["_fit_path"]), rep, cell["_cfg"])
 
 
 def power_rep_rows(panel: pl.RealPanel, fitted: dict, rep: int, c: dict
@@ -568,7 +582,7 @@ def power_config(ctx: common.ExpContext, cfg: dict, tickers: list[str]) -> dict[
             "n_seeds": cfg["n_seeds"], "vol_factor": pl.POWER_VOL_FACTOR,
             "boundary_start": "stationary", "alternative_start": "end_of_train",
             "method": "anchored", "protocol": "dependent", "design": "D1",
-            "pipeline": pl.pipeline_config()}
+            "pipeline": pl.pipeline_config(), **batched_key()}
 
 
 def _rule_counts(raw: pd.DataFrame, case: str) -> dict[str, Any]:
@@ -648,7 +662,7 @@ def run_power(ctx: common.ExpContext, cfg: dict, tickers: list[str]) -> dict[str
     conf = power_config(ctx, cfg, tickers)
     cell = {"cell": "power", "_tickers": list(tickers), "_fit_path": fpath,
             "_cfg": {"base_kw": cfg["base_kw"], "n_boot": cfg["n_boot"],
-                     "n_seeds": cfg["n_seeds"]}}
+                     "n_seeds": cfg["n_seeds"], **_batched_flag()}}
     df = common.run_cells(_power_rep, [cell], part="power", ctx=ctx, root_seed=ROOT_SEED,
                           n_reps=cfg["power_reps"], config=conf,
                           block_size=cfg["blocks"]["power"], workers=part_workers(ctx, "power"))
@@ -689,7 +703,8 @@ def _realvol_rep(cell: dict, rep: int, rng: np.random.Generator) -> list[dict[st
     ``("realvol", rep, "seed", s)`` (G0, test).
     """
     del rng
-    return realvol_rep_rows(get_panel(cell["_tickers"]), rep, cell["_cfg"])
+    fn = realvol_rep_rows_batched if cell["_cfg"].get("batched") else realvol_rep_rows
+    return fn(get_panel(cell["_tickers"]), rep, cell["_cfg"])
 
 
 def realvol_rep_rows(panel: pl.RealPanel, rep: int, c: dict) -> list[dict[str, Any]]:
@@ -719,7 +734,7 @@ def realvol_config(cfg: dict, tickers: list[str]) -> dict[str, Any]:
             "root_seed": ROOT_SEED, "n_seeds": cfg["n_seeds"],
             "vol_factor": pl.POWER_VOL_FACTOR, "method": "anchored", "protocol": "dependent",
             "design": "D2 (real TRAIN vol path x N(0, I_L); G0 = pooled TRAIN window law)",
-            "pipeline": pl.pipeline_config()}
+            "pipeline": pl.pipeline_config(), **batched_key()}
 
 
 def run_realvol(ctx: common.ExpContext, cfg: dict, tickers: list[str]) -> dict[str, float]:
@@ -727,7 +742,7 @@ def run_realvol(ctx: common.ExpContext, cfg: dict, tickers: list[str]) -> dict[s
     conf = realvol_config(cfg, tickers)
     cell = {"cell": "realvol", "_tickers": list(tickers),
             "_cfg": {"base_kw": cfg["base_kw"], "n_boot": cfg["n_boot"],
-                     "n_seeds": cfg["n_seeds"]}}
+                     "n_seeds": cfg["n_seeds"], **_batched_flag()}}
     df = common.run_cells(_realvol_rep, [cell], part="realvol", ctx=ctx, root_seed=ROOT_SEED,
                           n_reps=cfg["realvol_reps"], config=conf,
                           block_size=cfg["blocks"]["realvol"],
@@ -739,6 +754,99 @@ def run_realvol(ctx: common.ExpContext, cfg: dict, tickers: list[str]) -> dict[s
     timing = {"realvol_wall_s": time.perf_counter() - t0}
     ctx.write_part_meta("realvol", {**conf, "n_reps": cfg["realvol_reps"]}, timing)
     return timing
+
+
+# --------------------------------------------------------------------------------------------
+# Power designs with a critic bank (opt-in: SYNTHVAL_BATCHED=1; synthval.batched)
+# --------------------------------------------------------------------------------------------
+# The sequential functions above stay the default and are not edited: E5 keys its checkpoints on
+# their source. The batched versions below give the same rows (same streams, splits, initial
+# weights, mini-batches and permutations; statistics equal up to the rounding of the batched
+# training) but train the 2 x n_seeds critics of a replication as one bank, which keeps a GPU
+# busy from one process. tests/test_batched.py checks them against the sequential functions.
+def _batched_flag() -> dict[str, bool]:
+    """``{"batched": True}`` for a part's ``_cfg`` when ``SYNTHVAL_BATCHED`` is on, else ``{}``."""
+    return {"batched": True} if batched_enabled() else {}
+
+
+def _anchored_rows_batched(jobs: list[tuple[dict, tuple, dict]], c: dict
+                           ) -> list[dict[str, Any]]:
+    """Rows ``{**head, **_anchored_row(Wn, Wg, Wp, orders, seed=seed, c=c), **tail}`` of every
+    job ``(head, (Wn, Wg, Wp, orders, seed), tail)``, with all critics trained as one bank
+    (at most ``$SYNTHVAL_BANK_MAX`` critics per bank). ``test_seconds`` is the test's share of
+    the bank time plus its own split and inference time."""
+    if not jobs:
+        return []
+    res = anchored_relative_tests(
+        [AnchoredJob(Wn, Wg, Wp, rng=np.random.default_rng(seed), orders=orders)
+         for _, (Wn, Wg, Wp, orders, seed), _ in jobs],
+        base="critic", protocol="dependent", base_kw=c["base_kw"], n_boot=c["n_boot"],
+        keep_extra=True, max_bank=bank_max())
+    rows = []
+    for (head, _, tail), r in zip(jobs, res):
+        ts = (r.pop("extra", None) or {}).get("train_summary") or {}
+        rows.append({**head, "pvalue": r["pvalue"], "pvalue_type": r["pvalue_type"],
+                     "statistic": r["statistic"], "p_perm": r["p_perm"], "p_hac": r["p_hac"],
+                     "z_hac": r["z_hac"], "se_hac": r["se_hac"], "ci_lo": r["ci_lo"],
+                     "ci_hi": r["ci_hi"], "steps_run": ts.get("steps_run", np.nan),
+                     "test_seconds": r["runtime_s"], **tail})
+    return rows
+
+
+def power_rep_rows_batched(panel: pl.RealPanel, fitted: dict, rep: int, c: dict
+                           ) -> list[dict[str, Any]]:
+    """:func:`power_rep_rows` with the replication's 2 x ``n_seeds`` critics as one bank."""
+    sc, L, burn = panel.scale_array(), panel.L, pl.BURN_IN
+    n_tr, n_te = panel.n_train, panel.n_test
+    ss = np.random.SeedSequence(seed_int("power", rep)).spawn(1)[0]
+    s_past, s_new, s_g, s_test, s_bd = ss.spawn(5)
+    t0 = time.perf_counter()
+    Rp = pl.simulate_panel(fitted, n_tr, seed=s_past, start_from_end=False, burn_in=burn)
+    Rn = pl.simulate_panel(fitted, n_te, seed=s_new, start_from_end=True, burn_in=burn)
+    t_rep = time.perf_counter() - t0
+    Wp, _, op = pl.panel_windows(Rp, L, panel.step, scale=sc, date_offset=0)
+    Wn, _, on = pl.panel_windows(Rn, L, panel.step, scale=sc, date_offset=n_tr)
+    jobs: list[tuple[dict, tuple, dict]] = []
+    for s in range(int(c["n_seeds"])):
+        if s == 0:
+            sg, st, sb = s_g, s_test, s_bd
+        else:
+            sg, st, sb = common.keyed_seed_sequence(ROOT_SEED, "power", rep, "seed", s).spawn(3)
+        t0 = time.perf_counter()
+        G = pl.POWER_VOL_FACTOR * pl.simulate_panel(fitted, n_te, seed=sg, start_from_end=True,
+                                                    burn_in=burn)
+        G0 = pl.simulate_panel(fitted, n_te, seed=sb, start_from_end=False, burn_in=burn)
+        t_seed = time.perf_counter() - t0
+        for case, sim in (("alternative", G), ("boundary", G0)):
+            if case not in c.get("cases", CASES):
+                continue
+            Wg, _, og = pl.panel_windows(sim, L, panel.step, scale=sc, date_offset=n_tr)
+            jobs.append(({"design": "D1", "seed_index": s, "case": case},
+                         (Wn, Wg, Wp, (on, og, op), st),
+                         {"sim_seconds_rep": t_rep, "sim_seconds_seed": t_seed}))
+    return _anchored_rows_batched(jobs, c)
+
+
+def realvol_rep_rows_batched(panel: pl.RealPanel, rep: int, c: dict) -> list[dict[str, Any]]:
+    """:func:`realvol_rep_rows` with the replication's 2 x ``n_seeds`` critics as one bank."""
+    inp = realvol_inputs(panel)
+    v, L, kt = inp["v"], panel.L, inp["k_test"]
+    N, K = v.shape
+    rp = np.random.default_rng(common.keyed_seed_sequence(ROOT_SEED, "realvol", rep))
+    Rp = (v[:, :, None] * rp.standard_normal((N, K, L))).reshape(N * K, L)
+    jobs: list[tuple[dict, tuple, dict]] = []
+    for s in range(int(c["n_seeds"])):
+        sg, st = common.keyed_seed_sequence(ROOT_SEED, "realvol", rep, "seed", s).spawn(2)
+        rg = np.random.default_rng(sg)
+        vg = np.take_along_axis(v, rg.integers(0, K, size=(N, kt)), axis=1)
+        G0 = (vg[:, :, None] * rg.standard_normal((N, kt, L))).reshape(N * kt, L)
+        orders = (inp["on"], inp["on"], inp["op"])
+        for case, G in (("alternative", pl.POWER_VOL_FACTOR * G0), ("boundary", G0)):
+            if case not in c.get("cases", CASES):
+                continue
+            jobs.append(({"design": "D2", "seed_index": s, "case": case},
+                         (inp["Xn"], G, Rp, orders, st), {}))
+    return _anchored_rows_batched(jobs, c)
 
 
 # --------------------------------------------------------------------------------------------
