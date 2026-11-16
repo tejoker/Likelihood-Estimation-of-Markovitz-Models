@@ -8,7 +8,8 @@ set -u
 cd "$(dirname "$0")/.."
 export PYTHONPATH=src OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 # Worker counts are chosen before each part from MemAvailable so that at least RESERVE_MB stay
-# free: about 2100 MB per GPU worker (measured), 2300 MB for kernel-heavy parts (E1, E5
+# free: about 1500 MB of unique memory per GPU worker (measured: RSS 2.1 GB, of which ~0.8 GB
+# shared libraries), 2300 MB for kernel-heavy parts (E1, E5
 # split), at most WMAX workers, at least 1.
 RESERVE_MB=${RESERVE_MB:-2600}
 WMAX=${WMAX:-4}
@@ -28,21 +29,21 @@ run() { echo "=== $(date '+%F %T') START $*"; uv run --frozen --project envs/gpu
 runb() { echo "=== $(date '+%F %T') START [batched] $*"; SYNTHVAL_BATCHED=1 uv run --frozen --project envs/gpu python experiments/v2.py "$@"; echo "=== $(date '+%F %T') END (exit $?) [batched] $*"; }
 # run e1 --part sim --workers $(nw 2300)   # done 2026-11-16 17:08 (results_v2/e1); not rerun: the library
 #   fingerprint of E1 changed afterwards (additive synthval.batched), see PROTOCOL_v2 change log
-run e2 --part main --workers $(nw 2100)
-run e2 --part e --workers $(nw 2100)
-run e2 --part f,g --workers $(nw 2100)
-run e2dep --workers $(nw 2100)
-run e3 --part fit --workers $(nw 2100)
+run e2 --part main --workers $(nw 1500)
+run e2 --part e --workers $(nw 1500)
+run e2 --part f,g --workers $(nw 1500)
+run e2dep --workers $(nw 1500)
+run e3 --part fit --workers $(nw 1500)
 runb e3 --part power,realvol --workers 1
-run e3 --part pooled --workers $(nw 2100)
-run e3 --part perticker,perticker_null --workers $(nw 2100)
-run e3 --part witness,stylized,likelihood --workers $(nw 2100)
-run e6 --part pooled,stylized --workers $(nw 2100)   # needs the e6 fit and E3 power/realvol/stylized
+run e3 --part pooled --workers $(nw 1500)
+run e3 --part perticker,perticker_null --workers $(nw 1500)
+run e3 --part witness,stylized,likelihood --workers $(nw 1500)
+run e6 --part pooled,stylized --workers $(nw 1500)   # needs the e6 fit and E3 power/realvol/stylized
 run e1 --part real,nonstat --workers $(nw 2300)
-run e5 --part grid,gridsize,simpower --workers $(nw 2100)
+run e5 --part grid,gridsize,simpower --workers $(nw 1500)
 runb e5 --part split --workers $(nw 2300)
 runb e5 --part gridpower,gridrealvol --workers 1
-run e4 --part utility --workers $(nw 2100)
-run e4 --part tests,placebo --workers $(nw 2100)
+run e4 --part utility --workers $(nw 1500)
+run e4 --part tests,placebo --workers $(nw 1500)
 run e4 --part link
 for e in e1 e2 e2dep e3 e6 e5 e4; do run $e --plots-only; done
