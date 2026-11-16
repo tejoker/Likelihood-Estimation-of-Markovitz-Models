@@ -1,0 +1,15 @@
+\begin{tabular}{lrrrrrrrr}
+\toprule
+ & \multicolumn{6}{c}{\WC{} (HAC), $L=5$} & \multicolumn{2}{c}{MMD (wild), $L=5$} \\
+\cmidrule(lr){2-7}\cmidrule(lr){8-9}
+ & \multicolumn{2}{c}{$\kappa$} & \multicolumn{4}{c}{BH decisions: tickers} & \multicolumn{2}{c}{$\kappa$} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-7}\cmidrule(lr){8-9}
+Model & BH & 5\% & both & test only & Berk.\ only & neither & BH & 5\% \\
+\midrule
+GBM & 0.28 & 0.33 & 60 & 1 & 29 & 10 & 0.00 & 0.32 \\
+Merton & 0.04 & 0.17 & 7 & 0 & 73 & 20 & 0.00 & 0.23 \\
+GARCH-$t$ & 0.00 & 0.21 & 0 & 0 & 16 & 84 & 0.00 & 0.27 \\
+\addlinespace
+All three (stratified) & 0.11 & 0.22 & 67 & 1 & 118 & 114 & 0.00 & 0.27 \\
+\bottomrule
+\end{tabular}

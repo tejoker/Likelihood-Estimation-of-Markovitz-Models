@@ -1,0 +1,13 @@
+\begin{tabular}{lrrrrll}
+\toprule
+ & \multicolumn{2}{c}{Absolute \WC{}} & \multicolumn{2}{c}{Anchored relative} & \multicolumn{2}{c}{Verdict} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+Generator & $\pmed$ & seeds rej. & $\Danc$: median [range] & $\pmed$ & $\hat\beta\ge0.8$ & $\betaL\ge0.8$ \\
+\midrule
+GBM & $<$0.001 & 5/5 & 0.672 [0.108, 0.772] & $<$0.001 & \BAD{} & \BAD{} \\
+Merton & $<$0.001 & 5/5 & 0.457 [$-$0.164, 0.564] & 0.005 & \BAD{} & \BAD{} \\
+GARCH-$t$ & $<$0.001 & 4/5 & 0.109 [$-$0.399, 0.236] & 0.432 & \INCONCL{} & \INCONCL{} \\
+Heston & $<$0.001 & 5/5 & 0.363 [$-$0.323, 0.504] & 0.017 & \BAD{} & \BAD{} \\
+Stat.\ bootstrap & $<$0.001 & 4/5 & 0.215 [$-$0.421, 0.333]$^{\ddagger}$ & 0.116$^{\ddagger}$ & \INVALID{} & \INVALID{} \\
+\bottomrule
+\end{tabular}

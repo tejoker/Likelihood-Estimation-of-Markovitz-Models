@@ -1,0 +1,10 @@
+\begin{tabular}{lllrrr}
+\toprule
+Scope & Statistic & Ranking (critic; log-score) & $\tau$ & share $\tau=1$ & share $\tau=-1$ \\
+\midrule
+Pooled, $L=20$ & \WC{}, seed 0 & GARCH-$t$ $>$ Merton $>$ GBM (both) & 1.00 & -- & -- \\
+Pooled, $L=20$ & \WC{}, median over seeds & GARCH-$t$ $>$ Merton $>$ GBM (both) & 1.00 & -- & -- \\
+Per ticker, $L=5$ (100) & \WC{} & -- & 0.58 & 0.56 & 0.04 \\
+Per ticker, $L=5$ (100) & MMD & -- & 0.63 & 0.63 & 0.04 \\
+\bottomrule
+\end{tabular}

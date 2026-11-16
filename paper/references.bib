@@ -14,7 +14,8 @@
 % rather than guessed. See docs/literature.md for the review, the citation map and the list
 % of unverified candidates that were excluded.
 %
-% Keys: lowercase firstauthorYEARfirstword (stop words skipped).
+% Keys: lowercase firstauthorYEARfirstword (stop words skipped); Section 9 (added at assembly)
+% keeps the author_year_word keys proposed in paper/OUTLINE.md, Section 13.
 
 % ---------------------------------------------------------------------------
 % 1. GANs, integral probability metrics, optimal transport
@@ -1416,4 +1417,486 @@
   pages   = {850--859},
   year    = {2008},
   doi     = {10.1016/j.jempfin.2008.03.002}
+}
+
+% ---------------------------------------------------------------------------
+% 9. Added at assembly (2026-11-16): keys proposed in paper/OUTLINE.md, Section 13, and cited
+%    in that form by the section files (hence the author_year_word key style of this block).
+%    Checked on 2026-11-16: Crossref for every DOI; arXiv API for the arXiv entries;
+%    proceedings.mlr.press and proceedings.neurips.cc for anil_2019_sorting and
+%    paszke_2019_pytorch; Semantic Scholar for the pages of kiefer_2005_new (Crossref has none);
+%    RePEc/IDEAS for the subtitle of engle_1990_asset (Crossref gives the main title only);
+%    Crossref record of the 2010 first edition (doi:10.1002/9780470670057) for the edition of
+%    francq_2019_garch. engle_1996_garch has no DOI (trade magazine): checked against the
+%    reference list of Engle's NYU Stern working paper FIN-00-034.
+% ---------------------------------------------------------------------------
+
+% --- Probability, asymptotics, mixing ---------------------------------------
+
+@book{vandervaart_1998_asymptotic,
+  author    = {van der Vaart, A. W.},
+  title     = {Asymptotic Statistics},
+  publisher = {Cambridge University Press},
+  address   = {Cambridge},
+  year      = {1998},
+  doi       = {10.1017/CBO9780511802256}
+}
+
+@book{dudley_2002_real,
+  author    = {Dudley, R. M.},
+  title     = {Real Analysis and Probability},
+  edition   = {Second},
+  publisher = {Cambridge University Press},
+  address   = {Cambridge},
+  year      = {2002},
+  doi       = {10.1017/CBO9780511755347}
+}
+
+@article{bradley_2005_basic,
+  author  = {Bradley, Richard C.},
+  title   = {Basic Properties of Strong Mixing Conditions. {A} Survey and Some Open Questions},
+  journal = {Probability Surveys},
+  volume  = {2},
+  pages   = {107--144},
+  year    = {2005},
+  doi     = {10.1214/154957805100000104}
+}
+
+@article{dejong_2000_consistency,
+  author  = {de Jong, Robert M. and Davidson, James},
+  title   = {Consistency of Kernel Estimators of Heteroscedastic and Autocorrelated Covariance Matrices},
+  journal = {Econometrica},
+  volume  = {68},
+  number  = {2},
+  pages   = {407--423},
+  year    = {2000},
+  doi     = {10.1111/1468-0262.00115}
+}
+
+@article{kiefer_2005_new,
+  author  = {Kiefer, Nicholas M. and Vogelsang, Timothy J.},
+  title   = {A New Asymptotic Theory for Heteroskedasticity-Autocorrelation Robust Tests},
+  journal = {Econometric Theory},
+  volume  = {21},
+  number  = {6},
+  pages   = {1130--1164},
+  year    = {2005},
+  doi     = {10.1017/S0266466605050565}
+}
+
+@article{bester_2011_inference,
+  author  = {Bester, C. Alan and Conley, Timothy G. and Hansen, Christian B.},
+  title   = {Inference with Dependent Data Using Cluster Covariance Estimators},
+  journal = {Journal of Econometrics},
+  volume  = {165},
+  number  = {2},
+  pages   = {137--151},
+  year    = {2011},
+  doi     = {10.1016/j.jeconom.2011.01.007}
+}
+
+% --- Permutation, Monte Carlo and equivalence tests; combining p-values; intervals ---
+
+@article{hoeffding_1952_large,
+  author  = {Hoeffding, Wassily},
+  title   = {The Large-Sample Power of Tests Based on Permutations of Observations},
+  journal = {The Annals of Mathematical Statistics},
+  volume  = {23},
+  number  = {2},
+  pages   = {169--192},
+  year    = {1952},
+  doi     = {10.1214/aoms/1177729436}
+}
+
+@article{romano_1990_behavior,
+  author  = {Romano, Joseph P.},
+  title   = {On the Behavior of Randomization Tests without a Group Invariance Assumption},
+  journal = {Journal of the American Statistical Association},
+  volume  = {85},
+  number  = {411},
+  pages   = {686--692},
+  year    = {1990},
+  doi     = {10.1080/01621459.1990.10474928}
+}
+
+@article{dufour_2006_monte,
+  author  = {Dufour, Jean-Marie},
+  title   = {{Monte Carlo} Tests with Nuisance Parameters: A General Approach to Finite-Sample Inference and Nonstandard Asymptotics},
+  journal = {Journal of Econometrics},
+  volume  = {133},
+  number  = {2},
+  pages   = {443--477},
+  year    = {2006},
+  doi     = {10.1016/j.jeconom.2005.06.007}
+}
+
+@article{schuirmann_1987_comparison,
+  author  = {Schuirmann, Donald J.},
+  title   = {A Comparison of the Two One-Sided Tests Procedure and the Power Approach for Assessing the Equivalence of Average Bioavailability},
+  journal = {Journal of Pharmacokinetics and Biopharmaceutics},
+  volume  = {15},
+  number  = {6},
+  pages   = {657--680},
+  year    = {1987},
+  doi     = {10.1007/BF01068419}
+}
+
+@article{meinshausen_2009_pvalues,
+  author  = {Meinshausen, Nicolai and Meier, Lukas and B{\"u}hlmann, Peter},
+  title   = {{$p$}-Values for High-Dimensional Regression},
+  journal = {Journal of the American Statistical Association},
+  volume  = {104},
+  number  = {488},
+  pages   = {1671--1681},
+  year    = {2009},
+  doi     = {10.1198/jasa.2009.tm08647}
+}
+
+@article{vovk_2020_combining,
+  author  = {Vovk, Vladimir and Wang, Ruodu},
+  title   = {Combining {$p$}-Values via Averaging},
+  journal = {Biometrika},
+  volume  = {107},
+  number  = {4},
+  pages   = {791--808},
+  year    = {2020},
+  doi     = {10.1093/biomet/asaa027}
+}
+
+@article{storey_2002_direct,
+  author  = {Storey, John D.},
+  title   = {A Direct Approach to False Discovery Rates},
+  journal = {Journal of the Royal Statistical Society: Series B (Statistical Methodology)},
+  volume  = {64},
+  number  = {3},
+  pages   = {479--498},
+  year    = {2002},
+  doi     = {10.1111/1467-9868.00346}
+}
+
+@article{wilson_1927_probable,
+  author  = {Wilson, Edwin B.},
+  title   = {Probable Inference, the Law of Succession, and Statistical Inference},
+  journal = {Journal of the American Statistical Association},
+  volume  = {22},
+  number  = {158},
+  pages   = {209--212},
+  year    = {1927},
+  doi     = {10.1080/01621459.1927.10502953}
+}
+
+@article{clopper_1934_use,
+  author  = {Clopper, C. J. and Pearson, E. S.},
+  title   = {The Use of Confidence or Fiducial Limits Illustrated in the Case of the Binomial},
+  journal = {Biometrika},
+  volume  = {26},
+  number  = {4},
+  pages   = {404--413},
+  year    = {1934},
+  doi     = {10.1093/biomet/26.4.404}
+}
+
+@article{mcnemar_1947_note,
+  author  = {McNemar, Quinn},
+  title   = {Note on the Sampling Error of the Difference Between Correlated Proportions or Percentages},
+  journal = {Psychometrika},
+  volume  = {12},
+  number  = {2},
+  pages   = {153--157},
+  year    = {1947},
+  doi     = {10.1007/BF02295996}
+}
+
+@article{kendall_1938_new,
+  author  = {Kendall, M. G.},
+  title   = {A New Measure of Rank Correlation},
+  journal = {Biometrika},
+  volume  = {30},
+  number  = {1--2},
+  pages   = {81--93},
+  year    = {1938},
+  doi     = {10.1093/biomet/30.1-2.81}
+}
+
+@article{cohen_1960_coefficient,
+  author  = {Cohen, Jacob},
+  title   = {A Coefficient of Agreement for Nominal Scales},
+  journal = {Educational and Psychological Measurement},
+  volume  = {20},
+  number  = {1},
+  pages   = {37--46},
+  year    = {1960},
+  doi     = {10.1177/001316446002000104}
+}
+
+% --- Wasserstein critics, Lipschitz networks, relative tests ------------------
+
+@inproceedings{petzka_2018_regularization,
+  author        = {Petzka, Henning and Fischer, Asja and Lukovnikov, Denis},
+  title         = {On the Regularization of {Wasserstein} {GANs}},
+  booktitle     = {International Conference on Learning Representations ({ICLR})},
+  year          = {2018},
+  eprint        = {1709.08894},
+  archiveprefix = {arXiv}
+}
+
+@inproceedings{anil_2019_sorting,
+  author    = {Anil, Cem and Lucas, James and Grosse, Roger},
+  title     = {Sorting Out {Lipschitz} Function Approximation},
+  booktitle = {Proceedings of the 36th International Conference on Machine Learning},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {97},
+  pages     = {291--301},
+  year      = {2019},
+  url       = {https://proceedings.mlr.press/v97/anil19a.html}
+}
+
+@misc{stanczuk_2021_wasserstein,
+  author        = {Stanczuk, Jan and Etmann, Christian and Kreusser, Lisa Maria and Sch{\"o}nlieb, Carola-Bibiane},
+  title         = {{Wasserstein} {GANs} Work Because They Fail (to Approximate the {Wasserstein} Distance)},
+  year          = {2021},
+  eprint        = {2103.01678},
+  archiveprefix = {arXiv},
+  howpublished  = {arXiv preprint arXiv:2103.01678}
+}
+
+@misc{zhou_2025_anchor,
+  author        = {Zhou, Zhijian and Peng, Liuhua and Tian, Xunye and Liu, Feng},
+  title         = {Anchor-based Maximum Discrepancy for Relative Similarity Testing},
+  year          = {2025},
+  eprint        = {2510.10477},
+  archiveprefix = {arXiv},
+  howpublished  = {arXiv preprint arXiv:2510.10477}
+}
+
+% --- Return models: Heston simulation, variance targeting, factor models ------
+
+@article{andersen_2008_simple,
+  author  = {Andersen, Leif},
+  title   = {Simple and Efficient Simulation of the {Heston} Stochastic Volatility Model},
+  journal = {Journal of Computational Finance},
+  volume  = {11},
+  number  = {3},
+  pages   = {1--42},
+  year    = {2008},
+  doi     = {10.21314/JCF.2008.189}
+}
+
+@article{engle_1996_garch,
+  author  = {Engle, Robert F. and Mezrich, Joseph},
+  title   = {{GARCH} for Groups},
+  journal = {Risk},
+  volume  = {9},
+  number  = {8},
+  pages   = {36--40},
+  year    = {1996}
+}
+
+@article{francq_2011_merits,
+  author  = {Francq, Christian and Horv{\'a}th, Lajos and Zako{\"\i}an, Jean-Michel},
+  title   = {Merits and Drawbacks of Variance Targeting in {GARCH} Models},
+  journal = {Journal of Financial Econometrics},
+  volume  = {9},
+  number  = {4},
+  pages   = {619--656},
+  year    = {2011},
+  doi     = {10.1093/jjfinec/nbr004}
+}
+
+@book{francq_2019_garch,
+  author    = {Francq, Christian and Zako{\"\i}an, Jean-Michel},
+  title     = {{GARCH} Models: Structure, Statistical Inference and Financial Applications},
+  edition   = {Second},
+  publisher = {Wiley},
+  address   = {Chichester},
+  year      = {2019},
+  doi       = {10.1002/9781119313472}
+}
+
+@article{sharpe_1963_simplified,
+  author  = {Sharpe, William F.},
+  title   = {A Simplified Model for Portfolio Analysis},
+  journal = {Management Science},
+  volume  = {9},
+  number  = {2},
+  pages   = {277--293},
+  year    = {1963},
+  doi     = {10.1287/mnsc.9.2.277}
+}
+
+@article{engle_1990_asset,
+  author  = {Engle, Robert F. and Ng, Victor K. and Rothschild, Michael},
+  title   = {Asset Pricing with a Factor-{ARCH} Covariance Structure: Empirical Estimates for {Treasury} Bills},
+  journal = {Journal of Econometrics},
+  volume  = {45},
+  number  = {1--2},
+  pages   = {213--237},
+  year    = {1990},
+  doi     = {10.1016/0304-4076(90)90099-F}
+}
+
+% --- Software and optimisation ------------------------------------------------
+
+@inproceedings{kingma_2015_adam,
+  author        = {Kingma, Diederik P. and Ba, Jimmy},
+  title         = {Adam: A Method for Stochastic Optimization},
+  booktitle     = {3rd International Conference on Learning Representations ({ICLR})},
+  address       = {San Diego},
+  year          = {2015},
+  eprint        = {1412.6980},
+  archiveprefix = {arXiv}
+}
+
+@inproceedings{paszke_2019_pytorch,
+  author    = {Paszke, Adam and Gross, Sam and Massa, Francisco and Lerer, Adam and Bradbury, James and Chanan, Gregory and Killeen, Trevor and Lin, Zeming and Gimelshein, Natalia and Antiga, Luca and Desmaison, Alban and K{\"o}pf, Andreas and Yang, Edward and DeVito, Zach and Raison, Martin and Tejani, Alykhan and Chilamkurthy, Sasank and Steiner, Benoit and Fang, Lu and Bai, Junjie and Chintala, Soumith},
+  title     = {{PyTorch}: An Imperative Style, High-Performance Deep Learning Library},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {32},
+  year      = {2019},
+  url       = {https://proceedings.neurips.cc/paper_files/paper/2019/hash/bdbca288fee7f92f2bfa9f7012727740-Abstract.html}
+}
+
+@article{harris_2020_array,
+  author  = {Harris, Charles R. and Millman, K. Jarrod and van der Walt, St{\'e}fan J. and Gommers, Ralf and Virtanen, Pauli and Cournapeau, David and Wieser, Eric and Taylor, Julian and Berg, Sebastian and Smith, Nathaniel J. and Kern, Robert and Picus, Matti and Hoyer, Stephan and van Kerkwijk, Marten H. and Brett, Matthew and Haldane, Allan and del R{\'\i}o, Jaime Fern{\'a}ndez and Wiebe, Mark and Peterson, Pearu and G{\'e}rard-Marchant, Pierre and Sheppard, Kevin and Reddy, Tyler and Weckesser, Warren and Abbasi, Hameer and Gohlke, Christoph and Oliphant, Travis E.},
+  title   = {Array Programming with {NumPy}},
+  journal = {Nature},
+  volume  = {585},
+  number  = {7825},
+  pages   = {357--362},
+  year    = {2020},
+  doi     = {10.1038/s41586-020-2649-2}
+}
+
+@article{virtanen_2020_scipy,
+  author  = {Virtanen, Pauli and Gommers, Ralf and Oliphant, Travis E. and Haberland, Matt and Reddy, Tyler and Cournapeau, David and Burovski, Evgeni and Peterson, Pearu and Weckesser, Warren and Bright, Jonathan and van der Walt, St{\'e}fan J. and Brett, Matthew and Wilson, Joshua and Millman, K. Jarrod and Mayorov, Nikolay and Nelson, Andrew R. J. and Jones, Eric and Kern, Robert and Larson, Eric and Carey, C. J. and Polat, {\.I}lhan and Feng, Yu and Moore, Eric W. and VanderPlas, Jake and Laxalde, Denis and Perktold, Josef and Cimrman, Robert and Henriksen, Ian and Quintero, E. A. and Harris, Charles R. and Archibald, Anne M. and Ribeiro, Ant{\^o}nio H. and Pedregosa, Fabian and van Mulbregt, Paul and others},
+  title   = {{SciPy} 1.0: Fundamental Algorithms for Scientific Computing in {Python}},
+  journal = {Nature Methods},
+  volume  = {17},
+  number  = {3},
+  pages   = {261--272},
+  year    = {2020},
+  doi     = {10.1038/s41592-019-0686-2}
+}
+
+% ---------------------------------------------------------------------------
+% 10. Added in the v1 referee revision (2026-11-16), checked at integration on 2026-11-16:
+%     Crossref for every DOI (racine_2000_consistent, ledoit_2004_honey, nelson_1991_conditional,
+%     glosten_1993_relation; RePEc/IDEAS for the last page of nelson_1991_conditional, which
+%     Crossref truncates to 347); arXiv abstract pages for the ICLR entries and for the arXiv
+%     numbers (comments "ICLR 2018", "ICLR 2019 conference paper", "Published at ICLR 2017");
+%     papers.nips.cc for jitkrittum_2016_interpretable; the official NeurIPS BibTeX for
+%     lucic_2018_gans; proceedings.mlr.press (v108) for meehan_2020_three; the Wiley product page
+%     (February 2018, ISBN 978-1-119-48208-6) for lopezdeprado_2018_advances.
+%     Not added: Holm (1979), Scand. J. Statist. 6, 65--70, whose JSTOR page could not be loaded
+%     and whose DOI 10.2307/4615733 does not resolve; the text names the procedure uncited.
+% ---------------------------------------------------------------------------
+
+@article{racine_2000_consistent,
+  author  = {Racine, Jeff},
+  title   = {Consistent Cross-Validatory Model-Selection for Dependent Data: {hv}-Block Cross-Validation},
+  journal = {Journal of Econometrics},
+  volume  = {99},
+  number  = {1},
+  pages   = {39--61},
+  year    = {2000},
+  doi     = {10.1016/S0304-4076(00)00030-0}
+}
+
+@book{lopezdeprado_2018_advances,
+  author    = {L{\'o}pez de Prado, Marcos},
+  title     = {Advances in Financial Machine Learning},
+  publisher = {Wiley},
+  year      = {2018},
+  isbn      = {978-1-119-48208-6}
+}
+
+@article{ledoit_2004_honey,
+  author  = {Ledoit, Olivier and Wolf, Michael},
+  title   = {Honey, {I} Shrunk the Sample Covariance Matrix},
+  journal = {Journal of Portfolio Management},
+  volume  = {30},
+  number  = {4},
+  pages   = {110--119},
+  year    = {2004},
+  doi     = {10.3905/jpm.2004.110}
+}
+
+@inproceedings{im_2018_quantitatively,
+  author        = {Im, Daniel Jiwoong and Ma, He and Taylor, Graham and Branson, Kristin},
+  title         = {Quantitatively Evaluating {GANs} With Divergences Proposed for Training},
+  booktitle     = {International Conference on Learning Representations ({ICLR})},
+  year          = {2018},
+  eprint        = {1803.01045},
+  archiveprefix = {arXiv}
+}
+
+@inproceedings{gulrajani_2019_towards,
+  author        = {Gulrajani, Ishaan and Raffel, Colin and Metz, Luke},
+  title         = {Towards {GAN} Benchmarks Which Require Generalization},
+  booktitle     = {International Conference on Learning Representations ({ICLR})},
+  year          = {2019},
+  eprint        = {2001.03653},
+  archiveprefix = {arXiv}
+}
+
+@inproceedings{sutherland_2017_generative,
+  author        = {Sutherland, Danica J. and Tung, Hsiao-Yu and Strathmann, Heiko and De, Soumyajit and Ramdas, Aaditya and Smola, Alex and Gretton, Arthur},
+  title         = {Generative Models and Model Criticism via Optimized Maximum Mean Discrepancy},
+  booktitle     = {International Conference on Learning Representations ({ICLR})},
+  year          = {2017},
+  eprint        = {1611.04488},
+  archiveprefix = {arXiv}
+}
+
+@inproceedings{jitkrittum_2016_interpretable,
+  author        = {Jitkrittum, Wittawat and Szab{\'o}, Zolt{\'a}n and Chwialkowski, Kacper P. and Gretton, Arthur},
+  title         = {Interpretable Distribution Features with Maximum Testing Power},
+  booktitle     = {Advances in Neural Information Processing Systems},
+  volume        = {29},
+  year          = {2016},
+  eprint        = {1605.06796},
+  archiveprefix = {arXiv},
+  url           = {https://papers.nips.cc/paper_files/paper/2016/hash/0a09c8844ba8f0936c20bd791130d6b6-Abstract.html}
+}
+
+@inproceedings{meehan_2020_three,
+  author    = {Meehan, Casey and Chaudhuri, Kamalika and Dasgupta, Sanjoy},
+  title     = {A Three Sample Hypothesis Test for Evaluating Generative Models},
+  booktitle = {Proceedings of the Twenty Third International Conference on Artificial Intelligence and Statistics},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {108},
+  pages     = {3546--3556},
+  year      = {2020},
+  url       = {https://proceedings.mlr.press/v108/meehan20a.html}
+}
+
+@inproceedings{lucic_2018_gans,
+  author    = {Lucic, Mario and Kurach, Karol and Michalski, Marcin and Gelly, Sylvain and Bousquet, Olivier},
+  title     = {Are {GANs} Created Equal? {A} Large-Scale Study},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {31},
+  year      = {2018},
+  url       = {https://proceedings.neurips.cc/paper/2018/hash/e46de7e1bcaaced9a54f1e9d0d2f800d-Abstract.html}
+}
+
+@article{nelson_1991_conditional,
+  author  = {Nelson, Daniel B.},
+  title   = {Conditional Heteroskedasticity in Asset Returns: A New Approach},
+  journal = {Econometrica},
+  volume  = {59},
+  number  = {2},
+  pages   = {347--370},
+  year    = {1991},
+  doi     = {10.2307/2938260}
+}
+
+@article{glosten_1993_relation,
+  author  = {Glosten, Lawrence R. and Jagannathan, Ravi and Runkle, David E.},
+  title   = {On the Relation between the Expected Value and the Volatility of the Nominal Excess Return on Stocks},
+  journal = {The Journal of Finance},
+  volume  = {48},
+  number  = {5},
+  pages   = {1779--1801},
+  year    = {1993},
+  doi     = {10.1111/j.1540-6261.1993.tb05128.x}
 }

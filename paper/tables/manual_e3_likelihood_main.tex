@@ -1,0 +1,11 @@
+\begin{tabular}{lrrrrrrr}
+\toprule
+ & \multicolumn{3}{c}{Predictive log-score} & \multicolumn{2}{c}{Berkowitz} & \multicolumn{2}{c}{PIT-KS} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-6}\cmidrule(lr){7-8}
+Model & mean, $r$ & mean, $r/s_i$ & best on & rej.\ 5\% [95\% CI] & BH & rej.\ 5\% [95\% CI] & BH \\
+\midrule
+GBM & 2.566 & $-$1.266 & 0/100 & 0.89 [0.81, 0.94] & 89 & 0.98 [0.93, 0.99] & 98 \\
+Merton & 2.708 & $-$1.124 & 9/100 & 0.81 [0.72, 0.87] & 80 & 0.64 [0.54, 0.73] & 59 \\
+GARCH-$t$ & 2.740 & $-$1.092 & 91/100 & 0.33 [0.25, 0.43] & 16 & 0.19 [0.13, 0.28] & 6 \\
+\bottomrule
+\end{tabular}

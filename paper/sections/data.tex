@@ -1,36 +1,238 @@
 \section{Data and generators}\label{sec:data}
 % =============================================================================================
-% Target length: 2.5 pages including 2 tables and 1 figure (fit details in \cref{app:data}).
-% Sources: docs/DESIGN.md Section 2 and Change log; src/synthval/data.py, models/*.py;
-% experiments/e3_sp500.py parts fit and stylized. Plan: OUTLINE.md, Section 6.
-%
-% Planned subsections (labels):
-%  \subsection{The S\&P 500 panel}                                 \label{sec:data-panel}
-%     Bloomberg PX_LAST of the 503 current constituents, 2018-01-02 to 2025-06-16; complete
-%     universe = no missing price (internal gaps <= 3 days forward-filled, never back-filled):
-%     481 tickers; two data errors excluded by a stated rule (max |log-return| > 1 or >= 20
-%     zero-volume days: KDP, unadjusted special dividend; AMCR, stale pre-listing quotes) ->
-%     479; main panel = 100 tickers drawn with a fixed seed; E4 universes = 30 x 30 from the 479.
-%     TRAIN 2018-01-02 to 2022-12-30 (1258 days), TEST 2023-01-03 to 2025-06-16 (615 days);
-%     windows: 62 per ticker in TRAIN (6200), 30 in TEST (3000) at L = 20. Survivorship bias
-%     (current constituents) stated as a limitation.
-%  \subsection{Generators}                                         \label{sec:data-generators}
-%     univariate (per ticker, fitted on TRAIN): GBM (MLE), Merton (MLE, truncated Poisson sum),
-%     GARCH(1,1)-t (MLE, variance targeting, persistence cap 0.995), Heston (Andersen QE scheme,
-%     c <= sqrt(1.5) to avoid zero-variance days, SMM on variance, tail quantile ratio,
-%     ACF(r^2) at 1/5/10/20, leverage), stationary bootstrap (Politis-White block length);
-%     simulation over TEST from the fitted end state; likelihood available for GBM, Merton,
-%     GARCH-t only. Multivariate (E4): MV Gaussian, MV Student-t (ECME), CCC-GARCH-t (Gaussian
-%     copula), MV stationary bootstrap, factor GARCH-t. Fit diagnostics: tab:e3-fit-diagnostics;
-%     Heston moment match (simulated kurtosis below the data): tab:e3-heston-moments (appendix).
-%  \subsection{Stylized facts}                                     \label{sec:data-stylized}
-%     tab:e3-stylized and fig:e3-stylized: real TEST vs each generator (panel median and IQR of
-%     moments, ACF of |r|, tails, aggregational Gaussianity, leverage).
-% Tables/figures:
-%   tables/e3_fit_diagnostics.tex -> tab:e3-fit-diagnostics (main)
-%   tables/e3_stylized.tex -> tab:e3-stylized (main);  figures/e3_stylized.pdf -> fig:e3-stylized (main)
-%   tables/e3_heston_moments.tex -> tab:e3-heston-moments (appendix)
+% Owner: data writer. Sources: docs/DESIGN.md Section 2 and Change log; src/synthval/data.py,
+% models/univariate.py, models/multivariate.py, pipeline.py; experiments/e3_sp500.py (parts fit
+% and stylized) and e4_markowitz.py. Numbers: tables/manual_data_fit_main.tex (condensed from
+% results/e3/e3_fit_summary.csv by paper/scripts/data_fit_main.py; the full generated
+% e3_fit_diagnostics.tex is in the appendix), tables/e3_stylized.tex,
+% tables/e3_heston_moments.tex, results/e3/e3_fit_*.csv, results/e3/e3_stylized_tail.csv, and
+% paper/scripts/data_appendix.py (universe counts, anomaly screen; tables in app_data.tex).
+% Price adjustments checked on the raw file: no split-sized return (e.g. AMZN 2022-06-06,
+% NVDA 2024-06-10), no drop at the MMM (2024-04-01) and GE (2024-04-02) spin-offs, MSFT closes of
+% January 2018 equal the unadjusted closes quoted at the time (88.19 on 2018-01-05). Index
+% change SMCI/DECK for WHR/ZION: S&P DJI press release of 2024-03-01 (effective 2024-03-18);
+% SMCI in 3 of the 30 E4 universes (results/e4/universes.csv).
 % =============================================================================================
-\todo{Section to be written (OUTLINE.md, Section 6). Anchor citations:
-\citet{cont2001empirical}, \citet{heston1993closed}, \citet{politis1994stationary},
-\citet{brown1992survivorship}.}
+
+This section describes the S\&P~500 data of E1 and E3--E5 and the generators evaluated in E3
+(univariate) and E4 (multivariate), and compares the stylized facts of real and synthetic
+returns. The windowing and scaling of \cref{sec:method-setup} apply throughout; details of the
+data construction and further fit diagnostics are in \cref{app:data}.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{The S\texorpdfstring{\&}{and}P~500 panel}\label{sec:data-panel}
+
+The raw data are daily closing prices (Bloomberg \texttt{PX\_LAST}) from 2018-01-02 to
+2025-06-16 of the 503 stocks that were constituents of the S\&P~500 when the file was extracted,
+at the end of the sample. The prices are adjusted for splits and spin-offs but not for cash
+dividends: no retained ticker has a split-sized return, the prices of MMM and GE show no drop at
+their spin-offs during \TEST{}, and the prices of a dividend payer such as MSFT are its unadjusted
+closes. The returns are therefore price returns. Omitting the dividend yield hardly changes
+volatilities, but it lowers mean returns, which enter the \TRAIN{} means of the mean--variance
+rules of E4 and the levels of their certainty equivalents and Sharpe ratios
+(\cref{sec:mk-design}).
+
+Missing prices are never back-filled:
+a ticker enters the complete universe if it has a price on the first and on the last trading day
+and no internal gap longer than three days. The 22 tickers whose history starts later fail this
+rule; none of the remaining 481 has a missing price. A rule-based screen then flags a ticker if
+one daily log-return exceeds 1 in absolute value or if it has at least 20 days with a price but
+zero volume. It flags exactly two data errors: KDP, whose price is not adjusted for a special
+dividend (one log-return of $-1.718$), and AMCR, a stale quote before its listing in June 2019.
+The default universe therefore has 479 tickers (\cref{tab:data-universe,tab:data-anomalies}).
+The main panel of E1, E3 and E5 consists of $N=100$ tickers drawn from it with a fixed seed
+(\cref{tab:data-panel}); E4 draws 30 universes of 30 names from the same 479
+(\cref{sec:mk-design}).
+
+\TRAIN{} holds the $\Ttr=1258$ daily log-returns from 2018-01-03 to 2022-12-30 (the price of
+2018-01-02 is the base of the first one) and \TEST{} the $\Tte=615$ returns from 2023-01-03 to
+2025-06-16. At $L=20$ the panel gives 6200 \TRAIN{} and 3000 \TEST{} windows; at $L=5$, used by
+the per-ticker tests of E3 and by E4, a ticker gives 123 \TEST{} windows. E5 also uses an
+alternative split at 2021-12-31 (\cref{sec:robust}).
+
+Index membership is that of the extraction date, at the end of \TEST{}, and a ticker must also
+have traded throughout the sample. Firms that were delisted, acquired or removed from the index
+after 2018 are absent, so the panel is subject to survivorship bias
+\citep{brown1992survivorship,shumway1997delisting}. The selection goes further than survivorship:
+both \TRAIN{} and \TEST{} are conditioned on membership at the end of \TEST{}, which a forecaster
+at the end of \TRAIN{} could not know. Firms removed from the index during \TEST{} are absent and
+firms added during \TEST{} are present. SMCI and DECK, for instance, entered the index during
+\TEST{} in place of WHR and ZION; the first two belong to the 479-ticker universe (SMCI enters
+three E4 universes), the last two are not in the file. Deletions typically follow losses
+and high volatility, so their absence probably lowers the volatility of the real \TEST{} returns
+relative to the population faced by an investor at the end of 2022; additions after strong price
+rises, such as SMCI, work in the other direction, and our data cannot sign the net effect. The
+selection also biases mean returns upward, in \TRAIN{} in particular, where they enter the
+mean--variance rules of E4. Part of the gap between the volatility of the generators, all
+calibrated on \TRAIN{}, and that of the real \TEST{} returns (\cref{sec:data-stylized}) may
+therefore be a selection effect, and the verdicts of \cref{sec:emp} concern this population only.
+The export contains no point-in-time membership, so we cannot count the tickers of the panel that
+were not constituents at the end of \TRAIN{}; a replication should draw the universe from the
+constituents at that date.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Generators}\label{sec:data-generators}
+
+\paragraph{Univariate generators (E3, E5).}
+Each generator is fitted to the raw \TRAIN{} returns of each ticker separately, in daily units
+under the physical measure. A synthetic sample is one path of \TEST{} length per ticker; it is
+divided by $s_i$, cut into windows and given the \TEST{} date ranks, exactly like the real
+\TEST{} windows. \GARCHt{} and Heston start from the fitted end-of-\TRAIN{} state, the other
+generators are stationary. E3 draws five synthetic seeds; seed 0 is the headline path.
+
+\emph{GBM} has \iid{} $N(\mu,\sigma^2)$ returns, estimated in closed form. \emph{Merton}
+\citep{merton1976option} adds compound Poisson jumps: $r_t=\mu+\sigma\varepsilon_t+\sum_{k\le
+N_t}J_k$ with $\varepsilon_t\sim N(0,1)$, $N_t\sim\mathrm{Poisson}(\lambda_J)$ and
+$J_k\sim N(\mu_J,\sigma_J^2)$, all independent; its likelihood, a Poisson mixture of Gaussians
+truncated after at least ten terms and where the omitted Poisson mass falls below $10^{-12}$, is
+maximised from several starting points with $\lambda_J\le0.5$ per day. \emph{\GARCHt{}}
+\citep{bollerslev1986generalized,bollerslev1987conditionally} has $r_t=\mu+\sigma_tz_t$,
+$\sigma_t^2=\omega+a(r_{t-1}-\mu)^2+b\sigma_{t-1}^2$ and $z_t$ \iid{} standardised
+Student-$t_\nu$. We use variance targeting, $\omega=(1-a-b)\hat\sigma^2$ with $\hat\sigma^2$ the
+\TRAIN{} sample variance \citep{engle_1996_garch,francq_2011_merits}, and maximise the likelihood
+in $(\mu,a,b,\nu)$ subject to $a+b\le0.995$. On tickers with a volatility regime shift in 2020
+the unrestricted estimator can drive $a+b$ to the stationarity boundary, where
+$\omega/(1-a-b)$ is poorly identified and simulated paths can explode; with targeting the
+unconditional variance equals the sample variance, and the cap keeps the model away from the
+boundary. The model is symmetric: the asymmetric GARCH models that are standard for equity
+returns \citep{nelson_1991_conditional,glosten_1993_relation} were not evaluated, so \GARCHt{}
+has no leverage effect (\cref{sec:data-stylized}), and statements that \GARCHt{} is the best
+parametric generator refer to the generators of this section only.
+
+\emph{Heston} \citep{heston1993closed} has $d\log S_t=(\mu-v_t/2)\,dt+\sqrt{v_t}\,dW_{1t}$ and
+$dv_t=\kappa_v(\theta_v-v_t)\,dt+\xi_v\sqrt{v_t}\,dW_{2t}$, $d\langle W_1,W_2\rangle_t=\rho_v\,dt$.
+We simulate it with a daily step of the quadratic-exponential (QE) scheme of
+\citet{andersen_2008_simple} and bound the coefficient of variation of the stationary variance,
+$c=\xi_v/\sqrt{2\kappa_v\theta_v}$, by $\sqrt{1.5}\approx1.22$. Under this bound QE stays in its
+quadratic branch and the variance is positive on every simulated day (\cref{app:data}); above
+it, the exponential branch puts a point mass at zero and, as with a full-truncation Euler step
+\citep{lord2010comparison}, many simulated days have zero variance and a constant return. The
+bound is an artefact of the daily discretisation, not a restriction of the Heston model, in
+which the variance integrated over a day is positive for every $c$. With sub-daily QE steps the
+point mass at zero would affect short sub-steps rather than whole days, so the bound could be
+relaxed; our implementation uses a daily step, and the Heston generator evaluated in this paper,
+with its verdicts, is the Heston model restricted to $c\le\sqrt{1.5}$. The parameters are
+calibrated by the simulated method of
+moments \citep{duffie1993simulated}, with common random numbers, on the variance, the tail
+quantile ratio $(q_{0.99}-q_{0.01})/(q_{0.75}-q_{0.25})$, the autocorrelations of $r_t^2$ at lags
+1, 5, 10 and 20, and $\Corr(r_t,r_{t+1}^2)$; $\mu$ matches the sample mean. As $v_t$ is latent,
+simulation starts from an exponentially weighted moving average (decay 0.94) of squared returns
+at the end of \TRAIN{}.
+
+The \emph{stationary bootstrap} \citep{politis1994stationary} resamples the \TRAIN{} returns in
+blocks of geometric length. Its mean block length is the rule of \citet{politis2004automatic},
+with the correction of \citet{patton2009correction}, applied to $\abs{r_t-\bar r}$: applied to
+the nearly uncorrelated returns themselves, the rule selects blocks of a few days, which destroy
+volatility clustering. The bootstrap copies windows of $\Rpast$, so the relative tests are not
+valid for it and it receives no verdict (\cref{sec:method-relative}). GBM, Merton and \GARCHt{}
+have explicit likelihoods, the benchmarks of \cref{sec:emp-likelihood}; Heston and the bootstrap
+have none. Fitting algorithms are detailed in \cref{app:impl}.
+
+\paragraph{Multivariate generators (E4).}
+Each is fitted to the \TRAIN{} returns of one 30-asset universe. \emph{MV Gaussian} draws \iid{}
+vectors with the sample mean and covariance; \emph{MV Student-$t$} draws \iid{} multivariate
+$t_\nu$ vectors fitted by ECME \citep{liu1995ml}. \emph{CCC-GARCH-$t$}
+\citep{bollerslev1990modelling} couples the univariate \GARCHt{} margins by a Gaussian copula
+estimated from the normal scores of the standardised residuals \citep{joe2005asymptotic}. The
+copula keeps each fitted margin, with its own $\nu$, at the price of zero tail dependence; and
+because each conditional variance responds only to the asset's own shocks, simulated returns are
+less correlated than the data (\cref{tab:e4-correlation}). The \emph{MV bootstrap} resamples
+whole \TRAIN{} days, with blocks shared by all assets and the median over assets of the
+univariate block length. \emph{Factor GARCH-$t$} is a single-index model
+\citep{sharpe_1963_simplified,engle_1990_asset}, $r_{it}=\mu_i+\beta_im_t+e_{it}$, whose factor
+$m_t$ is the equal-weight return of the universe, with OLS loadings and independent \GARCHt{}
+models for $m_t$ and for each residual, so that assets share the volatility regimes of the
+factor; it has no closed-form likelihood because the factor is latent. Because the factor is the
+mean of the same assets, the OLS residuals add up to zero every day, an identity that the
+independent residual models do not reproduce (\cref{app:mk-generators}). Fitted to the 100-ticker
+panel, the same model generates the simulated placebo panel of E1 (\cref{sec:emp-placebo}).
+
+\paragraph{Fit diagnostics.}
+\Cref{tab:e3-fit-diagnostics} summarises the univariate fits (full table in \cref{app:data}).
+The Merton fits use jumps as a scale mixture for fat tails rather than as rare crashes: jumps are
+frequent (median intensity 0.152 per day) and moderate (median jump standard deviation 3.73\%
+against a median diffusion volatility of 1.38\%), so the verdicts on Merton concern this fitted
+scale mixture, not jump models of rare crashes. The \GARCHt{} fits have median persistence 0.965 and
+median $\nu=4.88$; one ticker reaches the cap. Heston is the hardest to fit: 33 tickers have a
+parameter at a bound, mostly $\rho_v=-0.95$ or $c=\sqrt{1.5}$. Within the bound the calibration
+matches the variance, the tail quantile ratio and the leverage moment, but it falls short of the
+short-lag autocorrelation of $r_t^2$ and reaches a median kurtosis of 5.62 against 13.61 in the
+data (\cref{tab:e3-heston-moments}): a diffusive variance with $c\le\sqrt{1.5}$ cannot produce
+the few crash days that drive the sample kurtosis. Diagnostics of the multivariate fits are in
+\cref{app:mk-generators}.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Key parameters of the univariate generators fitted on \TRAIN{} (E3, 100 tickers, one
+    fit per ticker and generator).}
+  \label{tab:e3-fit-diagnostics}
+  \small
+  \fittable{manual_data_fit_main}
+  \tablenote{Maximum likelihood (GBM, Merton, \GARCHt{}) and simulated method of moments
+    (Heston) on the 1258 \TRAIN{} returns of each ticker, daily units. Median and interquartile
+    range [25\%, 75\%] across the 100 tickers. At bound: number of tickers whose estimate sits at
+    an optimiser bound (Merton $\lambda_J=0.5$; \GARCHt{} $a+b=0.995$; Heston $\kappa_v=0.5$,
+    $\rho_v=-0.95$, $c=\sqrt{1.5}$). The Feller condition $c\le1$ is not imposed. Condensed from
+    \cref{tab:e3-fit-diagnostics-full}.}
+\end{table}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Stylized facts}\label{sec:data-stylized}
+
+\Cref{tab:e3-stylized} and \cref{fig:e3-stylized} compare the stylized facts
+\citep{cont2001empirical} of the real \TEST{} returns with those of the headline synthetic path
+of each generator. The first fact is non-stationarity. Every generator is more volatile than the
+real \TEST{} returns (median daily standard deviation between 1.89\% and 2.13\%, against
+1.62\%): each is calibrated to the volatility of \TRAIN{}, whose median is 2.11\% (the GBM
+$\sigma$ in \cref{tab:e3-fit-diagnostics}), and part of the gap may come from the selection of
+the universe on membership at the end of \TEST{} (\cref{sec:data-panel}). Volatility clustering
+was also weaker in \TEST{}: the median lag-1 autocorrelation of $r_t^2$ is 0.242 in \TRAIN{}
+(\cref{tab:e3-heston-moments}) and 0.061 in \TEST{}. Generators calibrated on the past are thus
+judged against a calmer future, and each verdict concerns a model together with its calibration
+on a window that contains the 2020 crash, not the model class alone.
+
+Each generator gets some facts right and others wrong. GBM has neither fat tails nor clustering
+(excess kurtosis 0.0 and Hill index 6.00, against 7.1 and 2.81 in the data). Merton matches the
+tail index (2.73) but its \iid{} returns have no clustering. \GARCHt{}, Heston and the bootstrap
+reproduce clustering but overstate it relative to \TEST{}: the median lag-1 autocorrelation of
+$\abs{r_t}$ is 0.170, 0.246 and 0.169, against 0.102, and all three keep more excess kurtosis in
+20-day sums (0.94, 0.84, 0.47) than the real returns ($-0.19$). The symmetric \GARCHt{} has no
+leverage effect ($-0.002$ against $-0.020$), while Heston, through $\rho_v<0$, and the bootstrap
+produce one. In the tails (right panel of \cref{fig:e3-stylized}) only \GARCHt{} and the
+bootstrap produce moves beyond ten \TRAIN{} standard deviations, as the data do: the largest $\abs{r_{it}}/s_i$ over
+tickers and days is 22.9 in the data, 24.9 for \GARCHt{} and 18.1 for the bootstrap, but 9.5
+for Merton, 9.3 for Heston and 4.3 for GBM. No generator matches the \TEST{} period on every
+fact, and some mismatches (volatility level, strength of clustering) are at least partly due to
+the change between the two periods, which no better fit to \TRAIN{} could remove. This motivates
+the anchored relative null of \cref{sec:method-relative}, which compares the
+generator with the real past rather than with the future.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Stylized facts of real \TEST{} returns and of one synthetic \TEST{}-length path per
+    ticker and generator (E3, 100 tickers, synthetic seed 0).}
+  \label{tab:e3-stylized}
+  \small
+  \fittable{e3_stylized}
+  \tablenote{Median across the 100 tickers, with the interquartile range ($q_{0.75}-q_{0.25}$)
+    in parentheses. Raw daily log-returns (not divided by $s_i$), 615 days per ticker
+    (2023-01-03 to 2025-06-16). Synthetic paths start from the fitted end-of-\TRAIN{} state
+    (\GARCHt{}, Heston) or are stationary. ACF: sample autocorrelation. Leverage: mean of
+    $\Corr(r_t,r_{t+k}^2)$ over $k=1,\dots,10$. Hill index of the 5\% largest $\abs{r_t}$
+    \citep{hill1975simple}. Aggregated kurtosis: excess kurtosis of non-overlapping 5- and
+    20-day sums. Drawdown of the cumulative log-price. Each generator column rests on one
+    simulated path per ticker and contains simulation noise; the interquartile range is a
+    cross-sectional spread, not a confidence interval.}
+\end{table}
+
+\begin{figure}[tbp]
+  \centering
+  \inputfigure{e3_stylized}
+  \caption{Volatility clustering and tails of real \TEST{} returns and of one synthetic
+    \TEST{}-length path per ticker and generator (E3, 100 tickers, synthetic seed 0). Left:
+    median across tickers of the sample autocorrelation of $\abs{r_t}$ at lags 1 to 50 days; the
+    grey band is the interquartile range across tickers of the real autocorrelation. Right:
+    empirical complementary distribution function of $\abs{r_{it}}/s_i$, pooled over tickers and
+    days ($s_i$: \TRAIN{} standard deviation of ticker $i$), on log-log axes.}
+  \label{fig:e3-stylized}
+\end{figure}

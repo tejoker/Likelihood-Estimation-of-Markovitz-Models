@@ -6,6 +6,12 @@
 % Equations defined here: eq:wgan-gp, eq:critic-stat, eq:mmd-u, eq:lr-oracle, eq:perm-pvalue,
 % eq:dk-var, eq:hac-z, eq:anchored-obj, eq:anchored-stat, eq:two-critic-stat, eq:pmed,
 % eq:verdict. Tables: tab:method-tests, tab:method-defaults. Figure: fig:alg-verdict.
+% Numbers (referee revision): E1 sizes 0.085/0.080 (joint), 0.270/0.155 (indep) from
+% tables/e1_size_sim.tex; D1/D2 sizes and power from results/e3/e3_power_summary.csv and
+% e3_realvol_summary.csv (single-seed boundary intervals are Clopper--Pearson, as in
+% tables/e3_power.tex); learning-rate discordant pairs 19:0 from results/e5/e5_simpower_raw.csv
+% (family a, 1000 steps, B=1000, alpha=0.05); protocol dates from docs/DESIGN.md change log and
+% the written/quick fields of results/{e3,e3_quick}/meta_*.json.
 % =============================================================================================
 
 This section defines the tests exactly as they are implemented in the code that produces every
@@ -14,7 +20,10 @@ number in the paper. All of them share one template: a test function is learned 
 \emph{evaluation half}. What changes from one setting to another is how the evaluation
 statistic is calibrated. For independent windows we use permutation p-values, which have exact
 finite-sample level. For the serially and cross-sectionally dependent windows of real data we
-use a time-block split with Driscoll--Kraay standard errors, which is asymptotically valid. On
+use a time-block split with Driscoll--Kraay standard errors. This studentisation is
+asymptotically valid for a fixed critic whose evaluation data are independent of its training
+data, a condition that the implemented split meets only approximately, so we measure the size of
+the whole pipeline in a placebo calibrated to the data instead of assuming it. On
 top of the absolute test we build an anchored relative test and a three-valued verdict with a
 pre-specified power check. Formal properties are in \cref{sec:theory}; further implementation
 details are in \cref{app:impl}. \Cref{tab:method-tests,tab:method-defaults} summarise the tests
@@ -25,8 +34,9 @@ and their default settings.
 
 \paragraph{Returns and scaling.}
 The data are daily log-returns $r_{it}=\log S_{it}-\log S_{i,t-1}$ of tickers $i=1,\dots,N$.
-\TRAIN{} (2018-01-02 to 2022-12-30, $\Ttr=1258$ trading days) is the calibration period and
-\TEST{} (2023-01-03 to 2025-06-16, $\Tte=615$ days) the evaluation period. For each ticker let
+\TRAIN{} (returns from 2018-01-03 to 2022-12-30, $\Ttr=1258$ trading days; the price of
+2018-01-02 is the base of the first return) is the calibration period and \TEST{} (2023-01-03 to
+2025-06-16, $\Tte=615$ days) the evaluation period. For each ticker let
 $s_i$ be the standard deviation (divisor $\Ttr-1$) of its \TRAIN{} returns. Real \emph{and}
 synthetic returns of ticker $i$ are divided by the same constant $s_i$ before anything else.
 Given \TRAIN{}, this is a fixed bijection applied to both samples, so it leaves every per-ticker
@@ -45,19 +55,15 @@ that start on the same day share their rank. At $L=20$ a ticker yields 62 \TRAIN
 \TEST{} windows, so the 100-ticker panel of E1, E3 and E5 gives 6200 and 3000 windows.
 
 \paragraph{Samples.}
-The roles of the samples never change:
-\begin{itemize}
-  \item $X_1,\dots,X_n$, with law $P$: real windows of the comparison sample. On real data
-    $X=\Rnew$, the \TEST{} windows (law $\Pnew$ in relative statements).
-  \item $Y_1,\dots,Y_m$, with law $Q$: synthetic windows from a generator $G$ (law $\QG$ in
-    relative statements). In E3, $G$ is fitted per ticker on \TRAIN{} and simulates one
-    \TEST{}-length path per ticker, started from the fitted end-of-\TRAIN{} state when the model
-    has one. Each ticker therefore contributes as many synthetic as real windows. This matters:
-    the pooled null follows from the per-ticker nulls only when the per-ticker proportions are
-    the same in both samples (\cref{rem:pooling}).
-  \item $Z_1,\dots,Z_k$, with law $\Ppast$: real past windows $\Rpast$ (\TRAIN{}). They are used
-    only by the relative tests.
-\end{itemize}
+The roles of the samples never change. $X_1,\dots,X_n$, with law $P$, are the real windows of
+the comparison sample; on real data $X=\Rnew$, the \TEST{} windows (law $\Pnew$ in relative
+statements). $Y_1,\dots,Y_m$, with law $Q$, are synthetic windows from a generator $G$ (law $\QG$
+in relative statements). In E3, $G$ is fitted per ticker on \TRAIN{} and simulates one
+\TEST{}-length path per ticker, started from the fitted end-of-\TRAIN{} state when the model has
+one, so each ticker contributes as many synthetic as real windows. This matters: the pooled null
+follows from the per-ticker nulls only when the per-ticker proportions are the same in both
+samples (\cref{rem:pooling}). $Z_1,\dots,Z_k$, with law $\Ppast$, are the real past windows
+$\Rpast$ (\TRAIN{}); only the relative tests use them.
 In the simulations of E2, $X\sim P$ and $Y\sim Q$ have known laws and every window is simulated
 from its own path after a burn-in, so the windows are independent and identically distributed
 (\iid{}). On real data, and on windows cut from long simulated paths, they are not. Volatility
@@ -72,12 +78,16 @@ dependence of the return process up to lag $L-1$ (\cref{prop:window-ident}). A w
 therefore detect volatility clustering within a month, but not features that act only at longer
 horizons.
 
-Markets are not stationary. \TRAIN{} contains the 2020 crash and the 2022 drawdown, and the
-average correlation of the E4 universes fell from \TRAIN{} to \TEST{}
-(\cref{tab:e4-correlation}); E1 compares the \TRAIN{} and \TEST{} windows directly
-(\cref{tab:e1-nonstat}). A generator calibrated on \TRAIN{} cannot be expected to reproduce the
-\TEST{} law exactly, so absolute rejections are to be expected on real data. The relative
-tests of \cref{sec:method-relative} ask a weaker and more useful question: is $G$ detectably
+Markets are not stationary. \TRAIN{} contains the 2020 crash and the 2022 drawdown. The average
+correlation of the E4 universes fell from \TRAIN{} to \TEST{} (\cref{tab:e4-correlation}), and
+so did the volatility level of the panel: the panel median of the daily standard deviation is
+1.62\% in \TEST{}, against 2.11\% for the GBM volatility fitted on \TRAIN{}
+(\cref{tab:e3-stylized,tab:e3-fit-diagnostics}). E1 compares the \TRAIN{} and \TEST{} windows
+directly; the window tests with valid p-values do not reject, but with about 15 \TEST{} evaluation
+dates they have little power for this comparison (\cref{tab:e1-nonstat,sec:emp-placebo}). A generator calibrated on \TRAIN{} inherits features of that period,
+such as its volatility level, and cannot be expected to reproduce the \TEST{} law exactly, so
+absolute rejections are to be expected on real data. The relative tests of
+\cref{sec:method-relative} ask a weaker and more useful question: is $G$ detectably
 further from $\Rnew$ than the real past $\Rpast$ is?
 
 % ---------------------------------------------------------------------------------------------
@@ -112,9 +122,15 @@ and synthetic draws to form $\tilde x_r$, and takes one Adam step \citep{kingma_
 the mini-batch loss
 $-b^{-1}\sum_{r}\{g(A X_{i_r})-g(A Y_{j_r})\}+\lgp b^{-1}\sum_r(\norm{\nabla g(\tilde x_r)}-1)^2$.
 We follow \citet{gulrajani2017improved} for the penalty weight and the Adam moment parameters
-$(0.5,0.9)$, but use a learning rate of $10^{-3}$. With the 1000 steps we run, their rate of
-$10^{-4}$ under-trained the critic in a check run before any E2 experiment; E5 also reports
-$10^{-4}$. There is no early stopping: the weights after step 1000 are frozen.
+$(0.5,0.9)$, but use a learning rate of $10^{-3}$. It was chosen before any E2 experiment on the
+basis of an informal check, which is not part of the reported experiments or of the repository,
+in which their rate of $10^{-4}$ appeared to under-train the critic within 1000 steps and to lose
+power. E5 contradicts this check in one of its two designs: on simulated windows the rate
+$10^{-4}$ is more powerful against a 10\% volatility increase (0.78 against 0.40; in all 19
+replications in which the two rates disagree, only $10^{-4}$ rejects) and not detectably
+different against a change of persistence (\cref{sec:robust}). The default was fixed before the experiments and not
+re-tuned, so the critic power reported in this paper is that of a pre-specified critic, not of an
+optimised one. There is no early stopping: the weights after step 1000 are frozen.
 
 \paragraph{Statistic.}
 With $\fhat$ frozen,
@@ -154,10 +170,13 @@ padding, followed by a LayerNorm over the $(64,L)$ feature map and a LeakyReLU. 
 is then flattened and passed through a dense layer of width 64, a LeakyReLU and a linear
 output. Flattening, rather than pooling over time, keeps the position of each day inside the
 window. BatchNorm is never used: the gradient penalty is a per-window quantity, and BatchNorm
-would couple the windows of a mini-batch. \todo{Lead: the univariate architecture may change
-after the time-pooled critic pilot. If it does, update this paragraph, \cref{tab:method-defaults}
-and \cref{app:impl}, and state which experiments use which architecture (E2 families (a)--(d) ran
-with the MLP).}
+would couple the windows of a mini-batch. The multilayer perceptron is the network of every
+test on univariate windows in this paper (E1, E2, E2-dep, E3 and E5), including the anchored test
+behind the verdicts. A time-pooled convolutional critic, which averages convolutional features
+over the days of a window, was examined only after the real-data results were known, and was
+selected by a pilot on four E2 designs that is not part of the reported experiments; this
+post-hoc ablation is reported in \cref{sec:robust} and does not replace the pre-specified
+perceptron.
 
 \begin{table}[tbp]
   \centering
@@ -197,7 +216,7 @@ holds out a random 20\% of each training half, evaluates the balanced validation
 every 50 steps, stops after five evaluations without improvement and restores the best
 checkpoint. At $n=500$ the selected checkpoint is typically the first one (step 50), because
 the classifier overfits early. A pilot of alternative settings found none with higher
-power at valid size, so we keep the defaults and record the selected step instead of tuning it.
+power at valid size (\cref{app:impl-nets}), so we keep the defaults and record the selected step instead of tuning it.
 
 With balanced classes, the Bayes-optimal logit is $\lstar=\log(p/q)$ (\cref{prop:bayes-logit};
 \citealp{goodfellow2014generative}). The \LRC{} statistic is $\Tlogit=\Pev\lhat-\Qev\lhat$. If
@@ -301,8 +320,8 @@ Two things go wrong when windows are dependent (\cref{sec:theory-dependence}).
     variance estimator can remove a bias.
 \end{enumerate}
 The naive protocol, a ticker split with permutation p-values, is run in E1 as a comparison.
-It rejects a true null far more often than the nominal level (\todo{size of the ticker-split
-permutation test at 5\%, from \cref{tab:e1-size-sim}}).
+In the simulated placebo panel it rejects a true null at nominal 5\% in all 200 replications
+(\cref{tab:e1-size-sim}).
 
 \paragraph{Protocol for dependent windows (E1, E3, E4, E5 and E2 part g).}
 It has three components.
@@ -354,7 +373,12 @@ critic and a growing number of evaluation dates, $\zhac$ is asymptotically $N(0,
 $H_0$ when the window sequences are mixing (\cref{prop:hac}). With only 15 evaluation dates the
 Driscoll--Kraay estimate is noisy and biased downwards, so some oversize remains. E1 measures the
 size of exactly this pipeline and reports fixed-$b$ p-values \citep{kiefer_2005_new} as
-comparison rows (\cref{rem:small-T}). Under this protocol the code also computes the permutation
+comparison rows (\cref{rem:small-T}). At nominal 5\% the \WC{} test rejects a true null at 0.085
+(the anchored relative test at 0.080) when the synthetic panel shares the factor structure of the
+real one, but at 0.270 (anchored: 0.155) when the synthetic tickers are drawn independently, as
+the univariate generators of E3 draw them (\cref{tab:e1-size-sim}). In that case the studentised
+statistic is also shifted, not only over-dispersed (\cref{rem:small-T}), so a better variance
+estimate alone would not remove the excess; \cref{sec:emp} takes this into account. Under this protocol the code also computes the permutation
 p-value under the time-block split. E1 reports its size, but it is never used for inference.
 
 \emph{Wild bootstrap for the kernel tests.} The kernel tests have no split and no witness
@@ -503,11 +527,12 @@ for both critics, and the $G$ and $\Rpast$ evaluation windows are resampled inde
 p-value is centred, $(1+\#\{\Dtwo_{*b}-\Dtwo\ge\Dtwo\})/(1+B)$ \citep{hall1991two}, and the
 interval is the percentile interval; under the dependent protocol the three Driscoll--Kraay
 variances are added instead. This test is valid conditionally on the two trained critics
-(\cref{prop:paired-boot}) but anti-conservative at the boundary $\Law(G)=\Law(\Rpast)$
-(\cref{prop:boundary-size}). There, the conditional target $\Dcrit_G-\Dcrit_P$ is the difference
+(\cref{prop:paired-boot}) but not exact at the boundary $\Law(G)=\Law(\Rpast)$, where its
+unconditional size is at least $\alpha$ (\cref{prop:boundary-size}). There, the conditional target $\Dcrit_G-\Dcrit_P$ is the difference
 of two exchangeable replicates of a quantity that depends on training. It is symmetric about
 zero, with a spread of the order of the evaluation noise, and for fixed critics and growing
-evaluation sets the rejection probability tends to $1/2$. We report it for comparison only; it
+evaluation sets the rejection probability tends to $1/2$. In E2 part e, with $n=500$, the excess
+was too small to be seen (\cref{sec:sim-relative}). We report the test for comparison only; it
 never enters the verdict.
 
 \paragraph{Kernel version.}
@@ -542,31 +567,44 @@ relevant size. The power check (\cref{def:power-check}) simulates the whole rule
 included, with the anchored \WC{} test, the dependent protocol and the real sample sizes,
 scales, date ranks and split. The pre-specified deviation $\vartheta^*$ multiplies synthetic
 volatility by 1.2. There are two reference designs.
-\begin{itemize}
-  \item \emph{D1 (stationary).} The reference model is the per-ticker \GARCHt{} fitted on
-    \TRAIN{} (the E3 fits). In each replication, $\Rpast^*$ is a \TRAIN{}-length path started
-    from stationarity (250 burn-in days), and $\Rnew^*$ is an independent \TEST{}-length path
-    started from the fitted end-of-\TRAIN{} state. For each seed the alternative $G^*$ is 1.2
-    times an independent \TEST{}-length draw from the end-of-\TRAIN{} state. The boundary
-    generator $G^0$ is an independent \TEST{}-length draw started from stationarity, so that
-    $\Law(G^0)=\Law(\Rpast^*)$ exactly. $G^*$ and $G^0$ are tested with the same test randomness.
-  \item \emph{D2 (real volatility path).} Let $v_{ij}$ be the root mean square of the
-    normalised real \TRAIN{} window $j$ of ticker $i$. Window $(i,j)$ of $\Rpast^*$ is
-    $v_{ij}\,\xi$ with $\xi\sim N(0,I_L)$, drawn once per replication; this keeps the 2020
-    and 2022 regimes and their co-movement across tickers. $\Rnew$ is the real \TEST{} sample.
-    For each seed, the $j'$-th window of ticker $i$ in $G^0$ is $v_{iU}\,\xi'$ with $U$ uniform
-    over the \TRAIN{} windows of ticker $i$, so $G^0$ has exactly the pooled \TRAIN{} window law
-    of each ticker; it carries the \TEST{} date ranks. The alternative is $G^*=1.2\,G^0$. The boundary of D2 is a
-    placebo of the anchored test under the real non-stationarity of $\Rpast$.
-\end{itemize}
+
+\emph{D1 (stationary).} The reference model is the per-ticker \GARCHt{} fitted on
+\TRAIN{} (the E3 fits). In each replication, $\Rpast^*$ is a \TRAIN{}-length path started
+from stationarity (250 burn-in days), and $\Rnew^*$ is an independent \TEST{}-length path
+started from the fitted end-of-\TRAIN{} state. For each seed the alternative $G^*$ is 1.2
+times an independent \TEST{}-length draw from the end-of-\TRAIN{} state. The boundary
+generator $G^0$ is an independent \TEST{}-length draw started from stationarity, so that
+$\Law(G^0)=\Law(\Rpast^*)$ exactly. $G^*$ and $G^0$ are tested with the same test randomness.
+The D1 alternative thus differs from the boundary in its start state as well as in its
+scale, so its power is not that of the factor 1.2 alone.
+
+\emph{D2 (real volatility path).} Let $v_{ij}$ be the root mean square of the
+normalised real \TRAIN{} window $j$ of ticker $i$. Window $(i,j)$ of $\Rpast^*$ is
+$v_{ij}\,\xi$ with $\xi\sim N(0,I_L)$, drawn once per replication; this keeps the 2020
+and 2022 regimes and their co-movement across tickers. $\Rnew$ is the real \TEST{} sample.
+For each seed, the $j'$-th window of ticker $i$ in $G^0$ is $v_{iU}\,\xi'$ with $U$ uniform
+over the \TRAIN{} windows of ticker $i$, so $G^0$ has exactly the pooled \TRAIN{} window law
+of each ticker; it carries the \TEST{} date ranks. The alternative is $G^*=1.2\,G^0$. The
+boundary of D2 is a placebo of the anchored test under the real non-stationarity of
+$\Rpast$, with two simplifications. Within a window the returns of $\Rpast^*$ and $G^0$ are Gaussian with a
+constant scale, and the noise is independent across tickers and windows; $G^0$ also draws
+its scales independently across tickers and windows, so it has no within-window tails or
+clustering and no regime common to several tickers. The D2 boundary size is therefore an
+estimate for this approximation of the pooled past, not for every generator at the
+boundary, in particular not for fat-tailed generators with volatility clustering such as
+\GARCHt{}.
+
 Each design runs $R=100$ replications. The estimated power $\hat\beta_{\mathrm{D}}$ is the share
 of replications with $\pmed\le\alpha$ under the alternative; the boundary size
-$\hat\alpha_{\mathrm{bd},\mathrm{D}}$ is the same share under $G^0$. Both are reported with
-Wilson intervals, and the power with its one-sided Clopper--Pearson lower bound $\betaL$
-\citep{clopper_1934_use}. The power of the rule is the smaller of the two,
-$\hat\beta=\min(\hat\beta_{\mathrm{D1}},\hat\beta_{\mathrm{D2}})$. The designs, the deviation and
-the threshold were fixed before the full real-data runs, and the check does not involve the
-generators being evaluated (\cref{tab:e3-power}).
+$\hat\alpha_{\mathrm{bd},\mathrm{D}}$ is the same share under $G^0$. The power is reported with
+its Wilson interval and its one-sided Clopper--Pearson lower bound $\betaL$
+\citep{clopper_1934_use}, the boundary size with its Clopper--Pearson interval. The power of the
+rule is the smaller of the two, $\hat\beta=\min(\hat\beta_{\mathrm{D1}},\hat\beta_{\mathrm{D2}})$. The designs, the deviation and
+the threshold were fixed, and both designs were run, before the full real-data tests; D2 and the
+seed rule entered the protocol on the day of those runs, when the real-data tests had been run
+only in smoke runs on a six-ticker subset. The check does not involve the generators being
+evaluated, but D2 uses the real \TEST{} sample, so its power and boundary size are conditional on
+the realised \TEST{} sample and \TRAIN{} volatility path (\cref{tab:e3-power}).
 
 \paragraph{Verdict.}
 With $\alpha=0.05$ and $\bmin=0.8$,
@@ -587,14 +625,39 @@ reads ``distinguishable from the future, but not worse than history''. It is a f
 failure of the method.
 
 \paragraph{What the verdict means.}
-\BAD{} is a rejection of the anchored null for the trained critics. Its error rate at the
-boundary is at most $\alpha$ with independent windows (exactly $\alpha$ for a single seed; the
-seed combination is conservative), controlled only asymptotically under the dependent
-protocol, and on real data it is the estimated boundary size of the rule, which we report
-rather than assume. \GOOD{} means ``no detectable deviation of the pre-specified size and type
-in designs that resemble the data''. It never means ``equal to the truth''. Its guarantee rests
-on a premise that cannot be verified: the actual deviation must be at least as detectable as a
-20\% volatility error in D1 and D2 (\cref{prop:verdict}). The per-ticker tests of E3 ($L=5$,
+\BAD{} is a rejection of the anchored null for the trained critics. With independent windows,
+the permutation version of the anchored p-value would bound its error rate at the boundary by
+$\alpha$ in finite samples (\cref{prop:anchored}(a)), and $\pmed$ would inherit the bound
+(\cref{rem:combine-seeds}). The rule as implemented combines Driscoll--Kraay p-values instead,
+which are only asymptotically valid (\cref{prop:anchored}(c)), under conditions that the
+interleaved split meets only approximately (\cref{sec:method-inference}). The seed combination
+is valid only if the single-seed p-values are. In D2 they are not: the single-seed boundary size
+is 0.25 [0.17, 0.35] (0.09 [0.04, 0.16] in D1), and the boundary size of the rule is
+0.08 [0.04, 0.15] (0.00 [0.00, 0.04] in D1; Clopper--Pearson 95\% intervals,
+\cref{tab:e3-power}). On real data the error rate of \BAD{} at the boundary is therefore this
+estimated boundary size, which we report rather than assume, and a \BAD{} verdict has a real-data
+error interpretation only when the Clopper--Pearson interval of the estimated boundary size covers
+$\alpha$ or lies below it (\cref{prop:verdict}(a)), as at the main split. The size-adjusted power
+of \cref{def:power-check} separates the discrimination of the rule from this miscalibration
+(\cref{tab:manual-theory-calibration}), and \cref{sec:emp-verdicts} also compares each observed
+$\pmed$ with the D2 boundary replications.
+
+\GOOD{} means ``no detectable deviation of the pre-specified size and type in designs that
+resemble the data''. It never means ``equal to the truth''. Its guarantee rests on a premise
+that cannot be verified: the actual deviation must be at least as detectable as a 20\%
+volatility error in D1 and D2 (\cref{prop:verdict}). The premise is also one-directional.
+$\vartheta^*$ is an upward volatility error; in D2, where $\Rnew$ is the real \TEST{} sample and
+\TEST{} was calmer than \TRAIN{}, it moves the generator away from the evaluation period, which
+is the direction in which the anchored test is built to reject. The check covers neither
+downward volatility errors nor errors in other features, such as tails or clustering, and its
+power against a factor 0.8 was not estimated. A downward
+error moves $G$ towards \TEST{} and need not violate the anchored null at all, since that null
+asks only whether $G$ is further from $\Rnew$ than the past is (\cref{rem:anchored-null}). Under
+a non-stationary past, a non-rejection can therefore reflect a generator bias that happens to
+point in the direction of the regime change, and a \GOOD{} verdict would credit that bias as
+quality. In E3 the rule power in D2 is 0.45, so no generator can be \GOOD{} and this restriction
+changes no reported verdict, but it limits what a \GOOD{} verdict means in any application with
+a regime change between the two periods. The per-ticker tests of E3 ($L=5$,
 calibrated p-values, Benjamini--Hochberg; \cref{sec:emp-perticker,rem:bh}) are descriptive and
 do not enter the verdict. \Cref{fig:alg-verdict} collects the steps.
 

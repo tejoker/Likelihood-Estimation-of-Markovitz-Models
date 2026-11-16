@@ -1,0 +1,474 @@
+\section{Implementation details}\label{app:impl}
+% =============================================================================================
+% Owner: implementation writer. Sources: src/synthval (twosample/nets.py, critic.py, c2st.py,
+% mmd.py, signature.py, relative.py; models/univariate.py, multivariate.py; pipeline.py),
+% experiments/*.py (FULL configs), experiments/README.md, run_full.sh, results/logs/*.log,
+% results/*/meta*.json, docs/DESIGN.md (Section 4 and change log).
+% Derived numbers (computed by scripts, not typed): early-stopping checkpoints from
+% results/e2/e2_main_*_raw.csv and results/e3/e3_pooled_raw.csv; HAC lags and wild-bootstrap
+% lengths from results/e3/e3_pooled_raw.csv; summed replication times and wall clock from
+% results/logs (lanes A-D and e2_main.log, 15 November runs only); Merton truncation, Heston
+% path count, signature dimensions and block sizes from the library functions.
+% Architecture ablation: results/e5arch/meta*.json (h0_reps 200, sim_reps 50, power_reps 20),
+% results/logs/e5arch.log (H0 extension 120 -> 180 blocks of 5; summed block times 0.865 + 3.21 +
+% 3.01 + 10.77 + 6.45 = 24.3 h; wall 09:03:06-12:06:39 = 3.06 h), tab:e5-arch note (66 s vs 9 s).
+% Provenance (app:impl-avail): git, code, script, data and packages fields of every
+% results/{e1,e2,e2dep,e3,e4,e5,e5arch}/meta*.json; sha256sum of experiments/*.py and of the data
+% file (all equal to the recorded hashes on 16 Nov 2026); .gitignore (results/*_quick/,
+% results/logs/, checkpoints untracked); results/e3_quick/meta*.json and checkpoint file times
+% (first pooled smoke run 14:17, first D2 smoke run 16:18 on 15 Nov); docs/DESIGN.md change log
+% (learning-rate check, classifier pilot, architecture pilot); get_device in twosample/nets.py.
+% =============================================================================================
+
+This appendix records the implementation choices that \cref{sec:method,sec:data} leave out, at
+the level needed to reproduce the reported numbers. It describes the code that produced them:
+the Python package \texttt{synthval} and the experiment scripts of E1--E5. The default settings
+of the learned tests are collected in \cref{tab:method-defaults} and the generators are defined
+in \cref{sec:data-generators}. \Cref{app:impl-avail} states which code state produced each
+result, what the run records contain, and what cannot be redistributed or reproduced from the
+repository.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Networks, standardisation and training}\label{app:impl-nets}
+
+\paragraph{Networks.}
+The networks of \cref{sec:method-critic} (the perceptron for univariate windows, the
+convolutional network with the 30 assets as input channels for the $(N,L)=(30,5)$ windows of
+E4) are written in PyTorch \citep{paszke_2019_pytorch}, run in single precision on the CPU with
+one thread per process, and start from PyTorch's default initialisation. The E4 network has
+52{,}097 trainable parameters and is trained on 60 to 63 windows per sample (both counted by
+\texttt{paper/scripts/e4\_reliability.py} from the network definition and the E4 results). The \WC{}, \LRC{} and
+C2ST tests use the same networks and differ only in the loss. After training, the network is
+frozen and evaluated without gradients, in batches of 8192 windows.
+
+An ablation (script \texttt{e5\_architecture.py}) replaces the perceptron by a time-pooled
+convolutional critic: two convolutions with 64 channels, kernel size 5 and ``same'' padding,
+each followed by a LeakyReLU(0.2), the mean of the feature map over the $L$ positions, a dense
+layer of width 64, a LeakyReLU and a linear output. Its output is an average of one learned
+function of nine-day patches, so it uses every day of a window but cannot see where in the
+window a pattern occurs. With the data and test randomness of the original runs, the ablation
+reruns the \WC{} test in ten cells of E2 ($n=500$; 200 replications in each of the two null
+cells and 50 in each of the eight alternative cells) and in two alternative cells of E2-dep
+($n=2000$; 50 replications each), and it reruns the E3 protocol with E3's five seeds and designs
+D1 and D2 with 20 replications of five seeds each, paired with the first 20 replications of E3.
+The two null cells were first run with 50 replications, like the others, and then extended to
+200. The results are in \cref{tab:e5-arch,tab:e5-arch-real} (\cref{app:robust}); a test with
+the pooled critic takes on average 66\,s on one thread, against 9\,s with the perceptron. The
+architecture was selected after the real-data results of the perceptron were known and after a
+pilot on four E2 designs at $n=500$, which is recorded only in the change log of the protocol
+and is not in the repository (\cref{app:impl-avail}). The simulated gains of the ablation are
+therefore measured partly on the experiment and sample size used for the selection. The
+ablation is post hoc: the runs of E1--E5 described in \cref{app:impl-compute}, and every verdict
+of \cref{sec:emp}, use the perceptron for univariate windows.
+
+\paragraph{Standardisation.}
+The affine map $A$ of \cref{sec:method-critic} is estimated on the pooled training windows; in
+the anchored test these are all $\Rnew$ windows and the training windows of the pool, without
+weights. Means and standard deviations are taken per coordinate for univariate windows and per
+asset channel, pooled over the $L$ positions, for multivariate windows. A standard deviation
+below $10^{-12}$ is replaced by one.
+
+\paragraph{Training of the critic.}
+One forward pass per step evaluates the network on the $b=128$ real windows, the $b$ synthetic
+windows and the $b$ interpolates $\tilde x_r$ of \eqref{eq:wgan-gp}. The gradient
+$\nabla g(\tilde x_r)$ is obtained by automatic differentiation with respect to the
+standardised input and kept in the computational graph, so that the penalty itself is
+differentiated. The Adam step \citep{kingma_2015_adam} has no weight decay, there is no weight
+or gradient clipping and no early stopping, so every critic runs the full 1000 steps. In the anchored test
+the positive class ($\Rnew$) is sampled uniformly and the pool with the probabilities of
+\cref{sec:method-relative}, by multinomial sampling with replacement; each interpolate joins one
+$\Rnew$ draw and one pool draw.
+
+\paragraph{Training of the classifiers.}
+The \LRC{} and C2ST tests each train their own classifier with the class-balanced cross-entropy
+of \cref{sec:method-competitors}: Adam with learning rate $10^{-3}$, moments $(0.9,0.999)$ and
+weight decay $10^{-4}$, mini-batches of 128 windows per class, at most 1000 steps. Early
+stopping holds out a random 20\% of each training half. This subset is drawn at random also
+under the time-block split, so validation windows neighbour training windows in time and the
+validation loss can be optimistic. The whole validation set is evaluated every 50 steps,
+training stops after five evaluations without improvement, and the weights with the lowest
+validation loss are restored. The selection affects power only, because the evaluation half is
+never touched. In practice the classifiers are trained for very few steps. In E2 families
+(a)--(d) the selected checkpoint was step 50 in all 4800 classifier fits at $n=500$ and in 4790
+of 4800 at $n=2000$ (never later than step 100), and training stopped after a median of 300
+steps. In the E3 pooled tests, with 1500 training windows per sample, the median selected step
+was 100, with ranges 50--250 for C2ST and 50--200 for the \LRC{} over 25 fits each. Two features
+of the procedure favour the first checkpoint. At $n=500$ the hold-out has 50 windows per class
+(200 at $n=2000$), so the validation cross-entropy is a noisy criterion. And by step 50 the
+classifier has drawn 50 mini-batches of 128 windows per class from 200 training windows per
+class (800 at $n=2000$), so it can already fit the training windows closely, which is the
+overfitting noted in the change log of the protocol. Since the first checkpoint is selected at
+$n=2000$ as well, the noise of a small hold-out is not the only reason. The defaults were kept
+after a pilot of 40 replications on alternatives outside the E2 grid (a GARCH persistence of
+0.92 and Student-$t$ tails with $\nu=8$) that compared a learning rate of $10^{-4}$, a weight
+decay of $10^{-2}$, training without early stopping and a minimum of 100 steps before a
+checkpoint can be selected; according to the change log, none of these configurations had
+higher power at valid size. The pilot is not part of the reported runs or of the repository.
+Because the selected checkpoint is so early, E2 part f also fits the logit without early
+stopping, for 1000 steps at learning rate $10^{-3}$ and for 3000 steps at $10^{-4}$
+(\cref{tab:e2-llr}).
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Time-block split and Driscoll--Kraay inference}\label{app:impl-split}
+
+\paragraph{Assignment of blocks.}
+The block labels of \cref{sec:method-inference} are computed from each sample's own range of
+date ranks and live in one namespace shared by all samples of a call. The ten labels are put in
+a uniformly random order, and following that order labels go to the training half until the
+cumulative number of windows over all samples is closest to half of the total (30\% or 70\%
+under the train-fraction settings of E5). If a half of some sample is empty, the order is
+redrawn, at most 100 times. On the E3 data the 30 window dates of \TEST{} form ten blocks of
+three dates, so every absolute test trains on five blocks and evaluates 1500 real and 1500
+synthetic windows. The 62 window dates of $\Rpast$ form eight blocks of six dates and two of
+seven, and the 123 window dates of an E4 \TEST{} sample form blocks of 12 or 13 dates. Training
+and evaluation blocks are interleaved in random order, with no gap between adjacent blocks.
+
+\paragraph{Grid and variance.}
+The Driscoll--Kraay variance \eqref{eq:dk-var} is computed separately for the real and the
+synthetic evaluation values, each on its own grid. A date rank $\tau$ is mapped to the grid
+position $(\tau-\tau_{\min})/g$, where $\tau_{\min}$ is the first evaluation date of the sample
+and $g$ is the greatest common divisor of the gaps between its distinct date ranks ($g=L$ for
+non-overlapping windows). Grid positions without an evaluation window, in particular all
+positions inside training blocks, enter the date sums $\mathcal S_u$ as zeros. Adding the two
+variances in \eqref{eq:hac-z} presumes that the two samples are independent. This holds for a
+synthetic against a real sample, and for $G$ against $\Rpast$ in the anchored test up to the
+calibration caveat of \cref{sec:method-relative}. It fails for the ticker-half placebo of E1,
+whose halves share every date: there the Driscoll--Kraay variance ignores the strong positive
+same-date covariance of the halves, so those rows cannot reveal oversize, and the wild-bootstrap
+rows, whose multipliers are shared by date, are the informative ones (\cref{sec:emp-placebo}).
+
+\paragraph{Truncation lag.}
+For each of the two series, $\hat\rho$ is the lag-one autocorrelation of the date sums over
+adjacent grid positions that both hold evaluation windows, clipped to $[-0.97,0.97]$; at least
+ten such pairs are required. The Andrews constant $\hat\eta$ and the lag $H$ are then those of
+\cref{sec:method-inference}. With fewer than ten pairs the rule is applied to the sequence of
+observed dates, and if that also fails the rule of \citet{newey1994automatic},
+$H=\lfloor4(U'/100)^{2/9}\rfloor$ with $U'$ the number of evaluation dates, is used. The same
+rule is the ``Newey--West'' option of E5; with 15 evaluation dates it gives $H=2$. In the E3
+pooled \WC{} tests (five generators, five seeds) the Andrews rule chose $H$ between 0 and 3 for
+the real and between 0 and 4 for the synthetic evaluation series.
+
+\paragraph{Fixed-\texorpdfstring{$b$}{b} comparison rows (E1).}
+The E1 tables add two fixed-$b$ p-values, computed after the runs from the stored $\zhac$, the
+numbers of evaluation dates $U_X,U_Y$ of the two samples and their lags $H_X,H_Y$. Both refer
+$\zhac$ to a simulated finite-sample version of the reference distribution of
+\citet{kiefer_2005_new}: 40{,}000 draws of the HAC $t$-statistic, computed from \iid{} $N(0,1)$
+series with the Bartlett kernel at the same lag, are symmetrised to 80{,}000 values, and the
+p-value is $(1+\#\{\text{draws}\ge\zhac\})/(1+80{,}000)$. The \emph{conservative} version
+simulates one series of length $\min(U_X,U_Y)$ with lag $\max(H_X,H_Y)$, which we expect, but
+have not proved, to be the heaviest-tailed case of the two-sample statistic whatever the shares of
+the two variances; a Monte Carlo check over the E1 designs supports it
+(\cref{tab:e1-fixedb-check}). The
+\emph{equal-variance} version simulates both samples with their own lengths and lags and equal
+variances per date, which is the limit under an equal-law null with equal cross-sections, as
+for the absolute and the anchored null of the simulated E1 placebo. Both treat the evaluation dates as a contiguous series, whereas the
+Driscoll--Kraay estimator runs on a grid with zero-filled holes, so both are approximations.
+Neither enters a verdict.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Kernel tests}\label{app:impl-kernel}
+
+\paragraph{MMD.}
+The kernel matrix of the pooled (subsampled) sample is built in row blocks with an exact
+diagonal. The $B=500$ relabellings of the permutation test are processed in blocks of 100
+through products of the kernel matrix with label-indicator matrices; ties with the observed
+statistic count against it. In E4 the bandwidth
+is fixed per universe at the median heuristic of the real \TEST{} windows, so that the five
+generators of a universe are compared with one kernel.
+
+\paragraph{Wild bootstrap.}
+The multipliers of \cref{sec:method-inference} are generated as $\zeta_0\sim N(0,1)$ and
+$\zeta_u=\phi\,\zeta_{u-1}+(1-\phi^2)^{1/2}e_u$ with $\phi=\exp(-1/\ell_w)$ and $e_u$ \iid{}
+$N(0,1)$, on the grid of the pooled date ranks of both samples (built as above); $\ell_w=0$
+gives \iid{} multipliers. The $B=500$ replicates are computed in blocks of 100. For the
+correlation length $\ell_w$, at most 3000 pooled windows are drawn at random, and the five
+leading eigenvectors of their doubly centred kernel matrix are computed by the Lanczos method.
+The scores of all windows on these axes (by Nystr\"om extension for windows outside the subset)
+are centred within each sample and summed by date, giving five series $a=1,\dots,5$. Let
+$\hat\rho_a$ be the lag-one autocorrelation of series $a$ over adjacent observed dates (clipped
+as above), $\hat\gamma_a$ its variance and $\hat s_a^2=\hat\gamma_a(1-\hat\rho_a^2)$. Then
+\begin{equation*}
+  \hat\eta=\frac{\sum_a4\hat\rho_a^2\hat s_a^4/\{(1-\hat\rho_a)^6(1+\hat\rho_a)^2\}}
+                {\sum_a\hat s_a^4/(1-\hat\rho_a)^4},\qquad \ell_w=(\hat\eta\,U)^{1/3},
+\end{equation*}
+with $U$ the length of the pooled grid. This is the AR(1) plug-in constant of
+\citet{andrews1991heteroskedasticity} with equal weights; for one series it reduces to the
+$\hat\eta$ of \cref{sec:method-inference}. If the eigendecomposition fails, the multipliers are
+\iid{}. In the E3 pooled tests $\ell_w$ ranged from 1.57 to 2.97 grid steps for MMD and from 1.01
+to 1.82 for \SigMMD{}.
+
+\paragraph{Signatures.}
+A window is mapped to the $L+1$ points $(k/L,\sum_{l\le k}r_l)$, $k=0,\dots,L$, of a path in
+$\R^2$. The depth-4 signature of a straight segment with increment $\Delta$ is the truncated
+tensor exponential $(\Delta,\Delta^{\otimes2}/2!,\Delta^{\otimes3}/3!,\Delta^{\otimes4}/4!)$,
+and the signature of the piecewise-linear path is the truncated tensor product of its $L$
+segment signatures (Chen's identity; \citealp{lyons1998differential,chevyrev2016primer}),
+computed for all windows at once. Levels 1 to 4 give $2+4+8+16=30$ features. The lead-lag
+transform, available in the code, is not used. E4 runs only the \WC{} and MMD tests: the
+depth-4 signature of the 31-dimensional time-augmented path of an E4 window would have 954{,}304
+features, and the implementation refuses more than 50{,}000.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Model fitting}\label{app:impl-fit}
+
+All optimisers are those of SciPy \citep{virtanen_2020_scipy}. Every fit uses the \TRAIN{}
+returns of one ticker (E3, E5) or one universe (E4) in daily units.
+
+\paragraph{GBM and Merton.}
+GBM uses the sample mean and standard deviation (divisor $\Ttr$). Merton is fitted on returns
+standardised by their sample mean and standard deviation, and the estimates are mapped back
+exactly, since the model is location-scale equivariant. The mixture density is truncated at 11
+jumps, the value of the truncation rule of \cref{sec:data-generators} at the upper intensity
+bound 0.5, and evaluated with log-sum-exp. The likelihood is maximised by L-BFGS-B with the
+analytic gradient (at most 1000 iterations, tolerances $10^{-12}$ on the objective and
+$10^{-8}$ on the projected gradient) under the bounds $\lambda_J\in[10^{-4},0.5]$,
+$\sigma\ge10^{-5}$ and $\sigma_J\ge10^{-4}$, with wide bounds on the standardised $\mu$ and
+$\mu_J$. Six starting points are tried and the best optimum is kept: four moment-based starts
+at $\lambda_J\in\{0.005,0.02,0.08,0.3\}$, in which the jump variance matches the excess
+kurtosis, the jump mean the skewness and the diffusion variance the rest, a near-Gaussian start
+($\lambda_J=10^{-3}$) and a start with frequent small jumps ($\lambda_J=0.4$). Parameters at a
+bound are counted in \cref{tab:e3-fit-diagnostics}.
+
+\paragraph{\texorpdfstring{GARCH-$t$}{GARCH-t}.}
+The likelihood is maximised on returns divided by their sample standard deviation ($\mu$ and
+$\omega$ are mapped back; $a$, $b$ and $\nu$ are scale invariant), with the in-sample filter
+started at the sample variance. Under variance targeting \citep{francq_2011_merits} the free
+parameters are $(\mu,a,b,\nu)$. They are estimated by SLSQP with the analytic gradient (at most
+500 iterations, tolerance $10^{-11}$), subject to $a,b\ge0$, $a+b\le0.995$, $\nu\in[2.05,100]$
+and $\mu$ within one standard deviation of the sample mean. The five starting values of
+$(a,b,\nu)$ are $(0.05,0.90,8)$, $(0.10,0.85,5)$, $(0.15,0.70,6)$, $(0.03,0.96,10)$ and
+$(0.08,0.60,4)$, and the best optimum is kept and rescaled onto the constraint $a+b\le0.995$ if rounding violates it. Out
+of sample, the filter runs through \TRAIN{} and continues into \TEST{}. Simulations from the end
+of \TRAIN{} start at the one-step variance forecast; stationary simulations start at the
+unconditional variance and discard 250 days (1000 days for the E1 factor panel). Every GARCH
+component in E1 and E3--E5 uses this estimator, targeting and cap included.
+
+\paragraph{Heston.}
+The variance follows the quadratic-exponential step of \citet{andersen_2008_simple} with a daily
+time step and $\psi_c=1.5$, and the log-return the matching step with $\gamma_1=\gamma_2=1/2$
+(trapezoidal weights for the integrated variance). The simulated method of moments averages
+over $S=39$ paths of \TRAIN{} length, started from the stationary law of $v_t$; the code sets
+$S=\min\{50,\max\{10,\lfloor50{,}000/\Ttr\rfloor\}\}$. Its random numbers are common to all evaluations of the objective
+(fixed normal draws drive the variance step, its uniforms and the returns; fixed uniforms the
+initial variance) and come from one fixed seed, the same for every ticker, so the objective is a
+deterministic function of the parameters. The diagonal weights are the inverse variances of the
+data moments over 200 stationary-bootstrap replicates with mean block length
+$\max\{20,b_{\mathrm{PW}}\}$, where $b_{\mathrm{PW}}$ is the block-length rule of the bootstrap
+below; the standard deviation of the tail quantile ratio is capped at 10\% of its value, which
+floors its weight. The QE variance paths scale with $\theta_v$ and depend on $(\kappa_v,c)$
+only, so the objective is profiled. For given $(\kappa_v,c)$, $(\log\theta_v,\rho_v)$ is
+optimised by bounded Nelder--Mead (at most 400 evaluations), started from the variance-matching
+$\theta_v$ and the best $\rho_v$ in $\{-0.8,-0.5,-0.2,0.1,0.4\}$. The profile in
+$(\log\kappa_v,\log c)$ is evaluated on an $8\times8$ grid: eight values of $\kappa_v$
+geometrically spaced from 0.003 to 0.4, and $c/\sqrt{1.5}$ equal to 0.15, 0.30, 0.45, 0.60,
+0.72, 0.84, 0.93 and 1.00. It is then
+minimised by bounded Nelder--Mead from the two best grid points (at most 120 profile evaluations
+each) and once more from the better solution with a third of the initial steps. The estimate is
+the best of all profile evaluations, including those at the starting grid points, and $\mu$ is set so that the
+simulated mean return equals the sample mean. The starting variance of \TEST{} simulations is
+the exponentially weighted average of squared \TRAIN{} returns with decay 0.94, started at the
+sample variance. Fit times and parameters at bounds are in \cref{tab:e3-fit-diagnostics}, the
+moment match in \cref{tab:e3-heston-moments}.
+
+\paragraph{Stationary bootstrap.}
+The mean block length follows the rule of \citet{politis2004automatic} with the correction of
+\citet{patton2009correction}, implemented as in the \texttt{arch} package (version 9) and applied
+to $\abs{r_t-\bar r}$, with two differences: the length is floored at one day, and 20 days are
+used when the rule is degenerate, which never happened in E3 (\cref{tab:e3-fit-diagnostics}).
+
+All univariate generators simulate the tickers independently: the path of ticker $i$ uses the
+$i$-th child of the seed sequence of the synthetic seed. The synthetic panels of E3 and E5
+therefore have no cross-sectional dependence, which the \texttt{indep} cell of E1 reproduces.
+
+\paragraph{Multivariate generators (E4).}
+The ECME iterations of MV Student-$t$ \citep{liu1995ml} update $\nu\in[2.1,200]$ by a bounded
+Brent search over $\log\nu$ of the observed log-likelihood and stop when its relative increase
+falls below $10^{-12}$ (at most 2000 iterations). CCC-GARCH-$t$ uses the \GARCHt{} estimator
+above for every margin; with $F_{\nu_i}$ the unit-variance Student-$t$ distribution function of
+margin $i$, the copula correlation $P$ is the sample correlation of the normal scores
+$\Phi^{-1}(F_{\nu_i}(z_{it}))$ of the standardised residuals, and simulated innovations are
+$F_{\nu_i}^{-1}(\Phi(x_{it}))$ with $x_t\sim N(0,P)$. Factor GARCH-$t$ applies the same
+\GARCHt{} estimator to the factor and to each OLS residual. For the utility study, synthetic \TRAIN{}-length samples start from stationarity with 250
+discarded days; for the tests and the placebo, \TEST{}-length samples start from the
+end-of-\TRAIN{} state of every GARCH recursion, while the \iid{} models and the bootstrap are
+stationary from the first day.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Seeds, checkpoints and software}\label{app:impl-seeds}
+
+Each replication draws all its random numbers from a NumPy \texttt{SeedSequence}
+\citep{harris_2020_array} determined by a fixed root seed per experiment and by the
+replication's key (part, cell and replication index, hashed with SHA-256). Results therefore do
+not depend on the number of worker processes, on how replications are grouped or on which parts
+are run; in a check during development, E3's pooled tests and E2 family (a) run with different
+numbers of workers gave identical outputs. Within a replication every test receives its own stream, derived from one
+draw and the test's name, so a test's result does not depend on which other tests run beside
+it. PyTorch is seeded from the replication's generator inside a forked random state. Synthetic
+seeds are shared by all generators in E3 and E5, and the test stream of E4 is keyed by universe
+and seed only, so generators are compared under common random numbers. The root seeds are
+20251121 (E1), 20251115 (E2), 20251116 (E2-dep and E3), 20251118 (E4) and 20251117 (E5, which
+reuses E3's synthetic seeds and power replications). The panel is drawn with seed 20251114,
+which is also the fixed seed of the Heston calibration.
+
+Replications are computed in blocks, and every finished block is written to disk, so that an
+interrupted run resumes without recomputation. The checkpoint key hashes the configuration of
+the part and, depending on the experiment, the library code (E1, E2, E5), the fitted parameters
+(E3, E5) or the universes (E4), so a resumed run never mixes configurations. Each experiment
+stores its configuration, a fingerprint of the code and the package versions: Python 3.12.16,
+NumPy 2.5.4, SciPy 1.18.1, pandas 3.1.1, statsmodels 0.15.0 and PyTorch 2.15.0 (CPU build).
+The \texttt{arch} package (version 9.0.0) serves only for cross-checks in the unit tests.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Compute and deviations from the planned design}\label{app:impl-compute}
+
+The full runs of E1--E5 were executed on 15 November 2026 on one 16-core machine, shared with
+other jobs and with about 6--7\,GB of free memory. Memory, not cores, was the binding
+constraint: a worker process holds 0.46--0.9\,GB, the upper end for the kernel matrices of
+$2\times3000$ windows. Each experiment process therefore ran three to five workers instead of
+the twelve assumed in the protocol, with up to three processes at a time and one BLAS and
+PyTorch thread per worker. According to the run logs, the replications took about 63 hours of
+summed task time, the run time of each block of replications summed over blocks (E1 4.8, E2
+27.7, E2-dep 2.1, E3 11.6, E4 9.6 and E5 7.2 hours), not
+counting the model fits and the precomputed null distributions of the likelihood-ratio oracle,
+and about 7.5 hours of wall-clock time from the start of E2 families (a)--(d) to the last table.
+The architecture ablation ran on 16 November 2026 on the same machine, in about 24.3 hours of
+summed task time and 3.1 hours of wall-clock time.
+
+In the full runs of E3 the power check (designs D1 and D2) was completed before the first
+real-data test started. The protocol was not fixed before every contact with the real data,
+however. On the day of the full runs, development runs of the E3 script with six tickers, two
+synthetic seeds, critics trained for 100 steps, 100 permutations and three replications per
+power design exercised every part of the script, including the pooled real-data tests. Design
+D2 and the combination of the seeds by $\pmed$ enter the change log of the protocol on that day,
+and according to the file times of the development runs their first pooled tests preceded the
+first run of D2. No output of the development runs is reported.
+
+Before the runs, the replication counts of the experimental protocol (Section 4 of the design
+document distributed with the code, and its change log) had been estimated at about 205 CPU
+hours, against about 45 hours available on the day. The counts were therefore reduced, as
+recorded in the change log of the protocol. \Cref{tab:impl-cuts} lists every deviation. Three of
+them limit what the paper can claim. (i) Fewer seeds and replications widen every interval. For
+example, the power of the decision rule in design D2, 0.45 from 100 replications, has the
+Wilson interval $[0.36,0.55]$ (\cref{tab:e3-power}), and E3's verdict p-value is twice a median
+over five rather than ten seeds. (ii) E2 part e shows the anchored
+test at the boundary for $n=500$ only. (iii) Without the parts \texttt{gridsize},
+\texttt{gridpower} and \texttt{gridrealvol}, E5 does not re-estimate the size of the absolute
+test or the power and boundary size of the decision rule under any non-default configuration.
+A change of an absolute decision in the E5 grid can then not be separated from a change of size,
+and because the power is unknown, a non-rejection in the grid is \INCONCL{} by construction: no
+grid configuration can return \GOOD{}. The size of the default real-data pipeline is measured by
+E1.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Planned and executed replication counts. ``Planned'' is Section 4 of the design
+    protocol or its change log or, where the protocol gives no number, the default of the
+    experiment script. ``As planned'' means no reduction. Seeds are synthetic seeds (independent
+    synthetic samples and test randomness); each seed of the E3 and E5 power checks is a full
+    run of the anchored test.}
+  \label{tab:impl-cuts}
+  \footnotesize
+  \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.30\linewidth}
+                  >{\raggedright\arraybackslash}p{0.33\linewidth}
+                  >{\raggedright\arraybackslash}p{0.31\linewidth}@{}}
+    \toprule
+    Experiment, part & Planned & Executed \\
+    \midrule
+    E1 (a), simulated panel placebo & 200 replications & 200 per cell (cells \texttt{joint},
+      \texttt{indep}) \\
+    E1 (b), ticker-half placebo & 100 splits in \TEST{} and 100 in \TRAIN{} & 50 and 50 \\
+    E1 (c), \TEST{} vs \TRAIN{} & 10 test seeds (script) & as planned \\
+    \addlinespace
+    E2 (a)--(d) & $n\in\{500,2000\}$; 200 replications under $H_0$, 100 per alternative &
+      as planned \\
+    E2 (e), relative test at the boundary & $n\in\{500,2000\}$, 200 replications &
+      $n=500$ only, 200 replications \\
+    E2 (f), learned vs exact log-likelihood ratio & 20 replications, three training budgets
+      (script) & as planned \\
+    E2 (g), dependent windows & $n=500$, 200 replications & as planned \\
+    E2-dep (added after the first E2 results) & $n\in\{500,2000\}$; 200 replications under
+      $H_0$, 100 per alternative (script) & $n=2000$ only; 100 and 50 \\
+    \addlinespace
+    E3, pooled tests & 10 seeds & 5 seeds; $\pmed$ over 5 seeds \\
+    E3, power check D1 and D2 & 200 replications per design (minimum 50), 10 seeds each &
+      100 per design, 5 seeds each \\
+    E3, per-ticker null & 10 pairs per ticker (script) & as planned \\
+    \addlinespace
+    E4, tests & 10 seeds & 2 seeds \\
+    E4, placebo & 200 replications per generator & 60 per generator \\
+    \addlinespace
+    E5, one-at-a-time grid & 14 configurations, 10 seeds & 14 configurations, 5 seeds \\
+    E5, alternative split & 10 seeds; rule power 50 replications per design & 5 seeds; 25 per
+      design \\
+    E5, critic training on simulated data & 100 replications per cell & 50 per cell \\
+    E5, size and rule power per configuration (\texttt{gridsize}, \texttt{gridpower},
+      \texttt{gridrealvol}) & 200 replications per size design; 50 per power design (100 for
+      the default) & not run \\
+    \addlinespace
+    Workers per process & 12 & 3--5 (memory) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Availability and provenance}\label{app:impl-avail}
+
+\paragraph{Code and records.}
+The package \texttt{synthval}, the experiment scripts, the command list
+\texttt{experiments/run\_full.sh}, the result files under \texttt{results/} and the scripts in
+\texttt{paper/scripts} that write the condensed tables of this paper are kept in one git
+repository. Next to its results, each experiment writes meta files
+(\texttt{results/<experiment>/meta*.json}) that record the configuration and root seed, the
+command line, the number of workers, the git commit and the list of uncommitted files at run
+time, a SHA-256 fingerprint of the source files of \texttt{synthval}, the package versions of
+\cref{app:impl-seeds} and the SHA-256 of the price file. The run logs, the checkpoints and the
+development runs are kept outside version control; the compute figures of
+\cref{app:impl-compute} are taken from the logs.
+
+\paragraph{Code state of each result.}
+Every part of E1--E5 ran with the same library fingerprint (prefix \texttt{32ae8a76}). All parts
+but one record commit \texttt{b7c16b8}, with at most two files of the experiments directory not
+committed: the command list (modified) and the script of E2-dep (new). Both are committed in the
+next commit, \texttt{38595f6}: the meta files of the ablation, run at that commit, no longer list
+them as uncommitted.
+The utility part of E4 records the earlier commit \texttt{2cb296e}, at which the library and the
+experiment scripts were not yet committed, with the same library fingerprint. The top-level meta
+file of each experiment, written by the final pass that produces its tables, records the SHA-256
+of the experiment script, and for all six scripts it equals that of the script in the
+repository. The command list arranges the runs in three lanes. E2 families (a)--(d) were started
+earlier in a separate shell, and E2-dep and the real-data parts of E1 ran in a fourth shell while
+lane A was busy, so lane A found their results in the checkpoints. The architecture ablation ran
+at commit \texttt{38595f6} with uncommitted changes to the network module and, for its simulated
+part, to the critic and classifier modules, and with its script not yet committed. Its library
+fingerprints (prefixes \texttt{40704594} for the real-data part and \texttt{ada27d81} for the
+simulated part) therefore differ from that of E1--E5; the changes were committed afterwards
+(commit \texttt{764c44f}) together with a device option, and the script in the repository has
+the SHA-256 recorded in the ablation's meta file.
+
+\paragraph{Device.}
+All reported runs, the ablation included, used the CPU build of PyTorch 2.15.0 with one thread
+per worker. The device option, which no reported run uses, moves the networks to a GPU
+(environment variable \texttt{SYNTHVAL\_DEVICE}, default CPU) while every random draw (initial
+weights, mini-batch indices, interpolation weights) stays on the CPU generator. A GPU run then
+sees the same mini-batches and initial weights, but differs by floating-point rounding and by
+non-deterministic GPU kernels, so it need not reproduce the reported numbers digit for digit.
+
+\paragraph{Data.}
+The prices are a Bloomberg export: the fields \texttt{PX\_LAST} and \texttt{PX\_VOLUME} of the
+503 tickers that were S\&P~500 constituents at extraction, requested from 2018-01-01 to
+2025-06-17. Bloomberg data are licensed, so the price file is not distributed
+with the code. A user with Bloomberg access can rebuild the inputs from the 100 tickers of
+\cref{tab:data-panel} (E1, whose factor panel is fitted to them, E3 and E5) and from the E4
+universes, listed in \texttt{results/e4/universes.csv}, with the rules of \cref{app:data}. The
+SHA-256 recorded in every meta file,
+\texttt{ddfd0d23dc274a58\allowbreak f8089e53b3872754\allowbreak 005033447d77eb26\allowbreak
+50a0795382f832dc}, identifies the extract that was used. E2 and E2-dep use no data.
+
+\paragraph{Pilots.}
+Three choices rest on checks that are recorded only in the change log of the protocol and cannot
+be reproduced from the repository: the learning rate $10^{-3}$ of the critic (an informal check
+before any E2 run, \cref{sec:method-critic}), the defaults of the classifiers (the pilot of 40
+replications of \cref{app:impl-nets}) and the time-pooled architecture of the ablation (a pilot
+on four E2 designs at $n=500$). The first two fixed settings of the pre-specified tests; the
+third concerns only the post-hoc ablation. The development runs of the experiment scripts, with
+reduced settings, are also kept outside version control (\cref{app:impl-compute}).

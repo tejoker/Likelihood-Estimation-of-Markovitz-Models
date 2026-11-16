@@ -1,25 +1,211 @@
 \section{Robustness}\label{sec:robust}
 % =============================================================================================
-% Target length: 1.5 pages including 2 tables and 1 figure (details in \cref{app:robust}).
-% Experiment: E5 (experiments/e5_robustness.py), parts run: grid, split, simpower
-% (gridsize, gridpower, gridrealvol not run: compute budget, DESIGN change log). Plan:
-% OUTLINE.md, Section 9.
-%
-% Planned content:
-%  - One-at-a-time grid (L in {5, 10, 60}; width x depth 32x2, 256x4; steps 500, 3000;
-%    lr 1e-4; GP weight 1; 4 time blocks; train fraction 0.3, 0.7; Newey-West lag rule):
-%    changes of the absolute and relative decisions and of the verdicts against the default
-%    (tab:e5-sensitivity, fig:e5-sensitivity). Without gridsize/gridpower the per-configuration
-%    size and power are not re-estimated: say which verdict changes are therefore uninterpretable
-%    (\todo{check what e5_calibration.tex contains as run}).
-%  - Alternative split TRAIN 2018-2021 / TEST 2022-2025 (full E3 battery, rule power with 25
-%    replications as run): tab:e5-split.
-%  - Critic training settings on simulated alternatives (lr x steps, n_perm 200 vs 1000):
-%    tab:e5-simpower (appendix).
-% Tables/figures (file -> label):
-%   e5_sensitivity.tex -> tab:e5-sensitivity (main); e5_sensitivity.pdf -> fig:e5-sensitivity (main)
-%   e5_split.tex -> tab:e5-split (main); e5_simpower.tex -> tab:e5-simpower (appendix)
-%   e5_calibration.tex -> tab:e5-calibration (appendix, if produced)
+% E5 (experiments/e5_robustness.py; parts grid, split, simpower as run; gridsize, gridpower,
+% gridrealvol not run) and the post-hoc architecture ablation (experiments/e5_architecture.py ->
+% results/e5arch/ -> tables e5_arch_sim.tex, e5_arch_real.tex).
+% Main text: tab:manual-e5-sensitivity, fig:e5-sensitivity, tab:manual-e5-split (condensed tables
+% written by paper/scripts/e5_tables.py; the generated e5_sensitivity.tex and e5_split.tex are too
+% wide for the main text and are in app:robust as tab:e5-sensitivity, tab:e5-split).
+% Numbers: paper/tables/e5_*.tex, manual_e5_*.tex, results/e5/*.csv, results/e5arch/*.csv,
+% results/e3/e3_{power,realvol}_{raw,summary}.csv. Derived counts (orderings, McNemar tests):
+% recomputed from the raw CSVs. Paired alternative/boundary outcomes of the rule in D1/D2 at both
+% splits (minimum boundary pmed, alternatives below it): paper/scripts/e5_split_discrimination.py
+% -> paper/tables/manual_e5_split_paired.tex (input in app:robust as tab:manual-e5-split-paired).
+% Architecture pilot: docs/DESIGN.md change log 2026-11-16 ("four E2 designs at n = 500"; the pilot
+% itself is not in the repository).
 % =============================================================================================
-\todo{Section to be written (OUTLINE.md, Section 9). Anchor citations:
-\citet{andrews1991heteroskedasticity}, \citet{newey1994automatic}.}
+
+E5 reruns the real-data decision rule of \cref{sec:method-decision} under one-at-a-time changes of
+its tuning choices and under an alternative \TRAIN/\TEST{} split, and examines the optimiser
+settings of the critic on simulated data; a post-hoc ablation replaces the critic network. Every
+real-data run uses the 100 tickers, fitted models, five synthetic seeds and test randomness of
+E3, so the default configuration reproduces E3 exactly: its 50 p-values (absolute \WC{} and
+anchored tests, five generators, five seeds) are identical to those of E3. Three planned parts
+were not run for lack of compute (\cref{app:robust}): the size of the absolute test under each
+configuration, and the power and boundary size of the rule under each configuration in designs
+D1 and D2. A non-default configuration therefore has no power estimate; its verdict can be \BAD{}
+or \INCONCL{} but not \GOOD, and \INCONCL{} there only means that the anchored test did not
+reject. The size of the default pipeline is measured in E1 (\cref{tab:e1-size-sim}): at nominal
+5\% the absolute \WC{} and anchored tests reject a true null at 0.085 and 0.080 when the synthetic
+panel is a joint draw, but at 0.270 and 0.155 when the synthetic tickers are independent, as they
+are for the univariate generators examined here.
+
+\paragraph{Sensitivity grid.}
+The grid changes one setting at a time (\cref{tab:manual-e5-sensitivity,fig:e5-sensitivity}): the
+window length $L\in\{5,10,60\}$ (default 20), the width and depth of the critic ($32\times2$ and
+$256\times4$; default $128\times3$), the number of training steps (500 and 3000; default 1000),
+the learning rate ($10^{-4}$; default $10^{-3}$), the gradient-penalty weight ($\lgp=1$; default
+10), the number of time blocks ($K=4$; default 10), the training fraction (0.3 and 0.7; default
+0.5) and the HAC lag rule (the rule of \citet{newey1994automatic} instead of the plug-in of
+\citet{andrews1991heteroskedasticity}). Each change applies to the absolute and to the anchored
+test. Three results hold in every configuration. First, the absolute \WC{} test rejects at 5\% in
+69 of the 70 configuration--generator cells; the exception is the stationary bootstrap with $K=4$
+($\pmed=0.095$). Second, the anchored test never rejects \GARCHt{}: its $\pmed$ ranges from 0.100
+($L=5$) to 1.000. Third, the extremes of the ranking of the likelihood models do not change. In
+every configuration GBM has the smallest anchored $\pmed$ and \GARCHt{} the largest (shared with
+Heston at 1.000 when the training fraction is 0.3), and the median absolute statistic decreases
+from GBM to Merton, Heston and \GARCHt{}. The anchored order of Merton and Heston is not stable:
+Heston has the smaller $\pmed$ with $L=60$ (0.070 against 0.110) and with the $256\times4$ network
+(0.028 against 0.029). Both statistics thus rank GBM below Merton and Merton below \GARCHt, the
+order of the predictive log-score (\cref{tab:e3-agreement}).
+
+The \BAD{} verdicts are less stable. The anchored test rejects GBM in 13 of the 14
+configurations, Merton in 11 and Heston in 9. All nine changes against the default go from
+rejection to non-rejection; no configuration rejects a generator that the default does not
+reject. They occur where the anchored test has fewer evaluation dates or a weaker critic: longer
+windows ($L=60$ leaves 10 windows per ticker in \TEST; Merton $\pmed=0.110$, Heston 0.070), a
+30\% training share (GBM 0.170, Merton 0.671, Heston 1.000), four time blocks (Merton 0.236,
+Heston 0.379) and, for Heston only, the small network (0.102) and the lower learning rate
+(0.079). Shorter windows, the larger network, fewer or more steps, $\lgp=1$, a 70\% training
+share and the Newey--West rule change no decision, but the narrowest decision of the grid is
+among them: with 500 steps Heston has $\pmed=0.0499$, printed as 0.050 in
+\cref{tab:manual-e5-sensitivity} and just below the level. At the default, Merton ($\pmed=0.005$) and
+Heston (0.017) are closer to the level than GBM ($<0.001$). \Cref{fig:e5-sensitivity} also shows
+why the seeds are combined: the single-seed p-values of one generator in one configuration
+spread over several orders of magnitude (\cref{rem:combine-seeds}).
+
+\begin{table}[tbp]
+  \centering
+  \caption{Sensitivity of the E3 decisions to one-at-a-time changes of the pipeline (E5 grid;
+    100 tickers, \TEST{} 2023-01-03 to 2025-06-16, five synthetic seeds, $\alpha=0.05$).}
+  \label{tab:manual-e5-sensitivity}
+  \small
+  \fittable{manual_e5_sensitivity}
+  \tablenote{Generator columns: $\pmed=\min\{1,2\med_sp_s\}$ over the five seeds of the
+    Driscoll--Kraay p-values (time-block split) of the anchored relative test, followed by the
+    verdict (B = \BAD, I = \INCONCL). $^\dagger$: the decision at 5\% differs from the default row.
+    $^\ddagger$: relative test invalid for the stationary bootstrap (no verdict). Last column:
+    number of the five generators that the absolute \WC{} test ($\pmed$ over the same seeds)
+    rejects at 5\%. The power check was not rerun for any configuration, so a non-default verdict
+    is \BAD{} or \INCONCL{}; the default verdicts coincide with \cref{tab:e3-verdicts}, whose power
+    comes from \cref{tab:e3-power}. All p-values: \cref{tab:e5-sensitivity} in \cref{app:robust}.}
+\end{table}
+
+\begin{figure}[tbp]
+  \centering
+  \inputfigure{e5_sensitivity}
+  \caption{p-values of the E5 grid (100 tickers, \TEST{} 2023-01-03 to 2025-06-16, five synthetic
+    seeds). Left: anchored relative test; right: absolute \WC{} test; one row per configuration.
+    Open markers: the five single-seed Driscoll--Kraay p-values; filled markers:
+    $\pmed=\min\{1,2\med_sp_s\}$. Dashed line: $\alpha=0.05$. p-values below $10^{-4}$ are drawn at
+    the left edge. The stationary bootstrap is faint in the left panel because its relative test
+    is invalid.}
+  \label{fig:e5-sensitivity}
+\end{figure}
+
+\paragraph{Alternative split.}
+With \TRAIN{} returns from 2018-01-03 to 2021-12-31 and \TEST{} 2022-01-03 to 2025-06-16 (50 and 43 windows
+per ticker), the five generators are refitted and the full E3 battery is rerun with five seeds;
+the power and boundary size of the rule are estimated at the sizes of this split with 25
+replications per design (\cref{tab:manual-e5-split}). The absolute tests reject fewer
+generators, although \TEST{} is longer than at the main split. The \WC{} test rejects only GBM
+($\pmed<0.001$; Merton 0.055, Heston 0.076, \GARCHt{} 1.000), against all five generators at the
+main split, and no valid window test rejects \GARCHt{} or the bootstrap. The anchored test rejects
+no generator (GBM 0.091, Merton 0.704, \GARCHt{} 0.516, Heston 0.966). The power of the rule is
+1.00 [0.87, 1.00] in D1 but 0.60 [0.41, 0.77] in D2, below $\bmin$, so every verdict is
+\INCONCL{}. None of the three \BAD{} verdicts of the main split is reproduced.
+
+The boundary sizes show that \INCONCL{} is the right outcome, for a reason that the rule does not
+encode. In D1 the rule never rejects at the boundary (0.00 [0.00, 0.14], Clopper--Pearson). In D2
+its boundary size is 0.60 [0.39, 0.79]: a generator that reproduces the pooled \TRAIN{} window law
+exactly is declared worse than history in 15 of 25 replications. These are the same 15
+replications in which the alternative $G^*=1.2\,G^0$ is rejected, and the alternative is rejected
+in no other replication (\cref{app:robust}). At the nominal threshold the D2 power of the rule is
+therefore not interpretable. The critic still separates the two laws: in each of the 15 rejecting
+replications the alternative has $\pmed\le7.8\times10^{-6}$, below the smallest boundary $\pmed$ of
+the 25 replications ($3.8\times10^{-5}$), so a critical value just below that smallest boundary
+value, itself estimated from these replications, would reject the boundary in none of the 25 and
+the alternative in the same 15 (\cref{tab:manual-e5-split-paired} in \cref{app:robust}). What fails at this split is the calibration of the nominal
+threshold, not discrimination; whether the nominal test fires depends on the draw of the
+replication. The median anchored statistic at the D2 boundary is 0.231, against 0.012 at the main
+split, so the anchored target at the pooled-\TRAIN{} boundary is far from zero, the case that
+\cref{rem:nonstat-past} anticipates for a heterogeneous past. Three consequences follow. First, a
+\BAD{} verdict at this split, read at the nominal threshold, would have said nothing about the
+generator. Second, the rule \eqref{eq:verdict} checks power but not boundary size, and
+its \BAD{} branch can be interpreted only where the estimated boundary size is close to $\alpha$,
+as at the main split (D1 0.00 [0.00, 0.04], D2 0.08 [0.04, 0.15]; \cref{tab:e3-power}). A rule
+that turns \BAD{} into \INCONCL{} whenever the Clopper--Pearson interval of the boundary size lies
+above $\alpha$ would encode this; it is not the rule that produced our tables. Third, under
+non-stationarity a verdict is a statement about one pair of periods: the past that serves as the
+benchmark changes with the split, and so do the verdicts and the absolute rejections.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Alternative split (E5): \TRAIN{} 2018-01-03 to 2021-12-31, \TEST{} 2022-01-03 to
+    2025-06-16, same 100 tickers, generators refitted; five synthetic seeds; rule power and
+    boundary size from 25 replications per design; $\alpha=0.05$.}
+  \label{tab:manual-e5-split}
+  \small
+  \fittable{manual_e5_split}
+  \tablenote{Entries are $\pmed$ over the five seeds of the Driscoll--Kraay p-values (time-block
+    split) of the absolute \WC{} test and of the anchored relative test; bold: absolute rejection
+    at 5\%. $^\ddagger$: relative test invalid for the stationary bootstrap (verdict n/a). Rule
+    power (synthetic volatility $\times1.2$) and boundary size: share of replications (number in
+    parentheses) in which $\pmed\le0.05$ over five seeds, at the sizes of each split, with Wilson
+    (power) and Clopper--Pearson (boundary size) 95\% intervals; main split as in
+    \cref{tab:e3-power}. All tests of the battery: \cref{tab:e5-split} in \cref{app:robust}.}
+\end{table}
+
+\paragraph{Optimiser settings.}
+On simulated independent windows with exact permutation p-values ($n=500$ windows per sample, 50
+replications per cell; \cref{tab:e5-simpower}), the default critic has power 0.40 [0.28, 0.54]
+against a 10\% increase in the volatility of Student-$t_5$ returns and 0.30 [0.19, 0.44] against
+GARCH persistence 0.90 instead of 0.98. With learning rate $10^{-4}$ and the default 1000 steps,
+the power against the volatility shift rises to 0.78 [0.65, 0.87], while against clustering it
+is 0.34 [0.22, 0.48], not detectably different. Power is not monotone in the training budget: at
+rate $10^{-4}$ it is highest at 1000 steps, and 500 steps under-train the critic. The level does
+not depend on any of these settings (\cref{prop:exact-level}); the power does. The defaults were
+fixed before any E2 run and were not re-tuned on these results, so the \WC{} power of
+\cref{sec:sim} is that of the default and may understate what a differently trained critic
+achieves against volatility-level deviations. On real data the lower rate did not reject more;
+it turned Heston from \BAD{} to \INCONCL{} ($\pmed=0.079$). Its rule power in D1 and D2 was not
+estimated, so this change can be attributed neither to size nor to power, and whether the lower
+rate would raise the D2 power of the rule is unknown.
+
+\paragraph{Critic architecture.}
+The network matters at least as much as the optimiser, but the evidence for the alternative
+network is weaker than for the default. A time-pooled convolutional critic, which averages one
+learned function of nine-day patches over the window (\cref{app:robust}), was chosen after the
+real-data results were known and after a pilot on four E2 designs at $n=500$ had shown it to be
+more powerful than the perceptron; the pilot is not part of the reported experiments. It is
+therefore a post-hoc ablation, and the pre-specified verdicts remain those of the perceptron. In
+replications paired with those of E2 and E2-dep (\cref{tab:e5-arch}), it keeps the level with
+independent windows (0.06 and 0.05 in 200 null replications) and raises the power in every
+alternative design, significantly in all but the block design of E2-dep: from 0.10 to 0.98
+against lighter tails ($t_{10}$ against $t_4$), from 0.10 to 0.92 when every synthetic window is
+GBM instead of Merton, and from 0.36 to 0.88 against persistence 0.90. Because the network was
+selected on E2 designs of this kind, possibly on some of these very cells, the E2 gains are
+optimistic. The two E2-dep cells ($n=2000$), outside the pilot as recorded, are the closest to
+held-out evidence: 0.90 and 0.96 against 0.46 and 0.86 for the perceptron (exact McNemar
+$p<0.001$ and $p=0.18$). In the designs on which the pooled critic was selected, the weakness of
+the \WC{} test against marginal deviations in \cref{sec:sim} is thus largely a property of the
+multilayer perceptron. The size of the pooled critic under the dependent protocol (E1(a)) was not
+measured. On the S\&P~500 panel it gives the same five decisions (\cref{tab:e5-arch-real}). Its
+rule power and boundary size were estimated only in the first 20 replications of D1 and D2, where
+they equal those of the perceptron on the same replications: power 1.00 and 0.45 [0.26, 0.66],
+boundary size 0.00 and, in D2, 0.20 [0.06, 0.44] (Clopper--Pearson), against 0.08 [0.04, 0.15]
+over all 100 replications of the perceptron. These replications are not representative of E3 at
+the D2 boundary and cannot separate the two networks. Whether a more powerful critic, or the
+lower learning rate, would lift the D2 power above $\bmin$ is therefore open.
+
+\paragraph{What is robust.}
+At the main split, across the thirteen changes of the grid, the absolute \WC{} test rejects every
+parametric generator (and the bootstrap in every configuration but the one with four time blocks,
+$\pmed=0.095$), the anchored test does not reject \GARCHt{}, and both statistics rank GBM below
+Merton and Merton below \GARCHt. At the alternative split the absolute \WC{} test rejects only GBM
+and the anchored test rejects no generator. \GARCHt{} is therefore never \BAD{}; it is never
+\GOOD{} either, because its D2 power is below $\bmin$ at both splits and was not estimated in the
+grid. GBM is \BAD{} in all but one configuration of the grid. Four conclusions are not robust. The
+\BAD{} verdicts of Merton and Heston disappear under three and five of the thirteen changes, and
+that of Heston with 500 steps rests on $\pmed=0.0499$. No \BAD{} verdict survives the change of
+split, and at the alternative split the nominal threshold of the rule is not calibrated at the
+boundary in the design with the real volatility path, although the critic still separates the
+alternative from the boundary. The absolute rejections of Merton, Heston, \GARCHt{} and the
+bootstrap also disappear at that split. The power of the \WC{} test depends on the optimiser
+settings, not monotonically, and on the network. The rule power on real data, on which a \GOOD{}
+verdict depends, has been estimated only for the default optimiser, with the perceptron and, in
+20 replications, with the pooled critic. The exact level for independent windows holds for every
+setting. On real data, calibration at the relative boundary is a
+property of the chosen periods and has to be checked for each split, as the boundary size does.
+Whether a generator is good enough for a task such as portfolio construction has to be checked
+on that task (\cref{sec:markowitz}).

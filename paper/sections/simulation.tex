@@ -1,48 +1,449 @@
 \section{Simulation evidence}\label{sec:sim}
 % =============================================================================================
-% Target length: 5 pages including 2 figures and 3 tables (rest in \cref{app:sim}).
-% Experiments: E2 (experiments/e2_ground_truth.py: parts main_a..main_d, e, f, g) and E2-dep
-% (experiments/e2_dependence.py: families mix, block). Independent windows (one burned-in path
-% per window) => permutation p-values exact, except part g. Numbers only from the generated
-% tables; quote rates with their Wilson intervals. Plan: OUTLINE.md, Section 5.
-%
-% Planned subsections (labels):
-%  \subsection{Design}                                             \label{sec:sim-design}
-%     base laws (daily vol 0.02, mean 3e-4): t(5); t(4); GARCH(1,1)-t a = 0.08, b = 0.90, nu = 5;
-%     Merton (lambda_J = 0.05, jumps N(-0.01, 0.04^2)); GBM. Families (a) volatility level,
-%     (b) tails, (c) clustering at matched variance, (d) jumps (window mixture); n in
-%     {500, 2000} windows of L = 20; 200 replications under H_0, 100 otherwise; common random
-%     numbers across levels; oracle exact for (a), (b), (d), Monte Carlo GARCH density (512
-%     draws) for (c). E2-dep: marginal held exactly fixed, dependence changed (mix, block);
-%     \todo{E2-dep sizes as run: n = 2000 only, 100/50 replications (compute budget)}.
-%  \subsection{Size}                                               \label{sec:sim-size}
-%     all window tests hold their level with independent windows (tab:e2-size in appendix,
-%     summarised here); KS oversized in family (c) (within-window dependence).
-%  \subsection{Power against marginal and dependence deviations}   \label{sec:sim-power}
-%     fig:e2-power + tab:e2-power: clustering at matched variance -> window tests have power
-%     (critic close to MMD and Sig-MMD, above C2ST and LR-critic); marginal deviations (vol
-%     level, tails, jumps) -> pooled KS far more powerful than every window test; distance to
-%     the oracle; interpret with prop:local-power (factor <= 1/2) and prop:oracle-bound.
-%     fig:e2dep-power: dependence-only deviations, KS powerless by construction (and invalid).
-%     State plainly where simpler tests win.
-%  \subsection{The relative test at its boundary}                  \label{sec:sim-relative}
-%     tab:e2-relative-boundary (+ note): anchored size at Law(G) = Law(R_past) versus two-critic
-%     over-rejection (prop:boundary-size, prop:anchored); interior cells (G = P_new better,
-%     GARCH 0.90 / GBM worse); resample generator: grouped split (size) vs naive split
-%     (leakage demonstration, not a size). n = 500 only (budget).
-%  \subsection{Learned versus exact log-likelihood ratio}          \label{sec:sim-llr}
-%     tab:e2-llr (+ note), fig:e2-llr-scatter (appendix): Spearman / calibration slope of the
-%     learned logit vs log p/q for GBM vs Merton and GARCH 0.98 vs 0.90, three training budgets.
-%  \subsection{Dependent windows}                                  \label{sec:sim-dependent}
-%     tab:e2-dependent-size: consecutive windows of one GARCH path; random-split permutation
-%     oversized; time-block + HAC and wild bootstrap closer to nominal; motivates the real-data
-%     protocol (link to rem:naive-perm, prop:hac).
-% Tables/figures (file -> label; wrapper template in OUTLINE.md):
-%   figures/e2_power.pdf -> fig:e2-power (main)        tables/e2_power.tex (+e2_power_note) -> tab:e2-power (main)
-%   figures/e2dep_power.pdf -> fig:e2dep-power (main)  tables/e2_relative_boundary.tex (+note) -> tab:e2-relative-boundary (main)
-%   tables/e2_dependent_size.tex -> tab:e2-dependent-size (main)
-%   tables/e2_llr.tex (+e2_llr_note) -> tab:e2-llr (main or appendix)
-%   appendix: tab:e2-size, tab:e2-power-ci, tab:e2dep-size, tab:e2dep-power, fig:e2-llr-scatter
+% Owner: simulation writer. Plan: OUTLINE.md, Section 7. Experiments: E2 (e2_ground_truth.py,
+% parts main_a..main_d, e, f, g), E2-dep (e2_dependence.py, families mix and block) and E1(a)
+% (e1_placebo.py --part sim). Runs as executed (results/*/meta*.json): E2 main n in {500, 2000},
+% 200 / 100 replications; E2 part e n = 500 only, 200 replications; part f 20 replications;
+% part g n = 500, 200 replications; E2-dep n = 2000 only, 100 / 50 replications; E1(a) 200
+% replications per cell (joint, indep).
+% Numbers: generated tables (paper/tables/*.tex) and the manual tables written from results/ by
+% paper/scripts/{e1_size_sim_main, e2_relative_boundary_main, e2_llr_main, e1_sim_diag,
+% e1_sim_se_diag, e2dep_check}.py. Derived counts in the text (size ranges, 3 of 150 intervals,
+% best window test per alternative, W-critic vs LR-critic counts) were computed from
+% results/e2/e2_rejection.csv and results/e2dep/e2dep_rejection.csv; McNemar counts from
+% results/e1/e1_sim_paired.csv. Classifier checkpoint counts: app:impl-nets (app_impl.tex).
+% E2-dep timing: DESIGN.md change log, entry 2026-11-15 (lead) on e2_dependence.py.
+% Labels defined here: sec:sim(-design, -size, -power, -relative, -llr, -dependent),
+% fig:e2-power, tab:e2-power, fig:e2dep-power, tab:e2-relative-boundary, tab:e2-llr,
+% tab:e2-dependent-size, tab:e1-size-sim (condensed; full table tab:e1-size-sim-full in app:sim),
+% tab:e1-sim-se (statistic vs standard error in E1(a), paper/scripts/e1_sim_se_diag.py).
 % =============================================================================================
-\todo{Section to be written (OUTLINE.md, Section 5). Anchor citations:
-\citet{bollerslev1986generalized}, \citet{merton1976option}, \citet{lehmann2022testing}.}
+
+This section measures size and power where the laws that generate the data are known. In brief:
+with independent windows every window test holds its level; with dependent windows the protocol of
+\cref{sec:method-inference} is close to nominal when the synthetic panel shares the dependence
+structure of the real one, but the learned tests over-reject when the synthetic tickers are
+independent, mostly in the replications where their standard error is small; KS on pooled returns
+is far more powerful than every window test against deviations of the marginal law, has no power
+against deviations of the dependence alone and is invalid when returns within a window are
+dependent; all tests are far below the Neyman--Pearson oracle; the anchored relative test is at
+its nominal level at its boundary; and no learned score is a good estimate of the log-likelihood
+ratio.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Design}\label{sec:sim-design}
+
+\paragraph{Independent windows (E2).}
+Every base law has a mean daily log-return of $3\times10^{-4}$ and an unconditional daily standard
+deviation of 0.02: \iid{} standardised Student-$t_\nu$ returns; \GARCHt{}
+\citep{bollerslev1986generalized,bollerslev1987conditionally} with $a=0.08$, $b=0.90$ (persistence
+$a+b=0.98$) and $\nu=5$; a Merton jump-diffusion \citep{merton1976option} with $\lambda_J=0.05$ jumps
+per day and jump sizes $N(-0.01,0.04^2)$, which carry 21\% of the variance; and Gaussian GBM
+returns. Every window is simulated from its own path (GARCH after a burn-in of 250 days), so the
+windows are \iid{} and the permutation p-values have exact level (\cref{prop:exact-level}). The four
+families of alternatives have levels $k=0,\dots,4$, with $k=0$ the null $Q=P$:
+(a) \emph{volatility level}, $P=t_5$ and $Q$ the same law with volatility multiplied by
+$1+\vartheta$, $\vartheta\in\{0,0.05,0.1,0.2,0.3\}$;
+(b) \emph{tails}, $P=t_4$ and $Q=t_\nu$, $\nu\in\{4,6,10,30,\infty\}$, at matched variance;
+(c) \emph{volatility clustering}, $P$ the \GARCHt{} law above and $Q$ the same with persistence
+$a+b\in\{0.98,0.95,0.90,0.80,0\}$, the same $a$, $\nu$ and unconditional variance (persistence 0 is
+the \iid{} $t_5$ law);
+(d) \emph{jumps}, $P$ Merton and each $Q$ window a variance-matched GBM window with probability
+$\vartheta\in\{0,0.25,0.5,0.75,1\}$ and a Merton window otherwise.
+Both samples have $n=m\in\{500,2000\}$ windows of $L=20$ days, with 200 replications under $H_0$ and
+100 at each alternative; within a family and sample size the real sample of a replication is shared
+by all levels. The tests use the defaults of \cref{tab:method-defaults} (multilayer-perceptron critic;
+permutation p-values with $B=1000$ for learned and $B=500$ for kernel tests; asymptotic KS). The
+oracle \eqref{eq:lr-oracle} is exact in families (a), (b) and (d); in (c) it integrates the window
+density over the start variance with $M=512$ Monte Carlo draws, so it keeps its exact level but is
+only approximately most powerful (\cref{sec:method-competitors}).
+
+\paragraph{Dependence-only alternatives (E2-dep).}
+Every E2 alternative changes the marginal law of a daily return, in family (c) as a by-product: at
+matched unconditional variance, lower GARCH persistence gives a marginal with thinner tails. E2-dep
+holds the marginal exactly fixed. $P$ is the \GARCHt{} law of family (c). In the \emph{mixture}
+family a share $\vartheta\in\{0,0.25,0.5,0.75,1\}$ of the $Q$ windows consists of $L$ independent
+returns, the return at position $t$ taken from position $t$ of its own independent $P$ window; the
+other windows are $P$ windows. In the \emph{block} family a $Q$ window concatenates $L/L_b$ blocks
+of length $L_b\in\{20,10,5,2,1\}$, each cut at its own positions from an independent $P$ window
+($L_b=20$ is the null; $L_b=1$ is the law of $\vartheta=1$). This is what a block bootstrap with
+blocks shorter than the memory of volatility does \citep{kunsch1989jackknife,politis1994stationary}:
+every return keeps its law, and the clustering within a window is broken (diagnostics in
+\cref{tab:e2dep-check}). Tests are those of E2; the oracle uses Monte Carlo densities (exact level,
+approximate optimality). As run, E2-dep has $n=2000$ only, with 100 replications under $H_0$ and 50
+per alternative, a compute cut from the designed $n\in\{500,2000\}$ and 200/100 replications
+(\cref{app:impl}). E2-dep is not part of the original protocol: it was added after the first E2
+results showed pooled KS dominating every family that changes the marginal (change log of the
+protocol; \cref{tab:impl-cuts}), so it is a design chosen in view of those results; every E2
+result is reported beside it.
+
+\paragraph{Further designs.}
+E2 part e draws three independent samples of $n=500$ \iid{} windows: $\Rnew$ from $\Pnew$ (the
+\GARCHt{} law, persistence 0.98), $\Rpast$ from $\Ppast$ and $G$. Either $\Ppast=\Pnew$ and
+$G\sim\Ppast$, or $\Ppast$ has persistence 0.95 and $G$ is drawn from $\Ppast$ (boundary), from
+$\Pnew$ (interior: better than the past), from the persistence-0.90 law or GBM (worse than the
+past), or is an \iid{} resample of the $\Rpast$ windows, tested once with the split grouped by
+source window and once with a random split. The anchored (permutation) and two-critic (paired
+bootstrap, $B=500$) tests run on the same data, 200 replications per cell; $n=2000$ was cut for
+compute. Part f fits the \LRC{} logit on 2000 windows of each law, for GBM against Merton and for
+persistence 0.90 against 0.98, under three training budgets (the test default with early stopping;
+1000 steps without early stopping; 3000 steps at learning rate $10^{-4}$), fits the \WC{} critic on
+the same data, and compares the scores with the exact $\log(p/q)$ on 2000 fresh windows, in 20
+replications. Part g builds each sample from $n=500$ consecutive windows of one long \GARCHt{}
+path; the two paths are independent, so $H_0$ holds, but the windows of a sample are dependent;
+200 replications.
+
+\paragraph{Simulated panel placebo (E1(a)).}
+E1(a) runs the complete real-data pipeline, with the dimensions of E3, on data for which the null
+holds. A one-factor panel $r_{it}=\mu_i+\beta_im_t+e_{it}$, with the equal-weight panel return
+$m_t$ and the residuals following \GARCHt{} processes (\cref{sec:data-generators}), is fitted once to
+the \TRAIN{} returns of the 100 tickers. Each replication simulates one stationary path of
+$\Ttr+\Tte$ days and cuts it into $\Rpast^*$ and $\Rnew^*$, so that, as on real data, the last past
+windows border the first new ones; $G^*$ is an independent draw of \TEST{} length. In the cell
+\emph{joint}, $G^*$ is a draw of the whole factor panel; in the cell \emph{indep}, each synthetic
+ticker comes from its own panel draw, so the tickers keep their marginal laws but are independent,
+as for the univariate generators of E3. Windows, scaling, date ranks, split and inference are
+those of E3 (3000, 3000 and 6200 windows in $\Rnew^*$, $G^*$, $\Rpast^*$); the learned tests are also
+run with a ticker split, the naive protocol. The two cells share $\Rpast^*$, $\Rnew^*$ and the test
+seeds; 200 replications each.
+
+Rejection rates are reported with Wilson 95\% intervals \citep{wilson_1927_probable}, at
+$\alpha=0.05$ unless stated otherwise.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Size}\label{sec:sim-size}
+
+With independent windows every window test holds its level. Under $H_0$ at nominal 5\%, the
+rejection rates of the five window tests lie between 0.025 and 0.070 over the 40 combinations of
+family, sample size and test in E2, and between 0.030 and 0.080 over the 10 combinations of E2-dep;
+every Wilson interval contains 0.05 (\cref{tab:e2-size,tab:e2dep-size} in \cref{app:sim}). Over the
+levels 0.01, 0.05 and 0.10, 3 of the 150 intervals miss the nominal level, all at 0.01 or 0.10,
+which is no more than chance produces. The tests are exact, so this checks the implementation
+rather than the theory. KS is the exception: its p-value assumes \iid{} returns, and the returns of
+a GARCH window share their conditional variance. In family (c) it rejects a true null at 0.110
+[0.074, 0.161] with $n=500$ and 0.080 [0.050, 0.126] with $n=2000$, and in the E2-dep mixture family
+at 0.100 [0.055, 0.174] (\cref{rem:ks-marginal}(ii)). With dependent windows it rejects in almost
+every replication (\cref{sec:sim-dependent}).
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Power against marginal and dependence deviations}\label{sec:sim-power}
+
+\begin{figure}[tbp]
+  \centering
+  \inputfigure{e2_power}
+  \caption{Power against the four E2 families at nominal level 0.05, independent windows of
+    $L=20$ days. Solid lines: $n=500$ windows per sample; dashed: $n=2000$. Rejection rates over
+    200 replications under $H_0$ (leftmost point) and 100 per alternative; bars are Wilson 95\%
+    intervals; dotted line at 0.05. The axes write $\delta$ for $\vartheta$ and $\alpha+\beta$ for
+    the persistence $a+b$. Family (c): KS (faded) is not a valid test (oversized under $H_0$), and
+    the oracle uses a Monte Carlo window density ($M=512$ draws, $K$ in the figure).}
+  \label{fig:e2-power}
+\end{figure}
+
+\begin{table}[tbp]
+  \centering
+  \caption{Power against the four E2 families: rejection rates at $\alpha=0.05$, independent
+    windows of $L=20$ days, $n$ windows per sample, 200 replications at the null level (first row
+    of each block) and 100 per alternative. Levels: volatility factor $1+\vartheta$ in (a),
+    degrees of freedom $\nu$ of $Q$ in (b), persistence $a+b$ of $Q$ in (c), share $\vartheta$ of
+    GBM windows in (d). Wilson 95\% intervals: \cref{tab:e2-power-ci}.}
+  \label{tab:e2-power}
+  \small
+  \fittable{e2_power}
+  \tablenote{\inputnote{e2_power_note}}
+\end{table}
+
+\paragraph{Deviations of the marginal: KS wins.}
+Against changes of volatility level, tails and jumps, KS on the pooled returns is far more powerful
+than every window test (\cref{fig:e2-power,tab:e2-power}). It rejects a $t_6$ law against a $t_4$
+law in every replication at both sample sizes, where the best window test rejects at 0.10 ($n=500$)
+and 0.18 ($n=2000$). Against jumps it rejects at 0.98 at $\vartheta=0.5$ with $n=2000$, whereas no
+window test exceeds 0.20 anywhere in family (d), and for $\vartheta\le0.5$ the window tests reject
+at most at 0.08, about their null rates. Against a 5\% volatility increase KS rejects at 0.41
+($n=500$) and always ($n=2000$); the best window test, MMD, at 0.24 and 0.93, the \WC{} test at 0.09
+and 0.58. \Cref{rem:ks-marginal}(i) explains why: when returns are \iid{} within windows, the pooled
+marginals are sufficient, and KS uses all $nL$ returns without splitting or learning, whereas a
+window test must discover an additive function of 20 coordinates from half of the windows. A user
+who cares only about the marginal law of daily returns should test it directly, with a p-value that
+is valid under the dependence of the data.
+
+\paragraph{Volatility clustering.}
+At matched variance the window tests detect lower persistence, and their power grows quickly with
+$n$. With $n=2000$ and persistence 0.95 against 0.98 they reject at 0.79 (\WC{}), 0.93 (MMD), 0.86
+(\SigMMD{}), 0.55 (C2ST) and 0.30 (\LRC{}); at persistence 0.90 the first three reject always. With
+$n=500$ the kernel tests lead (at 0.90: MMD 0.65, \WC{} 0.34). KS has higher raw rates here (0.89 at
+persistence 0.95 with $n=500$), but it is oversized, its rates are not size-adjusted, and its power
+comes from the change of the marginal, not from the clustering itself. E2-dep removes that channel.
+
+\begin{figure}[tbp]
+  \centering
+  \inputfigure{e2dep_power}
+  \caption{Power against the dependence-only families of E2-dep at nominal level 0.05,
+    independent windows of $L=20$ days, $n=2000$ windows per sample, 100 replications under $H_0$
+    and 50 per alternative; bars are Wilson 95\% intervals. (a) Share $\vartheta$ ($\delta$ on the
+    axis) of $Q$ windows made of independent returns. (b) Block length $L_b$ ($b$ on the axis).
+    Every return of $Q$ has the marginal law of $P$: KS (faded) has no power by construction and is
+    not valid here. The oracle is approximate (Monte Carlo densities). Rates with intervals:
+    \cref{tab:e2dep-power}.}
+  \label{fig:e2dep-power}
+\end{figure}
+
+\paragraph{Deviations of the dependence only.}
+With the marginal fixed, KS rejects at rates between 0.02 and 0.10 at every alternative, the size
+of its invalid null distribution: it has no power (\cref{rem:ks-marginal}(iii)). The window tests
+detect the change (\cref{fig:e2dep-power}). In the mixture family, at $\vartheta=0.5$, 0.75 and 1,
+the \WC{} test rejects at 0.46, 0.94 and 1.00, MMD at 0.70, 0.92 and 1.00, \SigMMD{} at 0.70, 0.98
+and 1.00, C2ST at 0.20, 0.68 and 0.96 and the \LRC{} test at 0.14, 0.34 and 0.80. At block length
+$L_b=5$ the rates are 0.86 (\WC{}), 0.78 (MMD), 0.72 (\SigMMD{}), 0.50 (C2ST) and 0.30 (\LRC{}). A
+resampling generator with blocks that are too short produces exactly this kind of deviation. A
+window law identifies the dependence up to lag $L-1$ (\cref{prop:window-ident}); a test of the
+marginal cannot see it.
+
+\paragraph{No window test dominates.}
+A kernel test is the most powerful window test, or tied for it, at every alternative of families
+(a), (c) and of the mixture family. The \WC{} test is the most powerful against the lightest-tailed
+alternatives of family (b) ($\nu\in\{30,\infty\}$, and $\nu=10$ at $n=2000$), in family (d) at
+$\vartheta=1$ and at $\vartheta=0.75$ with $n=2000$, where every window test is weak, and at
+$L_b=5$. It rejects more often than the \LRC{} test at 20 of the 32 E2 alternatives and at all 8
+E2-dep alternatives, and less often at 7 E2 alternatives, all with $n=500$ or in the jump family,
+where neither rate exceeds 0.41. This comparison is between training protocols as much as between
+objectives: the classifiers of the \LRC{} and C2ST tests keep the first checkpoint (step 50) in
+almost every fit of families (a)--(d) (\cref{app:impl-nets}), whereas the critic always trains
+for 1000 steps, so the classifier rows are a lower bound on what a logit-based test can achieve.
+Training the logit for 1000 steps without early stopping improves its rank agreement with
+$\log(p/q)$ only slightly (\cref{sec:sim-llr}), but the power of the classifier tests under that
+budget was not measured. \Cref{rem:lr-vs-w1} therefore remains open: in population the logit is
+the locally optimal direction, and with the default training protocols, at these sample sizes,
+the Lipschitz-penalised critic gives the more powerful test. Power-optimised deep-kernel tests
+\citep{liu2020learning} are not among the baselines.
+
+\paragraph{Distance to the oracle.}
+The oracle rejects in at least 98\% of the replications at every E2 alternative and always at every
+E2-dep alternative. Every window test is far below it at the smaller deviations, and so is KS in
+families (a) and (d). With a quarter of GBM windows in family (d) and $n=500$, the oracle rejects at
+0.98 and the best window test at 0.08; at $\vartheta=0.25$ in the mixture family, the oracle always
+and the best window test at 0.16. No test exceeds the oracle (\cref{prop:oracle-bound}; in family
+(c) and in E2-dep the oracle is approximate and the bound not strict). Part of the gap is
+structural: with a 50/50 split and $n=m$, the noncentrality of any test based on the held-out mean
+difference of a fixed critic is at most half of the oracle's, and less when the critic's direction is not the likelihood-ratio direction
+(\cref{prop:local-power}). The rest is the cost of learning. For volatility level the population
+critic $\pm\norm{x}$ is nearly as efficient as the likelihood ratio ($r_f^2=0.988$ at $L=20$;
+\cref{ex:vol-level}), yet the learned \WC{} test rejects a 5\% increase at 0.58 with $n=2000$,
+where MMD, which neither splits nor learns, rejects at 0.93.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{The relative test at its boundary}\label{sec:sim-relative}
+
+\begin{table}[tbp]
+  \centering
+  \caption{Relative tests at the boundary and in the interior of the null (E2 part e): rejection
+    rates with Wilson 95\% intervals, $n=500$ independent windows of $L=20$ days in each of $\Rnew$,
+    $\Rpast$ and $G$, 200 replications per cell, \WC{} base. GARCH $x$: the \GARCHt{} law with
+    persistence $x$.}
+  \label{tab:e2-relative-boundary}
+  \small
+  \fittable{manual_e2_relative_boundary_main}
+  \tablenote{\inputnote{e2_relative_boundary_note}}
+\end{table}
+
+At the boundary $\Law(G)=\Law(\Rpast)$ the anchored test rejects at 0.065 [0.038, 0.108] when the
+past and new laws coincide and at 0.055 [0.031, 0.096] when they differ
+(\cref{tab:e2-relative-boundary}). Both intervals contain 0.05, as \cref{prop:anchored}(a)
+guarantees for every critic and every $\Pnew$. In the interior ($G\sim\Pnew$, better than the past)
+it never rejects (0.000 [0.000, 0.019]). Against worse generators its power depends on how much
+worse they are: 0.865 [0.811, 0.906] against GBM, which has neither clustering nor heavy tails, but
+0.135 [0.094, 0.189] against the persistence-0.90 law, which differs from the past only in
+persistence; even the absolute \WC{} test separates persistence 0.98 from 0.90 with $n=500$ only at
+0.34.
+
+The two-critic test rejects at 0.040 [0.020, 0.077] and 0.065 [0.038, 0.108] at the two boundaries,
+so the over-rejection predicted by \cref{prop:boundary-size} is not visible at this sample size. The
+excess there is $\E\,\bar g(\abs{\delta^{\mathrm{2c}}}/\sigma_N)-\alpha$, small when the spread of
+$\delta^{\mathrm{2c}}$ induced by training is small relative to the evaluation noise $\sigma_N$; the
+limit $1/2$ concerns fixed training halves and growing evaluation sets. We make the anchored test
+primary because its level is exact at the boundary for every critic and sample size, not because
+the two-critic test failed in this design. The two-critic test is more powerful against GBM (0.960
+[0.923, 0.980]) and comparable against the persistence-0.90 law (0.115 [0.078, 0.167]).
+
+The resample rows show why a generator that copies the past cannot be judged by these tests. The
+resample has the law of the past, but with a random split its evaluation windows duplicate windows
+that the critic saw as pool negatives, exchangeability fails, and the anchored test rejects at 0.965
+[0.930, 0.983]. Grouping the split by source window removes the leakage and makes the test
+conservative (0.010 [0.003, 0.036]). In E3 the stationary bootstrap copies blocks of $\Rpast$ and is
+declared \INVALID{} (\cref{sec:method-relative}, caveat (ii); \cref{rem:anchored-null}).
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Learned versus exact log-likelihood ratio}\label{sec:sim-llr}
+
+\begin{table}[tbp]
+  \centering
+  \caption{Agreement of learned scores with the exact log-likelihood ratio $\log p(w)/q(w)$
+    (E2 part f): scores fitted on 2000 independent windows of $L=20$ days per law, evaluated on 2000
+    fresh windows (1000 per law); medians over 20 replications, Spearman correlation with its range
+    over replications in brackets. The last row of each block is the oracle score itself.}
+  \label{tab:e2-llr}
+  \small
+  \fittable{manual_e2_llr_main}
+  \tablenote{\inputnote{e2_llr_note}}
+\end{table}
+
+With balanced classes the Bayes-optimal logit is $\log(p/q)$ (\cref{prop:bayes-logit}), and the
+\LRC{} statistic targets the Jeffreys divergence only if the learned logit attains it
+(\cref{cor:jeffreys}). It does not at our sample sizes (\cref{tab:e2-llr}). With the test defaults,
+early stopping selects the first checkpoint (step 50) and the logit is nearly constant: Spearman
+correlations with $\log(p/q)$ of 0.024 (GBM against Merton) and 0.240 (GARCH), calibration slopes
+$-0.002$ and 0.058. Without early stopping the rank correlations rise to 0.113 and 0.294, but the
+logit becomes overconfident (GARCH: slope 2.159, root mean squared error 4.682). With 3000 steps at
+learning rate $10^{-4}$ the GARCH logit is calibrated on average (slope 0.987) but noisy (Spearman
+0.359). Under every budget the accuracy of the rule $\lhat>0$ lies between 0.501 and 0.553, against
+0.624 and 0.619 for the Bayes rule. The \WC{} critic, whose population optimum is a Kantorovich
+potential rather than $\log(p/q)$ (\cref{rem:lr-vs-w1}), ranks the GARCH windows most like the
+likelihood ratio (Spearman 0.556 [0.474, 0.621]) but does no better than the logit for jumps
+(0.098). In the jump case the exact log ratio is driven by the few windows that contain a large
+jump (\cref{fig:e2-llr-scatter}), and no learned score tracks them; this is why every window test
+has near-zero power in family (d). The learned statistics are tests, not likelihood estimators:
+where a likelihood exists it should be used directly (\cref{sec:emp-likelihood}), and the critic's
+role is to test with a known level where none exists and to show which windows separate the samples
+(\cref{sec:emp-witness}).
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Dependent windows}\label{sec:sim-dependent}
+
+\begin{table}[tbp]
+  \centering
+  \caption{Size with dependent windows of one series (E2 part g): each sample is $n=500$
+    consecutive windows of $L=20$ days of one long \GARCHt{} path (persistence 0.98; independent
+    paths, so $H_0$ holds). Rejection rates with Wilson 95\% intervals over $N=200$ replications.}
+  \label{tab:e2-dependent-size}
+  \small
+  \fittable{e2_dependent_size}
+  \tablenote{Random split: training and evaluation windows drawn at random, permutation p-value
+    \eqref{eq:perm-pvalue}. Time-block split: $K=10$ blocks of 50 consecutive windows; ``permutation''
+    permutes the evaluation labels of the critic trained on blocks, ``HAC'' is the Driscoll--Kraay
+    p-value \eqref{eq:hac-z} (Newey--West for one window per date). MMD and \SigMMD{} have no split:
+    \iid{} permutation of all windows, or the wild bootstrap of \cref{sec:method-inference}.}
+\end{table}
+
+\paragraph{One series.}
+With consecutive windows of one GARCH path, the random-split permutation test is oversized
+(\cref{tab:e2-dependent-size}): the \WC{} test rejects a true null at 0.145 [0.103, 0.200], MMD at
+0.290 [0.232, 0.356] and \SigMMD{} at 0.130 [0.090, 0.184]. Neighbouring windows have correlated
+critic values, which the permutation variance ignores (\cref{rem:naive-perm}), and a random split
+trains the critic on windows adjacent to evaluation windows. Training on time blocks with the same
+permutation p-value lowers the \WC{} rate to 0.115 [0.078, 0.167], and the Driscoll--Kraay p-value to
+0.070 [0.042, 0.114]; the wild bootstrap brings MMD to 0.075 [0.046, 0.120] and \SigMMD{} to 0.090
+[0.058, 0.138] (\cref{prop:hac,rem:wild}). The \LRC{} test is less affected (0.080 [0.050, 0.126]
+with a random split), consistent with its nearly constant early-stopped logit.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Size of the real-data pipeline in the simulated factor panel (E1(a)): rejection rates
+    under $H_0$ at $\alpha=0.05$ with Wilson 95\% intervals, 200 replications per cell, 100
+    tickers, $L=20$, 3000 real and 3000 synthetic \TEST{} windows, 6200 past windows (relative
+    tests). $G^*$ joint: independent draw of the whole factor panel; indep.: tickers drawn
+    independently with the same marginal laws.}
+  \label{tab:e1-size-sim}
+  \small
+  \fittable{manual_e1_size_sim_main}
+  \tablenote{$^{\star}$Protocol p-value (\cref{sec:method-inference}): Driscoll--Kraay after the
+    time-block split for learned and relative tests, wild bootstrap for kernel tests. Fixed-$b$: the
+    same statistic against fixed-$b$ references for the Bartlett kernel \citep{kiefer_2005_new}
+    (cons.: single series with the smaller number of evaluation dates and the larger lag, checked
+    by simulation in \cref{tab:e1-fixedb-check}; eq.\ var.: two samples with equal per-date
+    variances; \cref{app:sim-e1}). Permutation under time
+    blocks: evaluation labels of the same critic permuted. Ticker split: halves formed by tickers on
+    common dates (naive protocol). Kernel permutation: \iid{} permutation of all windows. All
+    p-value types and $\alpha\in\{0.01,0.05,0.10\}$: \cref{tab:e1-size-sim-full}.}
+\end{table}
+
+\paragraph{The real-data pipeline.}
+In the simulated factor panel (\cref{tab:e1-size-sim}), when $G^*$ is a draw of the whole panel
+(cell joint) the protocol p-values are close to nominal: Driscoll--Kraay after the time-block split
+gives 0.085 [0.054, 0.132] for the \WC{} test, 0.090 for the \LRC{} test, 0.075 for C2ST, 0.080 for
+the anchored and 0.060 for the two-critic test; the wild bootstrap gives 0.045 [0.024, 0.083] for
+MMD and 0.070 for \SigMMD{}. The small excess of the learned tests is what \cref{rem:small-T}
+predicts from 15 evaluation dates and a median Bartlett lag of one window (\cref{tab:e1-sim-z});
+against the fixed-$b$ reference with equal variances it disappears (\WC{} 0.050 [0.027, 0.090],
+anchored 0.055 [0.031, 0.096]). The naive protocols fail. With a ticker split every training date
+is also an evaluation date, and the \WC{} test rejects at 0.990 [0.964, 0.997] with the
+Driscoll--Kraay p-value and always with the permutation p-value (the introduction quotes a pilot rate
+of about 45\% for the latter): this is the bias of \cref{prop:ticker-bias}, which no variance
+estimator removes. Under the time-block split the permutation p-value of the same critic rejects at
+0.410 [0.344, 0.479]; the kernel tests with \iid{} permutation reject always and KS at 0.970.
+Conditionally on their realised market paths the two panels differ, and only p-values that treat
+the windows of one date as a unit (date sums, date-shared multipliers) account for this.
+
+When the synthetic tickers are independent (cell indep), the situation of the univariate generators
+of E3, the learned tests over-reject even with the time-block split: 0.270 [0.213, 0.335] for the
+\WC{} test, 0.180 for the \LRC{} test, 0.115 for C2ST, 0.155 [0.111, 0.212] for the anchored and 0.190
+for the two-critic test. Fixed-$b$ references do not repair this (\WC{}: 0.195 conservative, 0.245
+equal-variance), while the wild-bootstrap kernel tests stay closer to nominal (MMD 0.075
+[0.046, 0.120], \SigMMD{} 0.100 [0.066, 0.149]). Replication by replication, 12 replications reject
+with the \WC{} test only in the joint cell and 49 only in the indep cell (exact McNemar test,
+$p<10^{-5}$; \citealp{mcnemar_1947_note}). The studentised \WC{} statistic has mean 0.74 and
+standard deviation 1.76 in the indep cell, against 0.11 and 1.12 in the joint cell
+(\cref{tab:e1-sim-z}): it is shifted as well as over-dispersed, so the small-sample variance that
+fixed-$b$ references correct is not the whole problem.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Statistic and Driscoll--Kraay standard error under the E1(a) placebo null (time-block
+    split, $\zhac=T/\mathrm{s.e.}$), 200 replications per cell: mean and standard deviation of
+    the raw statistic $T$ over replications, median standard error, ratio of the standard
+    deviation of $T$ to the root mean square (rms) of the standard error, Spearman correlation of
+    $T$ and its standard error across replications, and the rejection rate at nominal 5\%
+    ($\zhac>1.645$) in the half of the replications with a standard error at or below the cell
+    median and in the other half. C2ST, whose statistic is an accuracy, is omitted.}
+  \label{tab:e1-sim-se}
+  \small
+  \fittable{manual_e1_sim_se}
+\end{table}
+
+\paragraph{Where the oversize comes from.}
+\Cref{tab:e1-sim-se} separates the statistic from its standard error. The raw statistic is not
+more biased in the indep cell: the \WC{} statistic has mean 0.029 there and 0.026 in the joint
+cell, with standard deviations 0.199 and 0.208 over replications, and the anchored statistic has
+mean $-0.016$ against 0.015, although its studentised version has mean 0.33 against 0.02
+(\cref{tab:e1-sim-z}). The permutation p-value of the same critic, which refers $T$ to the
+spread of the pooled evaluation values and ignores the dates, rejects about equally often in the
+two cells (0.410 and 0.480 for the \WC{} test, 0.400 and 0.370 for the anchored test;
+\cref{tab:e1-size-sim}), and the paired differences are not significant (exact McNemar p-values
+0.19 and 0.55). Nor is the average variance estimate much worse: the standard deviation of $T$
+exceeds the root mean square of its standard error by a factor between 1.09 and 1.20 in the joint
+cell and between 1.12 and 1.28 in the indep cell, the downward bias of a variance estimated from
+few evaluation dates (\cref{rem:small-T}). What differs is the relation between the
+two. In the indep cell the statistic and its standard error are negatively correlated (Spearman
+correlations between $-0.54$ and $-0.40$), and the rejections concentrate where the standard error
+is small: with the \WC{} test, 0.480 of the replications with a standard error at or below the
+median reject and 0.060 of the others; with the anchored test, 0.270 and 0.040. In the joint cell
+the correlations lie between $-0.03$ and 0.15 and the two halves reject at 0.090 and 0.080 (\WC{})
+and at 0.090 and 0.070 (anchored). The shift of $\zhac$ thus reflects a dependence between $T$ and
+its standard error rather than a shift of $T$: large values of $T$ come with small standard
+errors, which suggests that, given the realised path of the real panel, $T$ is not centred. With
+independent synthetic tickers the synthetic date sums have almost no common component, so the
+standard error is driven by the real evaluation dates alone (15 for the absolute tests, 31 past
+dates for the anchored test; \cref{tab:e1-sim-z}); in the joint cell the synthetic factor path,
+independent of the real one, adds date-level variance that does not move with the real path.
+
+A non-centred conditional mean is what \cref{cor:block-bias} describes for the time-block split:
+in a factor model with mutually independent synthetic windows, given the factor path $F$ the
+expectation of $T$ is $(\hat P_{F,\evl}-\bar Q)\fhat$, a covariance between the critic, trained on
+the factor path of the training dates, and the factor path of the adjacent evaluation dates, which
+need not vanish when the factor is persistent. The corollary assumes serially independent
+residuals, whereas the idiosyncratic and synthetic GARCH components of the E1 panel are serially
+dependent within a ticker, so reading the E1 oversize through it is model-based and heuristic
+(\cref{rem:small-T}). The reading is consistent with the kernel tests, which have no training step and do not reject significantly more often in the indep cell (exact
+McNemar p-values 0.26 for MMD and 0.29 for \SigMMD{}; \cref{app:sim-e1}), but we have not tested
+it. The standard remedies, none of which was run, are a gap (embargo) between training and
+evaluation data, as in $hv$-block cross-validation \citep{racine_2000_consistent} and purged,
+embargoed cross-validation in finance \citep{lopezdeprado_2018_advances}, a contiguous split, or
+a critic trained on an independent copy of the panel. An embargo bounds the remaining coupling by
+the mixing coefficient at the gap (\cref{lem:decoupling}), but with about three window dates per
+block every embargoed block costs evaluation dates, which are already the binding constraint
+(\cref{rem:small-T}); the independent-copy critic removes the coupling entirely.
+
+The consequence is that nominal Driscoll--Kraay p-values of the learned tests are not calibrated
+for generators that simulate tickers independently. On real data the per-ticker p-values are
+therefore calibrated against a simulated null, and the verdict rests on the anchored test with
+the boundary size of the seed-combined rule estimated in a design that keeps the real volatility
+path (design D2; \cref{sec:emp-placebo,sec:emp-power}), not on a nominal level.

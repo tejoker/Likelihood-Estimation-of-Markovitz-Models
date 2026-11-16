@@ -1,0 +1,193 @@
+\section{Additional empirical results}\label{app:emp}
+% =============================================================================================
+% Tables: tab:e1-size-real (generated e1_size_real.tex), tab:e1-nonstat (manual_e1_nonstat_app.tex,
+% narrower copy of the generated e1_nonstat.tex, same numbers), tab:e3-perticker-null (generated),
+% tab:e3-likelihood-ag (generated), tab:e3-witness-app (manual_e3_witness_app.tex, derived from
+% results/e3/e3_witness.csv). Scripts: paper/scripts/*.py. Derived quantities quoted in
+% Section 7 are documented in app:emp-derived.
+% =============================================================================================
+
+This appendix collects the tables behind \cref{sec:emp} that are not in the main text and
+documents the quantities that we derived from the stored results rather than read from a
+generated table.
+
+\subsection{Real-data placebo}\label{app:emp-real}
+
+\Cref{tab:e1-size-real} reports E1(b): the 100 panel tickers are split at random into two halves
+of 50, and the full pipeline tests one half against the other on the same dates, 50 times within
+\TEST{} and 50 times within \TRAIN{}. In the \TRAIN{} splits, the relative tests are also run with
+$\Rnew$ the real \TEST{} windows, half B in the role of the generator and half A in the role of
+$\Rpast$, a generator equal in law to the past up to composition. The limits of this placebo are
+discussed in \cref{sec:emp-placebo}: the Driscoll--Kraay rows are conservative by construction
+because the halves share their dates, the halves need not have the same pooled window law, and
+the splits are dependent and conditional on one market path, so we show rates without intervals.
+
+Within \TEST{} the kernel tests with the wild bootstrap reject in 0.340 (MMD) and 0.400
+(\SigMMD{}) of the splits at 5\%, and the time-block permutation p-value of the \WC{} test in
+0.200. Within \TRAIN{} the wild-bootstrap rates are 0.020 for MMD and 0.200 for \SigMMD{}. The
+anchored relative test does not reject in any \TRAIN{} split with its Driscoll--Kraay p-value and
+in 0.020 of them with its permutation p-value. The two-critic test with the paired bootstrap
+rejects in 0.240, which illustrates once more that it is anti-conservative at the boundary
+(\cref{prop:boundary-size}).
+
+\begin{table}[tbp]
+  \centering
+  \caption{Real-data placebo (E1(b)): rejection rates at $\alpha\in\{0.01,0.05,0.10\}$ when one
+    random half of the 100 panel tickers is tested against the other half on the same dates; 50
+    random splits within \TEST{} and 50 within \TRAIN{}; $L=20$. Relative tests (\TRAIN{} splits):
+    $\Rnew$ = all real \TEST{} windows, $G$ = half B, $\Rpast$ = half A. Learned and relative
+    tests use the time-block split; $^{\star}$marks the protocol's p-value (Driscoll--Kraay for
+    learned tests, wild bootstrap for kernel tests). Fixed-$b$ rows: the Driscoll--Kraay
+    statistic against fixed-$b$ references \citep{kiefer_2005_new}, conservative single-series
+    reference (cons.) or two-sample equal-variance reference (eq.\ var.). Rates only: the splits
+    are dependent and conditional on one realised market path, so binomial intervals do not
+    apply.}
+  \label{tab:e1-size-real}
+  \small
+  \fittable{e1_size_real}
+\end{table}
+
+\subsection{Past against future}\label{app:emp-nonstat}
+
+\Cref{tab:e1-nonstat} reports E1(c), the absolute tests of the 3000 real \TEST{} windows against
+the 6200 real \TRAIN{} windows with the E3 pipeline, over ten test seeds (critic initialisation,
+block assignment, kernel subsample). Next to each p-value type it gives the rejection rate of the
+same comparison in the stationary simulated placebo (E1(a), cell ``joint'', $\Rnew^*$ against
+$\Rpast^*$, 200 replications), which is the size of that p-value for this comparison when the
+two periods have the same law. The protocol p-values (Driscoll--Kraay, wild bootstrap) reject
+with rates between 0.055 and 0.130 in that placebo; the permutation p-values and KS reject in 0.355 to 1.000 of its replications. On
+the real data, the valid p-values (protocol and fixed-$b$) give $\pmed$ between 0.071 (\LRC{}) and
+1.000 (\SigMMD{}), so the window tests do not reject \TRAIN{} against \TEST{} windows of
+normalised returns at 5\%. With about 15 \TEST{} evaluation dates they have little power for this
+comparison, and because the Driscoll--Kraay variance is not the same when both samples are factor
+panels as when the synthetic tickers are independent, these p-values are not comparable with the
+absolute p-values of E3 (\cref{sec:emp-placebo}). The \WC{}
+statistic varies across the ten seeds from $-0.273$ to $0.440$, and is negative in two of them
+(\cref{app:emp-derived}); which \TRAIN{} blocks train the critic matters
+(\cref{rem:nonstat-past}).
+
+\begin{table}[tbp]
+  \centering
+  \caption{Real \TEST{} windows against real \TRAIN{} windows (E1(c)): 3000 against 6200 windows,
+    $L=20$, dependent protocol, ten test seeds. Median statistic (\WC{}: critic mean difference;
+    \LRC{}: mean logit difference; C2ST: evaluation accuracy; MMD and \SigMMD{}: unbiased
+    $\MMD^2$; KS: $D$), median p-value, $\pmed$ and share of seeds with $p\le0.05$. Last column:
+    rejection rate at 5\% of the same comparison in the stationary simulated placebo (E1(a),
+    joint cell, $\Rnew^*$ against $\Rpast^*$, 200 replications, Wilson 95\% interval).
+    $^{\star}$Protocol p-value. Same numbers as the generated table \texttt{e1\_nonstat.tex}
+    without its units and median $\zhac$ columns.}
+  \label{tab:e1-nonstat}
+  \small
+  \fittable{manual_e1_nonstat_app}
+\end{table}
+
+\subsection{Per-ticker null and likelihood comparisons}\label{app:emp-perticker}
+
+\Cref{tab:e3-perticker-null} gives the size of the nominal per-ticker p-values ($L=5$) under the
+per-ticker \GARCHt{} null used to calibrate them: for each ticker, ten pairs of independent
+\TEST{}-length paths from the fitted end-of-\TRAIN{} state, tested exactly like the real data. The
+nominal p-values are oversized at every level, more for MMD than for the \WC{} test, and the last
+column gives the nominal p-value that corresponds to 5\% after calibration. The draws of one
+ticker share its law, so the Wilson intervals are approximate.
+
+\Cref{tab:e3-likelihood-ag} gives the pairwise Amisano--Giacomini comparisons
+\citep{amisano2007comparing}: per ticker, the HAC-studentised mean of the daily log-score
+differences $d_t$ over the 615 \TEST{} days, without parameter penalty; pooled,
+the cross-sectional mean of $d_t$ with a Driscoll--Kraay standard error. \GARCHt{} improves on GBM
+by 0.1748 and on Merton by 0.0326 nats per day and per ticker on average, with pooled $z$ of 15.72
+and 7.98; Merton improves on GBM by 0.1422. No ticker favours the simpler model significantly in
+any pair after the Benjamini--Hochberg correction.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Size of the nominal per-ticker p-values under the per-ticker \GARCHt{} null (E3,
+    $L=5$, 123 windows per sample): 10 independent pairs of \TEST{}-length paths per ticker, 1000
+    in all; Wilson 95\% intervals (approximate: pairs of one ticker share its law). Last column:
+    5\% quantile of the null p-values, the nominal p-value that corresponds to 5\% after
+    calibration.}
+  \label{tab:e3-perticker-null}
+  \small
+  \fittable{e3_perticker_null}
+\end{table}
+
+\begin{table}[tbp]
+  \centering
+  \caption{Amisano--Giacomini comparisons of the predictive log-scores on \TEST{} (E3, 615 days,
+    100 tickers). $d_t$: daily log-score of model a minus model b. Pooled: cross-sectional mean of
+    $d_t$, Driscoll--Kraay $z$ and p-value. Per ticker: HAC-studentised mean of $d_t$; ``a
+    better'' and ``b better'': tickers with a significant difference in that direction after
+    Benjamini--Hochberg at 5\%; last column: tickers with $z>0$.}
+  \label{tab:e3-likelihood-ag}
+  \small
+  \fittable{e3_likelihood_ag}
+\end{table}
+
+\subsection{Witness diagnostics and other derived quantities}\label{app:emp-derived}
+
+Some statements in \cref{sec:emp} rest on computations on the stored per-replication results
+rather than on a generated table. We list them here with their sources (all under
+\texttt{results/}), so that each can be checked.
+
+\emph{Witness} (\cref{sec:emp-witness}). \Cref{tab:e3-witness-app} is computed from the critic
+values stored by the witness part of E3 (\texttt{e3/e3\_witness.csv}): for each generator, the
+seed-0 critic evaluated on its 1500 real and 1500 synthetic evaluation windows. The ``share of
+$T$ from realised volatility'' replaces the critic by its mean within 20 equal-count bins of the
+window log realised volatility (pooled over both samples) and divides the resulting
+real-minus-synthetic difference by $T$. Realised volatility is the root mean square of the
+normalised returns of the window, so 1 is the \TRAIN{} standard deviation of the ticker.
+
+\emph{Standard errors} (\cref{sec:emp-power}). The ratio 7.7 is $0.245/0.032$ from
+\cref{tab:e3-power}. The ratios of the real-data standard error of $\Danc$ (median over the five
+seeds) to the D1 and D2 values are stored per generator in \texttt{e3/e3\_verdicts.csv}: 6.07, 5.16,
+4.81, 4.91 and 4.53 times the D1 value and 0.79, 0.67, 0.62, 0.64 and 0.59 times the D2 value for
+GBM, Merton, \GARCHt{}, Heston and the bootstrap.
+
+\emph{Orderings across seeds} (\cref{sec:emp-tests}). From the per-seed statistics in
+\texttt{e3/e3\_pooled\_raw.csv}: in each of the five seeds the absolute \WC{} statistic orders
+the generators GBM, Merton, Heston, bootstrap, \GARCHt{}, and the anchored statistic orders the
+four parametric generators GBM, Merton, Heston, \GARCHt{}. The E1(c) range of the \WC{} statistic
+over seeds ($-0.273$ to $0.440$) is from \texttt{e1/e1\_nonstat\_raw.csv}.
+
+\emph{Floor of the calibrated MMD p-values} (\cref{sec:emp-perticker}). In
+\texttt{e3/e3\_perticker\_null\_raw.csv}, 31 of the 1000 MMD null p-values equal the smallest
+attainable wild-bootstrap value $1/501$, so the smallest calibrated p-value is $32/1001\approx0.032$.
+The Benjamini--Hochberg procedure at 5\% over 100 tickers rejects the $k$ smallest p-values for
+the largest $k$ with $p_{(k)}\le0.05k/100$; with $p_{(k)}\ge0.032$ this requires $k\ge64$.
+
+\emph{Observed $\pmed$ against the boundary replications} (\cref{sec:emp-verdicts}). For each
+replication of the power check we recompute the rule's $\pmed$ from the five single-seed
+boundary p-values (\texttt{e3/e3\_realvol\_raw.csv} for D2, \texttt{e3/e3\_power\_raw.csv} for D1)
+and count the replications with $\pmed$ at most the observed value of each generator. In D2 (100
+replications) the counts are 1 for GBM, 1 for Merton, 4 for Heston and 36 for \GARCHt{}; in D1 they
+are 0, 0, 0 and 19. The corresponding Monte Carlo p-values $(1+\text{count})/101$ are 0.020,
+0.020, 0.050 and 0.366 in D2. For the bootstrap (13 in D2) the comparison is not meaningful,
+because its anchored test is invalid.
+
+\emph{Holm-adjusted p-values} (\cref{sec:emp-verdicts}). Holm's step-down adjustment over the four
+parametric generators, computed by the script \texttt{e3\_verdicts\_cal\_main.py} (in
+\texttt{paper/scripts}) and recorded in the comment lines of the table it writes: for
+the nominal anchored $\pmed$, 0.002 (GBM), 0.016 (Merton), 0.033 (Heston) and 0.432 (\GARCHt{});
+for the D2-calibrated p-values, 0.079 for GBM and Merton, 0.099 for Heston and 0.366 for
+\GARCHt{}.
+
+\emph{Fixed realised-volatility statistic} (\cref{sec:emp-witness}). \Cref{tab:e3-rv-baseline}
+uses the seed-0 evaluation windows stored in \texttt{e3/e3\_witness.csv}, for the absolute test
+only; it is written by the script \texttt{e3\_rv\_baseline.py} in \texttt{paper/scripts}. The
+script recomputes the critic statistic $T$ and its $\zhac$ from the stored critic values, checks
+them against the seed-0 values in \texttt{e3/e3\_pooled\_raw.csv}, and then replaces the critic by
+$h(w)=-\log\mathrm{RV}(w)$ on the same windows, with the same Driscoll--Kraay variance.
+
+\begin{table}[tbp]
+  \centering
+  \caption{What the seed-0 \WC{} critics respond to (E3, $L=20$; 1500 real and 1500 synthetic
+    evaluation windows per generator). $T$: the seed-0 statistic. Spearman correlations of the
+    critic value with the window log realised volatility and with the largest absolute
+    normalised return of the window, over the 3000 windows. Share of $T$ from realised
+    volatility: the critic replaced by its mean within 20 equal-count bins of log realised
+    volatility. Median realised volatility (root mean square of the normalised returns of a
+    window; 1 = \TRAIN{} standard deviation of the ticker) of the real and synthetic evaluation
+    windows. Derived from \texttt{results/e3/e3\_witness.csv}.}
+  \label{tab:e3-witness-app}
+  \small
+  \fittable{manual_e3_witness_app}
+\end{table}

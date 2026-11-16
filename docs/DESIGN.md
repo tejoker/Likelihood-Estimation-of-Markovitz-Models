@@ -436,7 +436,8 @@ Compile with `latexmk -pdf main.tex` from `paper/`.
   more powerful than the default MLP at the same size. New `arch="pooled"`
   (`synthval.twosample.nets.PooledConvCritic`; the default stays the MLP, so no earlier result changes)
   and experiments/e5_architecture.py: (sim) E2 families a-d at two alternative levels (+ H0 in a, c)
-  and E2-dep mix/block at level 2, 50 replications, paired with E2/E2-dep (same windows and test
+  and E2-dep mix/block at level 2, 50 replications (200 for the H0 cells, extended after 7/50
+  rejections in family a; 0.06 at 200), paired with E2/E2-dep (same windows and test
   streams); (real) E3 protocol with the pooled critic via E5's grid and design machinery: absolute +
   anchored at E3's 5 seeds, D1/D2 rule power and boundary size with 20 replications x 5 seeds (paired
   with E3's first 20). Chosen after the MLP's real-data results were known: reported as a post-hoc

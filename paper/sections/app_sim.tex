@@ -1,0 +1,280 @@
+\section{Additional simulation results}\label{app:sim}
+% =============================================================================================
+% Owner: simulation writer. Tables behind Section 5: tab:e2-size, tab:e2dep-size,
+% tab:e2-power-ci, tab:e2dep-power, tab:e2dep-check (manual, paper/scripts/e2dep_check.py),
+% fig:e2-llr-scatter, tab:e1-size-sim-full (generated e1_size_sim.tex), tab:e1-sim-dependence and
+% tab:e1-sim-z (manual, paper/scripts/e1_sim_diag.py), tab:e1-fixedb-check (manual,
+% paper/scripts/e1_fixedb_check.py). New labels: app:sim-size, app:sim-power,
+% app:sim-dep, app:sim-llr, app:sim-e1, tab:e2dep-check, tab:e1-size-sim-full,
+% tab:e1-sim-dependence, tab:e1-sim-z, tab:e1-fixedb-check. Readable versions of e2_power_ci / e2dep_power:
+% paper/scripts/e2_power_ci_app.py (cell-by-cell identical to the generated tables).
+% =============================================================================================
+
+This appendix collects the tables behind \cref{sec:sim}: the size of every test in E2 and E2-dep,
+the power with Wilson 95\% intervals, the marginal check of the dependence-only families, the
+learned against the exact log-likelihood ratios, and the full results and diagnostics of the
+simulated panel placebo E1(a). Designs and replication counts are those of \cref{sec:sim-design}.
+The generated tables and figures write $\delta$ for the deviation parameter $\vartheta$,
+$\alpha+\beta$ for the GARCH persistence $a+b$, and $b$ for the E2-dep block length $L_b$.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Size with independent windows}\label{app:sim-size}
+
+\Cref{tab:e2-size,tab:e2dep-size} give the rejection rates under $H_0$ at the three levels. Every
+window test uses a permutation p-value computed on independent windows, which is exact
+(\cref{prop:exact-level}), so these tables check the implementation: at 5\% every interval contains
+the nominal level, and over the three levels 3 of the 150 intervals of the window tests miss it,
+all at 1\% or 10\% (\cref{sec:sim-size}). KS is marked with a dagger where returns within a window
+are dependent; its p-value is then invalid. At 5\% its interval excludes 0.05 in family (c) with
+$n=500$ and in the E2-dep mixture family; in family (c) with $n=2000$ the lower bound of its interval
+is 0.050.
+
+\begin{table}[p]
+  \centering
+  \caption{Size of the E2 tests: rejection rates under $H_0$ ($Q=P$) with Wilson 95\% intervals,
+    independent windows of $L=20$ days, $n$ windows per sample, $N=200$ replications per cell, at
+    $\alpha\in\{0.01,0.05,0.10\}$.}
+  \label{tab:e2-size}
+  \scriptsize
+  \fittable{e2_size}
+  \tablenote{\inputnote{e2_size_note}}
+\end{table}
+
+\begin{table}[tbp]
+  \centering
+  \caption{Size of the E2-dep tests: rejection rates under $H_0$ ($\vartheta=0$ in the mixture
+    family, $L_b=20$ in the block family, independent seeds) with Wilson 95\% intervals,
+    independent windows of $L=20$ days, $n=2000$ windows per sample, $N=100$ replications per
+    cell, at $\alpha\in\{0.01,0.05,0.10\}$.}
+  \label{tab:e2dep-size}
+  \small
+  \fittable{e2dep_size}
+  \tablenote{\inputnote{e2dep_size_note}}
+\end{table}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Power with confidence intervals}\label{app:sim-power}
+
+\Cref{tab:e2-power-ci,tab:e2dep-power} repeat the power of \cref{fig:e2-power,fig:e2dep-power}
+with Wilson 95\% intervals. With 100 replications per alternative in E2 and 50 in E2-dep, the
+intervals are wide (for instance 0.46 [0.33, 0.60] for the \WC{} test at $\vartheta=0.5$ in the
+mixture family), so only large differences between window tests are resolved; the rankings stated
+in \cref{sec:sim-power} compare point estimates. The differences between KS and the window tests
+in families (a), (b) and (d), and between the window tests and KS in E2-dep, are far larger than
+the intervals.
+
+\begin{table}[p]
+  \centering
+  \caption{Power against the four E2 families with Wilson 95\% intervals: rejection rates at
+    $\alpha=0.05$, independent windows of $L=20$ days, $n$ windows per sample, 200 replications at
+    $k=0$ ($H_0$) and 100 at each alternative $k=1,\dots,4$; the levels of each family are listed
+    in its heading.}
+  \label{tab:e2-power-ci}
+  \scriptsize
+  \fittable{manual_e2_power_ci_app}
+  \tablenote{p-values as in \cref{tab:e2-size} (LR oracle: Monte Carlo, 2000 null samples).
+    $^{\dagger}$KS is not valid in family (c); its power there is not size-adjusted.
+    $^{\ddagger}$Approximate oracle ($M=512$ Monte Carlo draws of the start variance).}
+\end{table}
+
+\begin{table}[tbp]
+  \centering
+  \caption{Power against the dependence-only families of E2-dep with Wilson 95\% intervals:
+    rejection rates at $\alpha=0.05$, independent windows of $L=20$ days, $n=2000$ windows per
+    sample, 100 replications under $H_0$ ($k=0$) and 50 at each alternative.}
+  \label{tab:e2dep-power}
+  \small
+  \fittable{manual_e2dep_power_app}
+  \tablenote{Family (a): a share $\vartheta$ of the $Q$ windows consists of $L$ independent
+    returns; family (b): $Q$ windows are concatenations of independent $P$ blocks of length
+    $L_b$. Every return of $Q$ has exactly the marginal law of $P$ (check in
+    \cref{tab:e2dep-check}). p-values as in \cref{tab:e2-power-ci}; the oracle uses 1000 Monte
+    Carlo null values. $^{\dagger}$KS sees only the marginal and has no power by construction; the
+    returns of a GARCH window share their conditional variance, so its p-value is not valid either
+    (rates under $H_0$ in \cref{tab:e2dep-size}); its rejection rates are size distortions, not
+    power. The oracle is approximate: the window and block densities of $P$ integrate the
+    conditional variance at the window or block start over 512 draws, the position marginals over
+    2048 draws; statistic and null use the same draws, so the oracle test has exact level but is
+    only approximately most powerful.}
+\end{table}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{The dependence-only families: marginal check and diagnostics}\label{app:sim-dep}
+
+\Cref{tab:e2dep-check} shows what changes along the two E2-dep families and what does not. Within a
+window, the lag-1 autocorrelation of $\abs{r-\mu}$ falls from 0.231 under the null to 0.002 at
+$\vartheta=1$ in the mixture family, and from 0.223 to 0.000 between $L_b=20$ and $L_b=1$ in the
+block family. The standard deviation of the log realised variance across windows falls from 0.846
+to 0.585 and from 0.840 to 0.591: windows with independent returns have less dispersed realised
+volatility. The variance of the returns stays between $3.91\times10^{-4}$ and $4.19\times10^{-4}$
+at every level; this \GARCHt{} law has no finite fourth moment, so sample variances over 20,000
+windows vary by a few per cent. Kurtosis is not reported for the same reason.
+
+The marginal check compares, at the \iid{}-marginal level of each family, $10^6$ returns of $P$
+(one per independent window, so that they are independent) with $10^6$ returns of $Q$. For the
+block family the two-sample KS statistic is $D=0.0011$ with $p=0.616$. For the mixture family it is
+$D=0.0027$ with $p=0.001$. The two extreme levels are the same law by construction (the mixture
+generator at $\vartheta=1$ calls the generator of $L_b=1$), and the two checks use the same $P$
+returns and independent $Q$ seeds. We therefore read the mixture result as a chance rejection of
+the check, not as a difference between marginals, but we have not investigated it further. A
+discrepancy of this size is in any case far below what the experiment can detect: in the E2-dep
+runs, KS rejects at $\vartheta=1$ at rate 0.10, the same as under $H_0$ (\cref{tab:e2dep-power}).
+
+\begin{table}[tbp]
+  \centering
+  \caption{E2-dep dependence diagnostics and marginal check. Columns 3--5: within-window lag-1
+    autocorrelation of $\abs{r-\mu}$, cross-window standard deviation of the log realised
+    variance, and return variance, each on 20,000 simulated $Q$ windows of $L=20$ days per level.
+    Columns 6--7: two-sample KS test of the marginal at the \iid{}-marginal level, $10^6$ returns
+    of $P$ (one per independent window) against $10^6$ returns of $Q$.}
+  \label{tab:e2dep-check}
+  \small
+  \fittable{manual_e2dep_check}
+\end{table}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Learned versus exact log-likelihood ratios}\label{app:sim-llr}
+
+\Cref{fig:e2-llr-scatter} plots the learned logit against the exact $\log(p/q)$ for one replication
+of E2 part f. With early stopping (top row) the logit is nearly constant: the early-stopped
+classifier separates the two laws barely better than chance. Without early stopping (bottom row)
+it is overconfident and scattered, with little relation to the exact log ratio (root mean squared
+errors 4.917 and 4.682 in \cref{tab:e2-llr}). For GBM against Merton the exact log ratio is close to zero for most
+windows and large only for the few Merton windows with a big jump; no learned score picks these
+windows out, which is why every window test has near-zero power in family (d)
+(\cref{sec:sim-llr}).
+
+\begin{figure}[tbp]
+  \centering
+  \inputfigure{e2_llr_scatter}
+  \caption{Learned logit $\lhat(w)$ against the exact log-likelihood ratio $\log p(w)/q(w)$ on 2000
+    fresh windows of $L=20$ days (1000 per law), replication 0 of E2 part f; logits fitted on 2000
+    windows per law. Left: GBM against Merton; right: GARCH persistence 0.98 against 0.90 (window
+    density integrated over the start variance by Monte Carlo). Top: test default (early stopping,
+    at most 1000 steps, learning rate $10^{-3}$); bottom: 1000 steps without early stopping.
+    Dashed: identity. The correlations and slopes printed in the panels are those of this
+    replication; medians over 20 replications are in \cref{tab:e2-llr}.}
+  \label{fig:e2-llr-scatter}
+\end{figure}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{The simulated panel placebo}\label{app:sim-e1}
+
+\paragraph{Calibration of the placebo panel.}
+\Cref{tab:e1-sim-dependence} compares the cross-sectional dependence of the simulated panels with
+that of the real panel. Against real \TEST{}, whose dates the absolute tests use, $\Rnew^*$ has a
+somewhat higher mean pairwise return correlation (median over replications 0.319, interquartile
+range 0.267 to 0.407, against 0.254) and a similar mean pairwise correlation of the rolling 20-day
+log-volatility (median 0.270 against 0.309). Against real \TRAIN{}, which enters the relative
+tests, $\Rpast^*$ has much less volatility co-movement (median 0.327 against 0.611). The factor
+GARCH-$t$ model has a single common volatility process and residual volatilities that are
+independent across tickers, so it understates the common volatility regimes of 2018--2022. In the
+cell indep both correlations of $G^*$ are zero in population, by construction.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Cross-sectional dependence of the real panel and of the E1(a) placebo panels (100
+    tickers): mean pairwise correlation of daily returns and of the rolling 20-day log-volatility.
+    Placebo rows: median over 200 replications of these means, interquartile range in brackets.}
+  \label{tab:e1-sim-dependence}
+  \small
+  \fittable{manual_e1_sim_dependence}
+\end{table}
+
+\paragraph{Fixed-$b$ references.}
+The fixed-$b$ p-values of \cref{tab:e1-size-sim} were computed after the run from the stored
+studentised statistics, the numbers of evaluation dates $U_X,U_Y$ and the Bartlett lags $H_X,H_Y$
+of the two samples \citep{kiefer_2005_new}. The conservative reference is that of a single series
+with $\min(U_X,U_Y)$ evaluation dates and lag $\max(H_X,H_Y)$. We expect it to be the
+heaviest-tailed case of the two-sample statistic whatever the share $\lambda\in[0,1]$ of the first
+sample in the variance of the mean difference, but we have not proved this, and with unequal lags
+it is not obvious. \Cref{tab:e1-fixedb-check} checks it by simulation for the designs of E1. For
+each of the 154 combinations $(U_X,H_X,U_Y,H_Y)$ that occur in the fixed-$b$ rows (65 for the
+absolute tests, 89 for the anchored test), 200,000 pairs of contiguous \iid{} Gaussian series give
+the two-sample statistic at 21 values of $\lambda$ on $[0,1]$, and each value is referred to the
+conservative reference with the reference draws of the run. For $0<\lambda<1$ the largest
+rejection rate over all combinations is 0.0094, 0.0501 and 0.1006 at the 1\%, 5\% and 10\% levels,
+below the nominal level or within Monte Carlo error of it. The largest rates over the whole grid,
+0.0110, 0.0514 and 0.1018, are attained at $\lambda\in\{0,1\}$ in combinations where the statistic
+is then a single series with the same number of dates and the same lag as the reference, so they
+measure the Monte Carlo error of the 40,000 reference draws. The check supports the conservative
+reference for these designs; it is not a proof for other numbers of dates or lags. The
+equal-variance reference is the two-sample limit with each sample's own number of dates and lag
+and equal per-date variances. Both references, and the check, treat the evaluation dates as
+contiguous, whereas the Driscoll--Kraay estimator \eqref{eq:dk-var} runs on the date grid with the
+training blocks as gaps, so they are approximations.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Monte Carlo check of the conservative fixed-$b$ reference on the E1(a) designs. For
+    every combination of numbers of evaluation dates $U_X,U_Y$ and Bartlett lags $H_X,H_Y$ that
+    occurs in the fixed-$b$ rows of \cref{tab:e1-size-sim-full} (Calls: test calls with these
+    combinations, over tests, cells and 200 replications), 200,000 pairs of contiguous \iid{}
+    $N(0,1)$ series of lengths $U_X$ and $U_Y$ give the two-sample Bartlett HAC statistic with
+    share $\lambda$ of the first sample in the variance of the mean difference, for 21 values of
+    $\lambda$ on $[0,1]$. Each value is referred to the conservative reference (one series with
+    $\min(U_X,U_Y)$ dates and lag $\max(H_X,H_Y)$, same reference draws as in the run). Entries:
+    largest rejection rate over combinations and $0<\lambda<1$; in parentheses, over
+    $0\le\lambda\le1$ ($\lambda\in\{0,1\}$: a single series).}
+  \label{tab:e1-fixedb-check}
+  \small
+  \fittable{manual_e1_fixedb_check}
+  \tablenote{Monte Carlo standard error of one rate, $\sqrt{\alpha(1-\alpha)/200{,}000}$: 0.0002,
+    0.0005 and 0.0007 at the three levels, to which the error of the 40,000 reference draws adds.
+    Script: \texttt{paper/scripts/e1\_fixedb\_check.py}.}
+\end{table}
+
+\paragraph{The studentised statistic under the null.}
+\Cref{tab:e1-sim-z} summarises $\zhac$ over the placebo replications. If the Driscoll--Kraay
+p-value were calibrated, $\zhac$ would be approximately standard normal. In the joint cell its mean
+is close to zero (between $-0.04$ and 0.12) and its standard deviation between 1.12 and 1.19, the
+mild over-dispersion that 15 evaluation dates and a median lag of one window produce
+(\cref{rem:small-T}). In the indep cell the \WC{} statistic has mean 0.74 and standard deviation
+1.76, and the \LRC{}, anchored and two-critic statistics have means between 0.33 and 0.39: the
+distribution is shifted, not only spread. The C2ST statistic is over-dispersed (standard deviation
+1.42) but not shifted (mean 0.03). The paired comparison of the two cells, which share their
+real panels and test seeds, gives exact McNemar p-values \citep{mcnemar_1947_note} of
+$2.0\times10^{-6}$ for the \WC{} test, 0.013 for the \LRC{} test, 0.017 for the anchored test and
+$4.2\times10^{-5}$ for the two-critic test (Driscoll--Kraay p-values at 5\%), but 0.17 for C2ST and
+0.26 and 0.29 for the wild-bootstrap MMD and \SigMMD{} tests. In the joint cell all protocol
+p-values reject between 0.045 and 0.090 at 5\%; in the indep cell the wild-bootstrap kernel tests
+are the closest to nominal (0.075 for MMD and 0.100 for \SigMMD{}, against 0.115 to 0.270 for the
+learned and relative tests; \cref{tab:e1-size-sim-full}). \Cref{tab:e1-sim-se} in
+\cref{sec:sim-dependent} and \cref{tab:manual-e1-sim-stat} in \cref{sec:theory-dependence}
+separate the statistic from its standard error: the shift of $\zhac$ in the indep cell comes with
+a mean of $T$ close to that of the joint cell and a negative correlation between $T$ and its
+standard error.
+
+\begin{table}[tbp]
+  \centering
+  \caption{The Driscoll--Kraay statistic $\zhac$ under the E1(a) placebo null (time-block split),
+    200 replications per cell: mean and standard deviation over replications, share above the
+    normal 5\% critical value (the size in \cref{tab:e1-size-sim}), and the medians of the number
+    of evaluation dates and of the Bartlett lag $H$ of the first sample ($\Rnew^*$ for the
+    absolute tests, $\Rpast^*$ for the anchored test; not recorded for the two-critic test).}
+  \label{tab:e1-sim-z}
+  \small
+  \fittable{manual_e1_sim_z}
+\end{table}
+
+\begin{table}[p]
+  \centering
+  \caption{Size of the real-data pipeline in the simulated factor panel (E1(a)), all p-value
+    types: rejection rates under $H_0$ with Wilson 95\% intervals at
+    $\alpha\in\{0.01,0.05,0.10\}$, 200 replications per cell, 100 tickers, $L=20$, 3000 real and
+    3000 synthetic \TEST{} windows, 6200 past windows. $G^*$ joint: independent draw of the whole
+    factor panel; indep.: tickers drawn independently with the same marginal laws.}
+  \label{tab:e1-size-sim-full}
+  \scriptsize
+  \fittable{e1_size_sim}
+  \tablenote{Learned and relative tests use the time-block split unless ``ticker split'' is
+    stated. $^{\star}$Protocol p-value (Driscoll--Kraay ``HAC'' for learned and relative tests,
+    wild bootstrap for kernel tests). Fixed-$b$ rows: the same statistic against the conservative
+    and the equal-variance fixed-$b$ references (\cref{app:sim-e1}). ``permutation'': for learned
+    and relative tests, permutation of the evaluation labels of the critic trained on time blocks;
+    for MMD and \SigMMD{}, \iid{} permutation of all windows. ``stud.\ permutation'': studentised
+    permutation of the anchored statistic. KS: asymptotic p-value, which assumes \iid{} returns and
+    is invalid here.}
+\end{table}
+
+\clearpage

@@ -1,51 +1,619 @@
 \section{Empirical results: S\&P 500}\label{sec:emp}
 % =============================================================================================
-% Target length: 5.5 pages including 6 tables and 3 figures. Experiments: E1
-% (experiments/e1_placebo.py) and E3 (experiments/e3_sp500.py). Every real-data test uses the
-% dependent protocol (time blocks + Driscoll-Kraay HAC; wild bootstrap for kernel tests; KS
-% flagged invalid). Report the pre-specified power check BEFORE the real-data results, as it was
-% run. Plan: OUTLINE.md, Section 7.
-%
-% Planned subsections (labels):
-%  \subsection{Size of the real-data pipeline}                     \label{sec:emp-placebo}
-%     E1(a) simulated panel placebo (factor GARCH-t fitted on TRAIN; cells joint / indep;
-%     200 replications; exactly the E3 sizes): tab:e1-size-sim, fig:e1-pvalue-qq. The naive
-%     protocol (ticker split + permutation) is severely oversized (\todo{rate}, theory pilot
-%     about 45% at 5%); time-block + HAC closer to nominal but still above (\todo{rates});
-%     fixed-b comparison rows. E1(b) real-ticker halves (secondary, 50 splits, rates only:
-%     tab:e1-size-real in appendix). E1(c) R_new vs R_past: non-stationarity
-%     (tab:e1-nonstat).
-%  \subsection{Pre-specified power check}                          \label{sec:emp-power}
-%     tab:e3-power: designs D1 (per-ticker GARCH-t, stationary R_past*) and D2 (real TRAIN
-%     volatility path); power and boundary size of the seed-combined rule (100 replications x
-%     5 seeds as run); a single-seed anchored p-value is not calibrated on real data.
-%  \subsection{Absolute and relative tests by generator}           \label{sec:emp-tests}
-%     tab:e3-pooled-tests, fig:e3-pvalues: pooled absolute tests per model (5 seeds, twice the
-%     median p) and anchored / two-critic relative tests; typical finding to discuss:
-%     distinguishable from the future but not worse than history.
-%  \subsection{What the critic detects}                            \label{sec:emp-witness}
-%     fig:e3-critic-witness: critic values against window log realised volatility and max |r|.
-%  \subsection{Per-ticker tests}                                   \label{sec:emp-perticker}
-%     tab:e3-perticker: L = 5, critic (HAC) and MMD (wild), p-values calibrated against a pooled
-%     GARCH-t null (nominal p-values oversized: tab:e3-perticker-null in appendix), BH primary,
-%     BY and Storey pi_0 as robustness; per-ticker GOOD needs per-ticker power (rarely).
-%  \subsection{Agreement with likelihood benchmarks}               \label{sec:emp-likelihood}
-%     tab:e3-likelihood (predictive log-likelihood, Berkowitz, PIT-KS for GBM / Merton /
-%     GARCH-t), tab:e3-likelihood-ag (appendix), tab:e3-agreement (Kendall tau of rankings,
-%     Cohen kappa of per-ticker verdicts); disagreement is expected when models are misspecified
-%     in different directions (rem:kl-vs-w1).
-%  \subsection{Verdicts}                                           \label{sec:emp-verdicts}
-%     tab:e3-verdicts: GOOD / BAD / INCONCLUSIVE per model (INVALID for the bootstrap), with
-%     the absolute test alongside and the Clopper-Pearson variant.
-% Tables/figures (file -> label):
-%   e1_size_sim.tex -> tab:e1-size-sim (main); e1_pvalue_qq.pdf -> fig:e1-pvalue-qq (main)
-%   e1_nonstat.tex -> tab:e1-nonstat (main or appendix); e1_size_real.tex -> tab:e1-size-real (app.)
-%   e3_power.tex -> tab:e3-power (main); e3_pooled_tests.tex -> tab:e3-pooled-tests (main)
-%   e3_pvalues.pdf -> fig:e3-pvalues (main); e3_critic_witness.pdf -> fig:e3-critic-witness (main)
-%   e3_perticker.tex -> tab:e3-perticker (main); e3_perticker_null.tex -> tab:e3-perticker-null (app.)
-%   e3_likelihood.tex -> tab:e3-likelihood (main); e3_likelihood_ag.tex -> tab:e3-likelihood-ag (app.)
-%   e3_agreement.tex -> tab:e3-agreement (main); e3_verdicts.tex -> tab:e3-verdicts (main)
+% Experiments: E1 (experiments/e1_placebo.py: parts sim, real, nonstat) and E3
+% (experiments/e3_sp500.py). Every number below comes from a generated table in paper/tables
+% (e1_*, e3_*, manual_e1_size_sim_main, manual_e5_split, manual_e5_sensitivity), from a
+% condensed copy written by a script in paper/scripts (manual_e3_*_main.tex, same numbers and
+% rounding), or, where stated, from a derived computation on the result CSVs documented in
+% app:emp-derived (witness decomposition, standard-error ratios, orderings over seeds,
+% calibration of the observed p-values against the D1/D2 boundary replications).
+% Derived tables written by scripts for the revision: manual_e3_verdicts_cal_main.tex
+% (paper/scripts/e3_verdicts_cal_main.py: tab:e3-verdicts with the D2-calibrated p-values; the
+% Holm-adjusted values quoted in sec:emp-verdicts are in its trailing comment lines) and
+% manual_e3_rv_baseline.tex (paper/scripts/e3_rv_baseline.py: seed-0 fixed realised-volatility
+% statistic on the stored evaluation windows of results/e3/e3_witness.csv).
+% Provenance of the power check (sec:emp-power): D1 in commit 2cb296e; D2, the seed rule and
+% "GOOD needs both designs" in the 2026-11-15 integration entry of the DESIGN change log, after
+% the smoke runs in results/e3_quick (6 tickers, 100 critic steps); full run: meta_power.json
+% 19:21, meta_realvol.json 19:53, meta_pooled.json 20:05.
+% Half-life of the GARCH-t variance (sec:emp-witness, sec:emp-verdicts): computed from the median
+% a+b = 0.965 of tab:e3-fit-diagnostics: 0.965^20 = 0.49, 0.965^60 = 0.12, log(0.5)/log(0.965) = 19.5.
+% Runs as executed: E1(a) 200 replications per cell, E1(b) 50 splits per period, E1(c) 10 test
+% seeds; E3 5 synthetic seeds, power check 100 replications x 5 seeds per design.
+% tab:e1-size-sim is placed in sec:sim-dependent (simulation.tex) and only summarised here;
+% fig:e1-pvalue-qq is placed here. Stylized facts (tab:e3-stylized) are in sec:data-stylized.
 % =============================================================================================
-\todo{Section to be written (OUTLINE.md, Section 7). Anchor citations:
-\citet{diebold1998evaluating}, \citet{berkowitz2001testing}, \citet{amisano2007comparing},
-\citet{benjamini1995controlling}.}
+
+This section applies the protocol of \cref{sec:method} to the 100-ticker panel of
+\cref{sec:data}. The five univariate generators (GBM, Merton, \GARCHt{}, Heston and the
+stationary bootstrap) are fitted per ticker on \TRAIN{} (returns from 2018-01-03 to 2022-12-30) and simulate
+the \TEST{} horizon (2023-01-03 to 2025-06-16) from their end-of-\TRAIN{} state. At $L=20$ the
+real \TEST{} sample $\Rnew$ has 3000 windows, each synthetic sample 3000 and the real past
+$\Rpast$ 6200. Every test uses the dependent protocol: time-block split with $K=10$ and the
+Driscoll--Kraay p-value $\phac$ for learned tests, the wild bootstrap for MMD and \SigMMD{}, and
+KS reported but invalid. Each generator is simulated with $S=5$ synthetic seeds, and every
+pooled p-value we report for a generator is the seed-combined $\pmed$ of \eqref{eq:pmed}. We first measure
+the size of this pipeline (\cref{sec:emp-placebo}) and report the power check, which in the full
+run was completed before the first pooled real-data test (\cref{sec:emp-power}, where we also
+state when its designs were fixed). We then give the tests per generator,
+what the critic detects, per-ticker results and the comparison with likelihood benchmarks
+(\cref{sec:emp-tests,sec:emp-witness,sec:emp-perticker,sec:emp-likelihood}), and finally the
+verdicts (\cref{sec:emp-verdicts}). In short: with each generator calibrated on 2018--2022, GBM,
+Merton and Heston are \BAD{}, \GARCHt{} is \INCONCL{}, the stationary bootstrap receives no
+verdict, and no generator can be \GOOD{} on this panel and split, because the power check fails
+under the realistic design (\cref{tab:e3-verdicts}).
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Size of the real-data pipeline}\label{sec:emp-placebo}
+
+\paragraph{Simulated placebo.}
+E1(a) runs the complete E3 pipeline, with the E3 sample sizes and date ranks, on a one-factor
+\GARCHt{} panel fitted to \TRAIN{}, in which the null holds by construction. Its design and
+rejection rates are discussed in \cref{sec:sim-dependent} (\cref{tab:e1-size-sim});
+\cref{fig:e1-pvalue-qq} shows the full p-value distributions. Three of its results govern how
+we read the real-data tests. First, when the synthetic panel is a draw of the whole factor panel
+(cell ``joint''), the protocol p-values are close to nominal. At 5\% the Driscoll--Kraay p-value
+of the \WC{} test rejects in 0.085 [0.054, 0.132] of the 200 replications (Wilson 95\% intervals
+in brackets), 0.050 [0.027, 0.090] against the fixed-$b$ reference with equal variances
+\citep{kiefer_2005_new}; the anchored relative test rejects in 0.080 [0.050, 0.126] and MMD with
+the wild bootstrap in 0.045 [0.024, 0.083]. The residual oversize of the normal reference is the
+small-sample effect of \cref{rem:small-T}, with about 15 evaluation dates per half. Second, the
+naive protocols fail. Under the time-block split the permutation p-value of the same critic
+rejects in 0.410 [0.344, 0.479] of replications. Splitting by ticker rejects in 0.990
+[0.964, 0.997] even with the Driscoll--Kraay p-value, which is the bias of
+\cref{prop:ticker-bias} and cannot be repaired by any variance estimator. KS rejects in 0.970
+[0.936, 0.986]. Third, when each synthetic ticker is drawn independently with the right
+marginal law but no common factor (cell ``indep.'', dashed lines in \cref{fig:e1-pvalue-qq}),
+which is the situation of the univariate generators of E3, the learned tests over-reject: 0.270
+[0.213, 0.335] for the absolute \WC{} test and 0.155 [0.111, 0.212] for the anchored test, while
+MMD and \SigMMD{} with the wild bootstrap stay closer to nominal (0.075 and 0.100). The oversize
+arises because the statistic and its Driscoll--Kraay standard error are dependent when the
+synthetic tickers are independent, not because the statistic is shifted (\cref{tab:e1-sim-se}).
+We therefore
+read absolute rejections of the \WC{} test with this oversize in mind, calibrate the per-ticker
+p-values against a simulated null (\cref{sec:emp-perticker}), and base the verdict on the
+anchored rule, whose boundary size is estimated in design D2 (\cref{sec:emp-power}). D2 has the
+same asymmetry: its real-past windows share the \TRAIN{} volatility path across tickers, its
+boundary generator draws each ticker independently.
+
+\begin{figure}[tbp]
+  \centering
+  \inputfigure{e1_pvalue_qq}
+  \caption{Simulated placebo of the real-data pipeline (E1(a)): QQ plots of placebo p-values
+    against uniform quantiles, log axes. One-factor \GARCHt{} panel fitted on \TRAIN{}, exactly
+    the E3 dimensions (100 tickers, $L=20$; 3000 real \TEST{}, 3000 synthetic and 6200 past
+    windows), 200 replications per cell. Solid lines: $G^*$ is a draw of the factor panel
+    (joint); dashed lines: independent synthetic tickers with the same margins. Colours give the
+    p-value type; the protocol's p-value is vermillion (Driscoll--Kraay for learned tests, wild
+    bootstrap for kernel tests); black: conservative fixed-$b$ reference (learned and relative tests) and the
+    asymptotic \iid{} p-value (KS, invalid). p-values below $10^{-3}$ are drawn at $10^{-3}$; grey band:
+    pointwise 95\% band of uniform order statistics. Rejection rates with Wilson 95\% intervals
+    are in \cref{tab:e1-size-sim}.}
+  \label{fig:e1-pvalue-qq}
+\end{figure}
+
+\paragraph{Real-data placebo.}
+E1(b) splits the 100 real tickers at random into two halves and tests one half against the
+other on the same dates, 50 times within \TEST{} and 50 times within \TRAIN{}
+(\cref{tab:e1-size-real} in \cref{app:emp}). Within \TEST{}, the rejection rates at 5\% are
+0.020 for the \WC{} test, 0.000 for the \LRC{} statistic and C2ST, 0.340 for MMD, 0.400 for
+\SigMMD{} and 0.460 for KS. This placebo is secondary. Because the halves share every date and
+the Driscoll--Kraay standard error adds the variances of the two samples, it ignores their
+positive same-date covariance and is conservative by construction, whereas the wild bootstrap
+shares its multipliers across the halves and models that covariance. Two random sets of 50
+stocks need not have the same pooled window law even after scaling, so the kernel rejections mix
+residual oversize with differences in composition. And all splits come from one realised market
+path, so the rates are conditional on that path and carry no intervals. E1(b) shows no gross
+failure of the time-block protocol but cannot measure its size; E1(a) does.
+
+\paragraph{Is the past distinguishable from the future?}
+E1(c) tests the real \TEST{} windows against the real \TRAIN{} windows with the same pipeline,
+over ten test seeds (\cref{tab:e1-nonstat} in \cref{app:emp}). With valid inference the window
+tests do not reject at 5\%: $\pmed$ is 0.452 for the \WC{} test (one of ten seeds below 0.05),
+0.071 for the \LRC{} statistic (six of ten), 0.386 for C2ST, 0.403 for MMD and 1.000 for
+\SigMMD{}. Only the permutation p-values and KS reject, and in the stationary placebo of the same
+comparison these reject in 0.355 to 1.000 of replications. These non-rejections are weak evidence
+that the two periods are alike. Both samples are factor panels, so the Driscoll--Kraay variance
+contains the common date-to-date variation on both sides, and with about 15 \TEST{} evaluation
+dates the tests have little power for this comparison. The Driscoll--Kraay variance also
+explains why E1(c) does not contradict E3, where the absolute \WC{} test rejects the stationary
+bootstrap, a resample of \TRAIN{}, against \TEST{} ($\pmed<0.001$, \cref{sec:emp-tests}). The synthetic tickers of E3 are drawn
+independently of each other, so their date averages vary little and the synthetic side adds
+almost nothing to the variance. This is the configuration of the cell ``indep.''\ of E1(a), in
+which the absolute test rejects in 0.270 of null replications, so absolute p-values of E1(c) and
+of E3 are not comparable. A difference between the periods is nevertheless visible in levels. The panel median of the daily standard
+deviation is 1.62\% in \TEST{} (\cref{tab:e3-stylized}), against a median GBM volatility of
+2.11\% fitted on \TRAIN{} (\cref{tab:e3-fit-diagnostics}). A plausible reason why the window
+tests miss it in E1(c) is that \TRAIN{} is heterogeneous: it contains calm stretches as well as
+the 2020 and 2022 turbulence, the time-block split trains the critic on half of the \TRAIN{}
+blocks and evaluates it on the other half, and across seeds the \WC{} statistic even changes
+sign (\cref{rem:nonstat-past}). The case for a relative null thus does not rest on a
+rejection of the past against the future. It rests on the fact that every generator is fitted
+to a period whose volatility level differs from that of the evaluation period, while the past
+itself, with its calm and turbulent sub-periods, is the natural benchmark.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{The pre-specified power check}\label{sec:emp-power}
+
+The power check (\cref{def:power-check}) simulates the whole verdict rule: the anchored \WC{}
+test with the dependent protocol and the real sizes, date ranks and split, five seeds per
+replication, and rejection when $\pmed\le0.05$. The deviation multiplies synthetic volatility
+by 1.2. Design D1 uses per-ticker \GARCHt{} fits with a stationary $\Rpast^*$; design D2 keeps the real \TRAIN{} volatility path and the real \TEST{}
+sample (\cref{sec:method-decision}). \GOOD{} requires $\hat\beta\ge0.8$ in both designs.
+Design D1, the deviation and the threshold $\bmin=0.8$ were fixed in the protocol before any
+real-data run. Design D2, the requirement that both designs pass and the seed-combination rule
+\eqref{eq:pmed} were added to the protocol on the day of the full runs, after development smoke
+tests of the whole E3 pipeline on a six-ticker subset with 100 critic training steps (change log
+of the design document; \cref{app:impl-compute}). In the full run the power check finished, in both designs, before the
+first pooled real-data test was run. \Cref{tab:e3-power} reports the results.
+
+In the stationary design D1 the rule detects the deviation in all 100 replications (one-sided
+Clopper--Pearson lower bound $\betaL=0.97$) and never rejects at the boundary (0.00 [0.00,
+0.04]). In D2 the picture changes. The power of the rule falls to 0.45 [0.36, 0.55], with
+$\betaL=0.37$, and its boundary size is 0.08 [0.04, 0.15]. A single seed would reject the
+boundary generator in 0.25 [0.17, 0.35] of replications (0.09 [0.04, 0.16] in D1): this is the
+miscalibration of single-seed anchored p-values under a non-stationary past
+(\cref{rem:nonstat-past}), and the seed combination reduces it to a rate whose interval contains
+0.05. The loss of power is not a by-product of that miscalibration: at the threshold 0.025, where
+the boundary size of the rule is 0.05, its D2 power is still 0.45
+(\cref{tab:manual-theory-calibration}). It is a loss of precision. The median Driscoll--Kraay
+standard error of $\Danc$ at the boundary is 0.245 in D2 against 0.032 in D1, about 7.7 times larger (ratio
+computed from \cref{tab:e3-power}). In D2 the past windows carry the real 2018--2022 volatility
+regimes, which move all tickers together, so critic values vary strongly from date to date and
+the precision is governed by the few evaluation dates (\cref{rem:small-T}). On the
+real data the median standard error of $\Danc$ over seeds lies between 0.59 and 0.79 times its
+D2 value and between 4.5 and 6.1 times its D1 value, depending on the generator
+(\cref{app:emp-derived}), so the real configuration is much closer to D2 than to
+D1. Because the power check does not involve the generators, its consequence was known before
+any generator was tested in the full run: on this panel and split the rule cannot certify any
+generator as \GOOD{}, and the only attainable verdicts are \BAD{} and \INCONCL{}.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Pre-specified power check of the verdict rule (E3). Anchored \WC{} test with the
+    dependent protocol and the real E3 sizes, date ranks and split; rule: $\pmed\le0.05$ over
+    five synthetic seeds; 100 replications per design. Alternative: synthetic volatility
+    $\times1.2$. Boundary: generator with the law of the (pooled) past windows. Power with Wilson
+    95\% intervals and one-sided 95\% Clopper--Pearson lower bound $\betaL$; boundary sizes with
+    Clopper--Pearson 95\% intervals. $\widehat{\mathrm{se}}_{\mathrm{DK}}$: median
+    Driscoll--Kraay standard error of $\Danc$ at the boundary.}
+  \label{tab:e3-power}
+  \small
+  \fittable{manual_e3_power_main}
+\end{table}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Absolute and relative tests by generator}\label{sec:emp-tests}
+
+\Cref{tab:e3-pooled-tests} gives $\pmed$ for every test and generator, and
+\cref{fig:e3-pvalues} shows the five single-seed p-values behind each entry. KS rejects every
+generator with p-values below $10^{-10}$, but it is invalid under the dependence of real windows
+(it rejects in 0.970 of the E1(a) replications). The absolute \WC{} test rejects every generator
+as well, the stationary bootstrap included: $\pmed<0.001$ for all five, with four or five seeds
+rejecting. The other valid tests are more selective. MMD and \SigMMD{} reject GBM, Merton and
+Heston ($\pmed$ between 0.004 and 0.028) but neither \GARCHt{} (0.399 and 0.116) nor the
+bootstrap (0.347 and 0.571). C2ST rejects only GBM and Merton, and the \LRC{} statistic every
+generator except \GARCHt{} (0.100). Given the oversize of the absolute \WC{} test with
+independent synthetic tickers (0.270 at 5\% in E1(a)), its rejections of \GARCHt{} and of the
+bootstrap are weaker evidence than their p-values suggest, and we do not use them. What the
+valid tests agree on is the ordering. In every seed the absolute \WC{} statistic ranks the
+generators GBM, Merton, Heston, bootstrap, \GARCHt{}, from the most to the least distinguishable
+(\cref{app:emp-derived}). The sets of generators that the kernel and classifier tests reject at
+5\% are nested in the same order, and their $\pmed$ follow it, with one inversion: \SigMMD{}
+finds the bootstrap less distinguishable than \GARCHt{}. A fixed, untrained realised-volatility
+statistic gives nearly the same ordering at seed 0 (\cref{sec:emp-witness}).
+
+The anchored relative test separates the generators. It rejects GBM ($\pmed<0.001$), Merton
+(0.005) and Heston (0.017), but not \GARCHt{} (0.432). For the bootstrap it is invalid, because
+its synthetic windows copy past windows that the critic saw as negatives; its $\pmed$ of 0.116
+is shown for completeness. The two-critic test, secondary and anti-conservative at the boundary
+(\cref{prop:boundary-size}), rejects every generator except \GARCHt{} (0.096). \GARCHt{} is thus
+the one generator that is distinguishable from the future by the absolute \WC{} test but not
+detectably worse than history: the outcome ``distinguishable from the future, but not worse than
+history'' of \cref{sec:method-decision}.
+
+Single seeds would tell a less stable story. For GBM the single-seed anchored p-values range
+from 0.40 to values far below 0.001 (\cref{fig:e3-pvalues}); with about 15 evaluation dates per
+half, the smallest of them should be read only as ``far in the tail''. At seed 0 the anchored
+statistic $\Danc$ is negative for every generator except GBM. The seeds share their block
+assignment across generators (\cref{sec:method-decision}), and in every seed $\Danc$ orders the
+four parametric generators in the same way, GBM, Merton, Heston, \GARCHt{}, from the largest to
+the smallest; what changes from seed to seed is the common level (\cref{app:emp-derived}). This
+is consistent with the mechanism of \cref{rem:nonstat-past}, in which the \TRAIN{} blocks that
+land in the evaluation half move $\Ppast^{\evl}\fhat$, and with it $\Danc$, for all generators at
+once. But a seed also fixes the initialisation and the mini-batches of the critic, which are
+shared by all generators at that seed as well, and we have not separated the two sources.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Pooled tests per generator (E3): $\pmed=\min\{1,2\med_sp_s\}$ over five synthetic
+    seeds; for absolute tests, the number of seeds with $p_s\le0.05$ in parentheses. 100
+    tickers, $L=20$; 3000 real \TEST{} and 3000 synthetic windows; relative tests with
+    $\Rpast$ = the 6200 real \TRAIN{} windows.}
+  \label{tab:e3-pooled-tests}
+  \small
+  \fittable{e3_pooled_tests}
+  \tablenote{Learned tests (\WC{}, \LRC{}, C2ST) and relative tests: time-block split ($K=10$)
+    and Driscoll--Kraay p-value; MMD and \SigMMD{}: wild bootstrap ($B=500$); KS: asymptotic
+    p-value for \iid{} returns. $^{\dagger}$Not a valid test here: KS ignores the dependence of
+    real windows; the two-critic test is anti-conservative at the boundary (secondary).
+    $^{\ddagger}$Relative test invalid for the stationary bootstrap (its synthetic windows copy
+    $\Rpast$ windows used in training). Size of the absolute tests in the simulated placebo:
+    \cref{tab:e1-size-sim}.}
+\end{table}
+
+\begin{figure}[tbp]
+  \centering
+  \inputfigure{e3_pvalues}
+  \caption{Single-seed p-values of the pooled tests (E3), five synthetic seeds per generator
+    (points), and $\pmed=\min\{1,2\med_sp_s\}$ (black bars). 100 tickers, $L=20$; same tests and
+    p-value types as \cref{tab:e3-pooled-tests}. Faded points and dotted bars: tests that are not
+    valid for the generator (KS; the two-critic test; relative tests of the stationary
+    bootstrap). Dashed line: 0.05. p-values are floored at $10^{-10}$. With about 15 evaluation
+    dates per half, normal-reference p-values below about $10^{-3}$ are not quantitatively
+    meaningful.}
+  \label{fig:e3-pvalues}
+\end{figure}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{What the critic detects}\label{sec:emp-witness}
+
+A learned test is useful only if one can say what it found. Because the \WC{} statistic is a
+difference of means of one function, the critic can be inspected window by window.
+\Cref{fig:e3-critic-witness} does this for the seed-0 critics: each is retrained with exactly
+the random streams of the pooled test and reproduces its statistic $T$ to machine precision. The
+answer is the same for all five generators. The critic is, to a first approximation, a
+decreasing function of the realised volatility of the window. The Spearman correlation between
+the critic value and the window log realised volatility (log root mean square of the normalised
+returns) lies between $-0.69$ (\GARCHt{}) and $-0.85$ (GBM, Merton) over the 3000 evaluation
+windows. Replacing the critic by its mean within 20 quantile bins of log realised volatility
+reproduces between 99\% and 102\% of $T$ for the four parametric generators and 89\% for the
+bootstrap. Conditionally on realised volatility, the critic hardly separates real from
+synthetic windows: in the lower panels the two curves nearly coincide. (These figures are derived
+from the stored critic values; \cref{app:emp-derived}.)
+
+The deviation the critic detects is therefore a level effect: every generator is too volatile
+for 2023--2025. The median realised volatility of the real evaluation windows is 0.65 times the
+\TRAIN{} standard deviation of the ticker. For synthetic windows it is 0.99 times for GBM, 0.90
+for Merton, 0.86 for Heston and 0.77 for \GARCHt{} and the bootstrap (same source). The order
+matches that of $T$, with \GARCHt{} and the bootstrap tied. These two come closest, and the
+volatility of their windows is dispersed and skewed to the right, with many calm windows and a
+few turbulent ones: the mean realised volatility of their windows is 0.88, against a median of
+0.77 (\cref{tab:e3-rv-baseline}). The start of \GARCHt{} at the end-of-\TRAIN{} state contributes
+little. At the median persistence $a+b=0.965$ (\cref{tab:e3-fit-diagnostics}) a variance shock
+has a half-life of about 20 trading days ($0.965^{20}\approx0.49$ and $0.965^{60}\approx0.12$),
+so the start state affects mainly the first two or three of the 30 \TEST{} windows of a ticker.
+GBM and Merton have no volatility dynamics and put most windows near the \TRAIN{} average: the
+standard deviation of the window log realised volatility is 0.16 for GBM and 0.29 for Merton,
+against 0.36 for the real windows. The critic thus behaves like a learned realised-volatility
+statistic, the nearly efficient direction for a volatility-level deviation (\cref{ex:vol-level}). This also suggests why the anchored test ranks the generators as it does. The
+real past contains calm stretches as well as the 2020 and 2022 turbulence; a generator whose
+windows rarely reach the calm end of that range is less $\Rnew$-like than history, and one that
+reaches it is not detectably worse. The
+witness also shows what the test did not find. Tails and within-window dependence beyond the
+volatility level contribute little to $T$ at these sample sizes, even though the generators
+differ in these respects (\cref{tab:e3-stylized}).
+
+If the critic is essentially a realised-volatility statistic, a fixed one might do as well.
+\Cref{tab:e3-rv-baseline} replaces each seed-0 critic by the untrained function
+$h(w)=-\log\mathrm{RV}(w)$, with $\mathrm{RV}(w)$ the root mean square of the normalised returns
+of window $w$, on exactly the same evaluation windows and with the same Driscoll--Kraay p-value.
+The statistic is then $\Delta_{\mathrm{RV}}$, the mean log realised volatility of the synthetic
+windows minus that of the real ones. The fixed statistic separates real from synthetic windows
+almost as strongly as the critic: its $\zhac$ is between 0.69 (bootstrap) and 0.94 (\GARCHt{})
+times that of the critic, and both are far in the tail for every generator. In volatility units,
+the geometric-mean realised volatility of the synthetic windows exceeds that of the real ones by
+a factor $e^{\Delta_{\mathrm{RV}}}$ of 1.46 for GBM, 1.34 for Merton, 1.24 for Heston and 1.18
+for \GARCHt{} and the bootstrap. Learning thus adds some precision, most for the bootstrap, whose
+share of $T$ explained by realised volatility is also the lowest (0.89), but no new direction on
+this panel. Both statistics are absolute tests with independent synthetic tickers and inherit
+the oversize of that configuration (\cref{sec:emp-placebo}). The comparison could be computed
+only for seed 0 and the absolute test, from the evaluation windows stored by the witness part of
+E3. The anchored version under the verdict rule, with five seeds and the designs D1 and D2, was
+not run, because the synthetic paths of the other seeds and of the power designs were not
+stored. Given the witness and this comparison, the real-data verdicts may well be reproducible
+by an anchored test of mean log realised volatility. On this panel the contribution of the critic
+is therefore not power beyond a volatility statistic. It is that the critic did not have to be
+told which direction matters, that its witness shows which one it found, and that in simulation
+the same test also detects deviations at matched variance (\cref{sec:sim-power}), for which a
+volatility-level statistic is not designed.
+
+\begin{table}[tbp]
+  \centering
+  \caption{The seed-0 critic of the \WC{} test against a fixed realised-volatility statistic on the same
+    windows (E3, $L=20$; 1500 real \TEST{} and 1500 synthetic evaluation windows per generator,
+    those of the seed-0 absolute test). Learned critic: statistic $T$ and Driscoll--Kraay
+    $\zhac$ of the pooled seed-0 test. Fixed statistic: the critic replaced by
+    $h(w)=-\log\mathrm{RV}(w)$, so that $\Delta_{\mathrm{RV}}$ is the mean log realised volatility
+    of the synthetic minus the real windows and $e^{\Delta_{\mathrm{RV}}}$ the ratio of their
+    geometric-mean realised volatilities; same Driscoll--Kraay $\zhac$; ratio of $\zhac$: fixed
+    over learned. Evaluation windows: standard deviation of log realised volatility and mean and
+    median realised volatility of the synthetic windows (last row: the real \TEST{} windows,
+    common to all generators). Realised volatility: root mean square of the returns divided by
+    the \TRAIN{} standard deviation of the ticker. Derived from
+    \texttt{results/e3/e3\_witness.csv} by \texttt{paper/scripts/e3\_rv\_baseline.py}; seed 0
+    and the absolute test only.}
+  \label{tab:e3-rv-baseline}
+  \small
+  \fittable{manual_e3_rv_baseline}
+\end{table}
+
+\begin{figure}[tbp]
+  \centering
+  \inputfigure{e3_critic_witness}
+  \caption{What the \WC{} critic separates (E3, seed 0, $L=20$). Top: histograms of critic
+    values on the 1500 real (black) and 1500 synthetic (colour) evaluation windows, with the
+    statistic $T$. Bottom: mean critic value within decile bins of window log realised
+    volatility (log root mean square of the returns divided by the \TRAIN{} standard deviation of
+    the ticker; 0 is the \TRAIN{} level), real and synthetic windows. Each critic is retrained
+    with the random streams of the pooled seed-0 test and reproduces its statistic.}
+  \label{fig:e3-critic-witness}
+\end{figure}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Per-ticker tests}\label{sec:emp-perticker}
+
+Per ticker the samples are small. At $L=5$, \TEST{} gives 123 real and 123 synthetic windows per
+ticker, about 61 of each in the evaluation half. With so few windows the nominal Driscoll--Kraay
+and wild-bootstrap p-values are oversized. Under a per-ticker \GARCHt{} null (1000 pairs of
+independent \TEST{}-length paths from the fitted end-of-\TRAIN{} state, ten per ticker), the
+\WC{} test rejects in 0.12 [0.10, 0.14] of pairs at 5\% and MMD in 0.18 [0.16, 0.21]
+(\cref{tab:e3-perticker-null} in \cref{app:emp}). We therefore calibrate each per-ticker
+p-value against these null p-values, $p_{\mathrm{cal}}=(1+\#\{p_0\le p\})/1001$; a nominal
+p-value of 0.014 for the \WC{} test and 0.004 for MMD then corresponds to 5\%. This calibration
+assumes that the per-ticker \GARCHt{} law is a fair stand-in for the null distribution of the
+p-values, and we use it only descriptively (\cref{rem:bh}). It is the same for every generator
+and exact in law only for \GARCHt{}. The null distribution of these p-values depends on the
+persistence of the generator: in the multivariate placebo of E4, the Driscoll--Kraay p-value of
+the \WC{} test rejects at 5\% in 0.050 and 0.067 of null replications for the two \iid{}
+generators and in 0.267 for the two GARCH-type ones (\cref{tab:e4-placebo}). If the per-ticker
+tests behave alike, the \GARCHt{} calibration is conservative for GBM and Merton; for Heston and
+the bootstrap its direction is unknown. Generator-specific nulls, as in E4, were not simulated.
+
+\Cref{tab:e3-perticker} confirms the pooled ordering ticker by ticker. With calibrated p-values,
+the \WC{} test rejects GBM for 0.66 [0.56, 0.75] of the tickers, Merton for 0.32, Heston for
+0.19, \GARCHt{} for 0.18 and the bootstrap for 0.13; MMD gives similar shares. After the
+Benjamini--Hochberg correction \citep{benjamini1995controlling} at 5\%, the \WC{} test still
+rejects GBM for 61 tickers (40 with the Benjamini--Yekutieli correction,
+\citealp{benjamini2001control}), Merton for 7, Heston for 6, the bootstrap for 2 and \GARCHt{} for
+none. Storey's estimate of the share of true nulls \citep{storey_2002_direct} is 0.08 for GBM and
+0.70 for \GARCHt{}. MMD rejects no ticker after either correction. This is a resolution effect,
+not a lack of signal. The wild bootstrap uses $B=500$ replicates, and 3.1\% of the null p-values
+sit at the smallest attainable value $1/501$, so no calibrated MMD p-value falls below 0.032.
+The Benjamini--Hochberg procedure over 100 tickers then rejects either at least 64 tickers or none
+(\cref{app:emp-derived}); GBM, with 61 calibrated rejections at 5\%, falls short. The Driscoll--Kraay
+p-values of the \WC{} test are continuous and have no floor. Non-rejections carry no per-ticker
+\GOOD{}: there is no per-ticker power check, and with about 61 evaluation windows per ticker
+little power should be expected.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Per-ticker tests (E3), $L=5$: 123 real \TEST{} and 123 synthetic windows per ticker
+    (headline synthetic seed), 100 tickers. \WC{}: time-block split and Driscoll--Kraay p-value;
+    MMD: wild bootstrap ($B=500$). Calibrated p-values: against 1000 null p-values from
+    per-ticker \GARCHt{} pairs (\cref{tab:e3-perticker-null}). Rej.\ 5\%: share of tickers with
+    calibrated $p\le0.05$ [Wilson 95\% interval]; BH, BY: number of tickers rejected by the
+    Benjamini--Hochberg and Benjamini--Yekutieli procedures at 5\%; Storey $\hat\pi_0$ with
+    $\lambda=0.5$. Nominal columns: number of tickers with nominal $p\le0.05$ (oversized) and
+    median nominal p-value.}
+  \label{tab:e3-perticker}
+  \small
+  \fittable{manual_e3_perticker_main}
+\end{table}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Agreement with likelihood benchmarks}\label{sec:emp-likelihood}
+
+GBM, Merton and \GARCHt{} have tractable likelihoods. For them, \cref{tab:e3-likelihood} reports
+the classical out-of-sample evaluation on the 615 \TEST{} days with parameters fixed at their
+\TRAIN{} estimates and filters started at the end of \TRAIN{}. This is a fixed estimation scheme,
+under which comparisons of predictive ability evaluate each model together with its estimated
+parameters and remain valid with a finite estimation sample \citep{giacomini2006tests}. We
+report the mean one-step predictive
+log-score, the Berkowitz test of the probability integral transforms
+\citep{diebold1998evaluating,berkowitz2001testing} and a KS test of the same transforms (PIT-KS).
+The likelihood ranking is unambiguous. \GARCHt{} has the highest mean log-score (2.740 against
+2.708 for Merton and 2.566 for GBM) and the highest log-score on 91 of 100 tickers. In pairwise
+Amisano--Giacomini tests \citep{amisano2007comparing}, \GARCHt{} beats GBM on 94 tickers and
+Merton on 46 after the Benjamini--Hochberg correction and is beaten on none
+(\cref{tab:e3-likelihood-ag} in \cref{app:emp}). Even \GARCHt{} is not well calibrated, however:
+the Berkowitz test rejects it for 0.33 [0.25, 0.43] of the tickers (16 after
+Benjamini--Hochberg), against 0.89 for GBM and 0.81 for Merton.
+
+\Cref{tab:e3-agreement} compares these results with the critic tests. On rankings the two
+evaluations agree. The pooled \WC{} statistic orders the three models as the log-score does,
+\GARCHt{}, Merton, GBM, at seed 0 and for the median over seeds, so Kendall's $\tau$
+\citep{kendall_1938_new} equals 1. With three models a perfect agreement has probability 1/6
+under random rankings, so this alone is weak evidence. The fixed realised-volatility statistic of
+\cref{tab:e3-rv-baseline} gives the same ranking at seed 0, so on this panel the agreement is
+also a comparison of volatility levels. Per ticker, with the $L=5$ statistics, the
+mean $\tau$ is 0.58 for the \WC{} test and 0.63 for MMD; the rankings agree completely for 56\%
+and 63\% of the tickers and are reversed for 4\%, against 17\% each under random rankings
+(descriptive: tickers are dependent). The critic test thus orders generators like the
+likelihood, without using it.
+
+On per-ticker rejections the two evaluations disagree, and the disagreement has a direction.
+Cohen's $\kappa$ \citep{cohen_1960_coefficient} between Benjamini--Hochberg rejections of the
+\WC{} test and of the Berkowitz test is 0.28 for GBM, 0.04 for Merton and 0.00 for \GARCHt{};
+with chance agreement computed within each model it is 0.11 over the three models. In 118
+ticker-model pairs only the Berkowitz test rejects, and in one pair only the critic test does.
+The two procedures answer different questions. The Berkowitz test checks the calibration of
+one-day-ahead predictive distributions that are updated with the realised \TEST{} returns and
+uses all 615 days; the log-score built from the same densities ranks models, in expectation, by
+the Kullback--Leibler divergence of their one-step predictive densities from the true conditional
+law. The critic compares windows of free-running simulated paths with real windows, sees about 61
+evaluation windows per ticker, and responds to a Wasserstein-type discrepancy between window laws
+(\cref{rem:kl-vs-w1}). A forecaster can be miscalibrated day by
+day while its simulated months are hard to tell from real ones, and the per-ticker critic test
+has little power to begin with. The horizons also differ: both likelihood benchmarks are
+one-step-ahead, the critic judges free-running simulations of the whole \TEST{} period. A
+horizon-matched likelihood benchmark, such as the predictive log-score of non-overlapping 20-day
+returns or of 20-day realised variances under each free-running model, would make the comparison
+like for like; we did not compute it. The disagreement is informative, not a contradiction. Where a
+likelihood exists, it is the sharper tool for one-step calibration; the critic adds a check of
+the simulated paths themselves, which is what a user of synthetic data consumes, and it extends
+to Heston and the bootstrap, where no likelihood is available.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Likelihood benchmarks on \TEST{} (E3): 615 days, 100 tickers, parameters fitted on
+    \TRAIN{}, filters started at the end of \TRAIN{}. Predictive log-score: mean over tickers of
+    the mean one-step predictive log-density of the daily return $r$ and of $r/s_i$ ($s_i$: the
+    \TRAIN{} standard deviation of the ticker); best on: number of tickers with the highest
+    log-score of the three models. Berkowitz and PIT-KS tests per ticker: share of tickers with
+    $p\le0.05$ [Wilson 95\% interval] and number rejected by Benjamini--Hochberg at 5\%.}
+  \label{tab:e3-likelihood}
+  \small
+  \fittable{manual_e3_likelihood_main}
+\end{table}
+
+\begin{table}[tbp]
+  \centering
+  \caption{Agreement of the critic tests with the likelihood benchmarks (E3; GBM, Merton,
+    \GARCHt{}). Panel A: Kendall $\tau$ between the ranking of the three models by the critic
+    statistic (small is good) and by the mean predictive log-score; pooled \WC{} statistic at
+    $L=20$, and per ticker with the $L=5$ statistics (mean over 100 tickers and shares with
+    $\tau=1$ and $\tau=-1$; under random rankings each share is 1/6; descriptive). Panel B:
+    Cohen $\kappa$ between per-ticker rejections of the test (calibrated p-values) and of the
+    Berkowitz test, with Benjamini--Hochberg at 5\% for both (BH) or unadjusted 5\% decisions
+    (5\%); ``stratified'' computes chance agreement within each model. Counts: tickers by BH
+    decisions of the \WC{} test and of the Berkowitz test.}
+  \label{tab:e3-agreement}
+  \small
+  \textit{Panel A: rankings}\par\smallskip
+  \fittable{manual_e3_agreement_main_tau}
+  \par\medskip
+  \textit{Panel B: per-ticker rejections}\par\smallskip
+  \fittable{manual_e3_agreement_main_kappa}
+\end{table}
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Verdicts}\label{sec:emp-verdicts}
+
+\Cref{tab:e3-verdicts} applies the decision rule \eqref{eq:verdict} with $\alpha=0.05$ and
+$\bmin=0.8$. The power of the rule is the smaller of the two design powers, 0.45 (D2), so no
+generator can be \GOOD{}, and the Clopper--Pearson variant gives the same verdicts.
+
+GBM is \BAD{}. Its anchored statistic is positive in all five seeds (median 0.672), and
+$\pmed<0.001$. Merton is \BAD{} with $\pmed=0.005$ and Heston with $\pmed=0.017$. Since the
+boundary size of the rule in D2 is 0.08, not 0.05, \cref{tab:e3-verdicts} also calibrates each
+observed $\pmed$ against the 100 D2 boundary replications. A value at least as small as that of
+GBM or Merton occurred in one of them, and one at least as small as that of Heston in four
+(\cref{app:emp-derived}). The \BAD{} verdicts for GBM and Merton therefore remain significant
+when calibrated against the D2 boundary replications (Monte Carlo p-value $(1+1)/101=0.020$),
+while Heston's is borderline ($(1+4)/101=0.050$). This calibration is approximate. It is valid
+only insofar as the observed and the boundary $\pmed$ are exchangeable (\cref{rem:calibrated-bad}),
+and D2 differs from the real configuration in its noise law and in its precision (the real
+standard error of $\Danc$ is 0.59 to 0.79 times its D2 value; \cref{sec:emp-power}), in
+directions we cannot sign. Each verdict controls its own error. With Holm's step-down correction
+over the four parametric generators, the nominal $\pmed$ still give three \BAD{} verdicts
+(adjusted values 0.002, 0.016 and 0.033), but the D2-calibrated p-values, whose resolution is
+1/101, do not survive (smallest adjusted value 0.079). All three generators produce windows that
+are detectably less like 2023--2025 than the 2018--2022 history they were fitted to, and the
+witness shows why: they put too much mass on high-volatility windows (\cref{sec:emp-witness}).
+
+\GARCHt{} is \INCONCL{}. It is not \BAD{}: $\pmed=0.432$, the median $\Danc$ is 0.109 with a
+range over seeds that includes negative values, and 36 of the 100 D2 boundary replications gave
+a $\pmed$ at least as small. It is not \GOOD{} either, because the rule detects a 20\%
+volatility error with probability 0.45 under D2. Under D1 alone, the design first written into
+the protocol, the power is 1.00 and the verdict would have been \GOOD{}, although the D1
+alternative also differs from its boundary in its initial state (\cref{def:power-check}), so this
+power is against a compound deviation. The second design, added on the day of the full runs (\cref{sec:emp-power}), keeps the real non-stationarity of
+\TRAIN{}, and it is what prevents an unjustified claim of quality.
+
+The stationary bootstrap, that is, historical simulation, receives no verdict
+(\INVALID{}). Its synthetic windows copy \TRAIN{} windows that the anchored critic saw as pool
+negatives, so its evaluation windows are not exchangeable with those of $\Rpast$ at the boundary,
+and E2 shows how strongly such leakage inflates rejections (0.965 at 5\% with a random split
+against 0.010 when the split respects the source window, \cref{tab:e2-relative-boundary}). Its
+$\pmed$ of 0.116 cannot be interpreted in either direction. The grouped split of E2 was not
+applied in E3. There the bootstrap resamples daily returns in blocks of random length (median
+mean block length 52.3 days, \cref{tab:e3-fit-diagnostics}), so a synthetic window can join
+returns from two \TRAIN{} periods, and the pipeline did not record the source dates of the
+simulated returns. A grouped version, assigning each synthetic window to the half of its source
+\TRAIN{} blocks and dropping windows that straddle both halves, would give the practitioners'
+benchmark a verdict and would also serve as an approximate real-data placebo of the anchored test
+at its boundary; it was not run.
+
+Each verdict concerns a model together with its calibration rule: maximum likelihood on the
+whole of \TRAIN{} for GBM and Merton, simulated moments of the same sample for Heston, and
+maximum likelihood with variance targeting on the \TRAIN{} sample variance for \GARCHt{}
+(\cref{sec:data}). The models are also those of \cref{sec:data-generators}: the verdict on Merton
+concerns the fitted scale mixture with frequent, moderate jumps, not jump models of rare crashes,
+and the verdict on Heston concerns the model with the coefficient of variation of the variance
+bounded by $\sqrt{1.5}$, the bound that our daily discretisation requires. GBM and Merton have a
+constant volatility fitted to 2018--2022 (median GBM
+$\sigma$ 2.11\%, against a median daily standard deviation of 1.62\% in \TEST{};
+\cref{tab:e3-fit-diagnostics,tab:e3-stylized}), the long-run volatility of Heston is matched to
+the same sample (median 2.13\%), and \GARCHt{}, whose variance shocks have a half-life of about
+20 trading days, forgets its end-of-\TRAIN{} state within the first two or three of its 30
+\TEST{} windows and then fluctuates around its \TRAIN{} unconditional variance.
+Every generator therefore runs at its \TRAIN{} volatility level for most of \TEST{}, and the
+critic detects mainly that level and the dispersion of window volatility around it. The \BAD{}
+verdicts say that GBM, Merton and Heston calibrated on a window that contains the 2020 crash and
+the 2022 turbulence produce windows that are too volatile for 2023--2025: a statement about the
+calibration window as much as about the model class. A calibration on a recent window, for
+instance the last 615 \TRAIN{} days that serve as reference period in E4, would define different
+generators; it was not run.
+
+The anchored null also has an economic reading. Its boundary is the law of the pooled past
+windows, which is approximately what a block resample of history produces. A \BAD{} verdict
+therefore reads ``detectably worse than replaying 2018--2022'', and a \GOOD{} verdict, which the
+rule could not deliver here, would read ``not detectably worse than historical simulation'', a
+minimal bar rather than a proof of quality. Because \TEST{} was calmer than \TRAIN{}, this null
+is lenient towards generators whose errors happen to point towards calm windows, and the power
+check measures power only against an error in the opposite direction (synthetic volatility
+$\times1.2$).
+
+These verdicts depend on the split. With \TRAIN{} 2018--2021 and \TEST{} 2022--2025, all four
+parametric generators are \INCONCL{}, and the rule's D2 power and boundary size are both 0.60
+(25 replications; \cref{tab:manual-e5-split}), so at that split even a rejection would not have
+been interpretable. Across the one-at-a-time changes of the sensitivity analysis, \GARCHt{} is
+\INCONCL{} throughout, GBM remains \BAD{} except with a training fraction of 0.3, and Merton and
+Heston become \INCONCL{} under several settings (\cref{tab:manual-e5-sensitivity}); none of these
+changes rejects a generator that the default does not reject (\cref{sec:robust}). The verdicts
+above are those of the pre-specified MLP critic. The post-hoc ablation with a time-pooled
+convolutional critic in \cref{sec:robust} gives the same five decisions
+(\cref{tab:e5-arch-real}). Its architecture was chosen after these results were known and after a
+pilot on E2 designs, and its rule power and boundary size rest on 20 replications per design, in
+which the D2 boundary size is 0.20; it does not replace the verdicts above.
+
+The answer to the question in our title is therefore negative or open for every generator we
+studied. GBM and Merton calibrated on 2018--2022 produce windows that are detectably less like
+the 2023--2025 market than the 2018--2022 windows they were fitted to, mainly because their
+volatility is too high. This holds when the rule is calibrated against the D2 boundary
+replications, though not after a familywise correction of those calibrated p-values, and an
+anchored test of mean log realised volatility may well have found the same. Heston fails in the same
+way at the default settings, but its rejection is borderline and does not survive several
+changes of the pipeline. For \GARCHt{}, the best of the three likelihood models evaluated (GBM,
+Merton, \GARCHt{}) by every likelihood criterion and the least distinguishable parametric generator
+for every valid window test, the protocol can say
+only that it is not detectably worse than history. With a power of 0.45 against a 20\%
+volatility error under realistic non-stationarity, this is not evidence that it is good. The
+stationary bootstrap, which only replays the past, cannot be judged by a test that uses the past
+as its benchmark unless the split is grouped by source, which we did not do on the real panel.
+Under the realistic design a \GOOD{} verdict would need more evaluation dates
+or a less heterogeneous calibration period; more tickers would help less, because the noise in
+D2 comes from common volatility regimes (\cref{rem:small-T}). Finally, a univariate verdict says
+nothing about the cross-sectional dependence on which portfolio risk depends
+(\cref{ex:corr-blind}). Whether synthetic data are good enough for portfolio construction must be
+checked on that task, with multivariate generators, which is what \cref{sec:markowitz} does.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Verdicts (E3, decision rule \eqref{eq:verdict}, $\alpha=0.05$, $\bmin=0.8$). 100
+    tickers, $L=20$, five synthetic seeds; $\pmed=\min\{1,2\med_sp_s\}$ of the Driscoll--Kraay
+    p-values; seeds rej.: seeds with $p_s\le0.05$. Anchored relative test against the 6200 real
+    \TRAIN{} windows; $\Danc$ \eqref{eq:anchored-stat}: median and range over seeds. D2-cal.\
+    $p$: Monte Carlo p-value $(1+\#\{\pmed^{(r)}\le\pmed\})/101$ of the observed anchored $\pmed$
+    against the rule p-values $\pmed^{(r)}$ of the 100 boundary replications of design D2, an
+    approximate calibration (\cref{sec:emp-verdicts}). Power of the
+    rule (minimum over designs D1 and D2): $\hat\beta=0.45$ [0.36, 0.55] (D2, Wilson 95\%),
+    $\betaL=0.37$; boundary size of the rule: 0.00 (D1) and 0.08 [0.04, 0.15] (D2,
+    Clopper--Pearson 95\%); see \cref{tab:e3-power}. Last column: verdict with the
+    Clopper--Pearson lower bound $\betaL$ in place of $\hat\beta$. $^{\ddagger}$Relative test
+    invalid for the stationary bootstrap (no verdict).}
+  \label{tab:e3-verdicts}
+  \small
+  \fittable{manual_e3_verdicts_cal_main}
+\end{table}

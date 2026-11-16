@@ -18,3 +18,4 @@ results/logs/
 results_v2/*_quick/
 results_v2/*/checkpoints/
 results_v2/logs/
+paper/scripts/__pycache__/

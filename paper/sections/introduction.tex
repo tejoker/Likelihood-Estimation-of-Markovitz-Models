@@ -1,10 +1,24 @@
 \section{Introduction}\label{sec:intro}
 % =============================================================================================
-% Draft (to be revised once E1, E2 part e/f/g, E2-dep, E3 and E4 are final). Plan and claims:
-% paper/OUTLINE.md, Section 3. Notation: notation.md. No tables or figures in this section.
-% Numbers quoted here come only from final generated tables: tab:e2-size, tab:e2-power
-% (E2 main, families a-d) and tab:e4-correlation. The 45% figure is the theory.md pilot and is
-% quoted as a pilot only. Every other number is a \todo pointing to the label that will hold it.
+% Owner: front writer. Plan and claims: paper/OUTLINE.md, Section 3. Notation: notation.md. No
+% tables or figures in this section. Every number is taken from a table that a result section
+% inputs: tab:e2-size, tab:e2-power, tab:e2dep-power (fig:e2dep-power), tab:e2-llr
+% (manual_e2_llr_main), tab:e2-relative-boundary (manual_e2_relative_boundary_main),
+% tab:e2-dependent-size, tab:e1-size-sim (manual_e1_size_sim_main), tab:e1-nonstat
+% (e1_nonstat), tab:e3-stylized, tab:e3-power (manual_e3_power_main), tab:e3-pooled-tests,
+% tab:e3-verdicts, tab:e3-agreement, tab:e4-correlation, tab:e4-utility, tab:e4-utility-agg,
+% tab:e4-tests, tab:e4-link. The 45% figure is the theory.md pilot (Section 11.5), quoted as a
+% pilot only. The count "all 14 configurations" (critic ranking of the likelihood models in the
+% E5 grid) was checked on results/e5/e5_sensitivity.csv (median absolute statistic).
+% Post-hoc architecture ablation: tab:e5-arch (e5_arch_sim.tex; 0.98 / 0.10 / 1.00 for t10 vs t4,
+% n=500); "pilot on four E2 designs" and "D2 and seed combination added on the day of the runs"
+% from the docs/DESIGN.md change log; "six tickers" from results/e3_quick/meta (development runs).
+% "Barely reproducible" (E4 critic statistic): seed-0 vs seed-1 Spearman over the 30 universes
+% within each generator, -0.03 to 0.30 (tab:manual-e4-reliability, from results/e4/e4_tests.csv).
+% Pooled vs replica-wise variance ratios (MV Gaussian GMV 1.038 / 1.004): tab:e4-utility-agg.
+% Fixed realised-volatility statistic (0.69-0.94 of the critic's z_hac, same ranking of GBM,
+% Merton, GARCH-t):
+% tab:e3-rv-baseline. Indep-cell oversize vs standard error: tab:e1-sim-se (sec:sim-dependent).
 % =============================================================================================
 
 Synthetic return data, simulated from a fitted model or from a trained generative network, now
@@ -39,15 +53,23 @@ five things.
   through volatility clustering and cross-sectionally dependent through common market shocks, so
   permutation p-values, which assume exchangeability, are not valid for them. With windows of many
   stocks pooled and the training and evaluation halves split by ticker, a pilot simulation of a
-  one-factor panel with the dimensions of our data rejected a true null in about 45\% of
-  replications at nominal 5\% (\todo{rejection rate of this naive protocol in the full placebo,
-  \cref{tab:e1-size-sim}}).
+  stylised one-factor panel rejected a true null in about 45\% of replications at nominal 5\%. In
+  the full placebo of E1, a factor panel fitted to our data and run through the complete pipeline,
+  the same protocol rejected in all 200 replications (\cref{tab:e1-size-sim}).
   \item[(ii)] \emph{Power against the deviations that matter in finance}, quantified before the
   test is applied to real data. Without known power, a non-rejection says nothing about quality.
   \item[(iii)] \emph{A null that respects non-stationarity.} A generator $G$ is calibrated on the
-  real past $\Rpast$ and judged against later real data $\Rnew$. Requiring $\Law(G)=\Law(\Rnew)$
-  sets a bar that the real past may fail itself (\todo{\TRAIN{} against \TEST{} rejection rates,
-  \cref{tab:e1-nonstat}}). The honest benchmark is the past, not the unknown future law.
+  real past $\Rpast$ and judged against later real data $\Rnew$, and it inherits features of the
+  past that need not persist. In our data every generator fitted to 2018--2022 is more volatile
+  than the 2023--2025 returns (panel median daily standard deviation between 1.89\% and 2.13\%,
+  against 1.62\%; \cref{tab:e3-stylized}). The absolute null $\Law(G)=\Law(\Rnew)$ asks the
+  generator to anticipate such changes. Users who back-test or manage risk need exactly that, and
+  we report this test, but its rejection does not separate a poor generator from a change of
+  regime after the calibration period. As in forecast comparisons against a benchmark model
+  \citep{diebold1995comparing,giacomini2006tests}, we therefore also compare $G$ with the naive
+  benchmark of replaying history, that is, historical simulation from $\Rpast$: is $G$ further from
+  $\Rnew$ than $\Rpast$ is? A rejection then means worse than that benchmark, not merely different
+  from the future.
   \item[(iv)] \emph{A link to likelihood-based evaluation.} Econometricians trust it, and where a
   likelihood exists it provides a benchmark verdict and a power envelope.
   \item[(v)] \emph{Evidence on use}: whether the verdict predicts how useful the data are for a
@@ -86,12 +108,16 @@ calibration period and then held fixed, reproduces the window law of a later eva
   (\cref{prop:exact-level}). For dependent panels we split by contiguous time blocks rather than
   by ticker, so that training and evaluation windows cover disjoint dates, and we studentise $T$
   with a Driscoll--Kraay variance \citep{driscoll1998consistent}. The resulting p-value is
-  asymptotically valid for a fixed critic under mixing conditions (\cref{prop:hac}). A ticker
-  split on common dates would instead couple the two halves through the realised market path,
-  and the statistic is then biased under the null (\cref{prop:ticker-bias}). The time-block split
-  leaves some dependence between training and evaluation blocks, which our theory does not
-  control, so we measure the size of the complete real-data pipeline in a simulated placebo panel
-  calibrated to the data (\cref{sec:emp-placebo}).
+  asymptotically valid under mixing conditions for a fixed critic whose evaluation data are
+  independent of its training data (\cref{prop:hac}). A ticker split on common dates would
+  instead couple the two halves through the realised market path, and the statistic is then
+  biased under the null (\cref{prop:ticker-bias}). Our time-block split interleaves training and
+  evaluation blocks without a gap, so it does not deliver that independence
+  (\cref{lem:decoupling}), and we measure the size of the complete real-data pipeline in a
+  simulated placebo panel calibrated to the data: at nominal 5\% it rejects a true null at 0.085,
+  against 1.000 for the ticker split with permutation p-values, but it over-rejects when the
+  synthetic tickers are independent, as they are for our univariate generators
+  (\cref{sec:emp-placebo,sec:sim-dependent}).
 
   \item \emph{An anchored relative test and a three-valued verdict.} Relative similarity tests
   compare two candidate models with one reference sample \citep{bounliphone2016test}. In ours one
@@ -101,15 +127,19 @@ calibration period and then held fixed, reproduces the window law of a later eva
   minus its mean on held-out synthetic windows (\cref{eq:anchored-stat}). At the boundary
   $\Law(G)=\Law(\Rpast)$ the two held-out samples are exchangeable given the critic, so for
   independent windows the permutation test is exact for every critic (\cref{prop:anchored}). The
-  obvious alternative, the difference of two separately trained critic statistics, is
-  anti-conservative at that boundary, and for fixed critics its size tends to $1/2$
-  (\cref{prop:boundary-size}). A generator is \BAD{} if the anchored test rejects. It is \GOOD{}
-  if the test does not reject and a power check, specified before any real-data test was run,
-  shows that in simulated reference designs the same pipeline detects a synthetic volatility 20\%
-  too high with probability at least $0.8$. It is \INCONCL{} otherwise
-  (\cref{def:power-check,def:verdict,prop:verdict}). On real data, where the past is itself
-  non-stationary, the verdict combines several synthetic seeds and the power check also reports
-  the size of this rule at the boundary (\cref{sec:method-decision}).
+  obvious alternative, the difference of two separately trained critic statistics, has no such
+  guarantee: at that boundary its size is at least the nominal level, and for fixed critics and
+  growing evaluation sets it tends to $1/2$ (\cref{prop:boundary-size}). A generator is \BAD{} if
+  the anchored test rejects. It is \GOOD{} if the test does not reject and a power check shows
+  that in simulated reference designs the same pipeline detects a synthetic volatility 20\% too
+  high with probability at least $0.8$. It is \INCONCL{} otherwise
+  (\cref{def:power-check,def:verdict,prop:verdict}). On real data, where windows are dependent and
+  the past is itself non-stationary, the verdict combines Driscoll--Kraay p-values over several
+  synthetic seeds; the exactness results above do not cover this rule, so the power check also
+  estimates its size at the boundary, in a stationary design and in one that keeps the real
+  volatility path of the past (\cref{sec:method-decision}). The check was fixed before the full
+  real-data runs; the second design and the seed combination were added on the day of those runs,
+  after development runs on six tickers (\cref{sec:emp-power}).
 
   \item \emph{Calibration against ground truth and likelihood-ratio oracles.} On independent
   simulated windows we measure the size and power of the \WC{} test and of five competitors: MMD
@@ -118,7 +148,8 @@ calibration period and then held fixed, reproduces the window law of a later eva
   statistic \citep[\LRC{};][]{cheng2022classification} and the Kolmogorov--Smirnov (KS) test on
   pooled returns. The benchmark is the Neyman--Pearson oracle, which no two-sample test can beat
   (\cref{prop:oracle-bound}). The theory predicts a large gap. With a 50/50 split and equal sample
-  sizes, the local noncentrality of any fixed-critic test is at most half the oracle's
+  sizes, the local noncentrality of any test based on the held-out mean difference of a fixed
+critic is at most half the oracle's
   (\cref{prop:local-power}; proved for a fixed critic, sketched for a trained one). The comparison
   states where simpler tests win, and it includes alternatives that change only the dependence
   within a window (\cref{sec:sim}).
@@ -130,7 +161,9 @@ calibration period and then held fixed, reproduces the window law of a later eva
   probability-integral-transform tests and Amisano--Giacomini comparisons
   \citep{diebold1998evaluating,berkowitz2001testing,amisano2007comparing}. Heston has no
   closed-form likelihood \citep{aitsahalia2007maximum} and the bootstrap no parametric one; these
-  are the cases that call for a likelihood-free test (\cref{sec:emp}).
+  are the cases that call for a likelihood-free test (\cref{sec:emp}). The critic ranks GBM,
+  Merton and \GARCHt{} exactly as the predictive log-score does; GBM, Merton and Heston are \BAD{}
+  and \GARCHt{} is \INCONCL{} (\cref{sec:emp-verdicts}).
 
   \item \emph{A link to Markowitz utility.} We show that critic distance and portfolio utility can
   disagree in both directions (\cref{sec:mk-theory}). The utility of the global minimum-variance
@@ -140,79 +173,136 @@ calibration period and then held fixed, reproduces the window law of a later eva
   heavily, can be nearly invisible in $\W$ (\cref{ex:spread}). Empirically, we build GMV and
   mean-variance portfolios from the output of five multivariate generators, evaluate them on the
   real evaluation period against the same portfolios estimated on the real calibration period,
-  and relate the utility losses to multivariate critic and MMD statistics
-  (\cref{sec:markowitz}).
+  and relate the utility losses to multivariate critic and MMD statistics. The statistics do not
+  predict the losses; the distance between the synthetic and the past average correlation does,
+  with a negative sign, consistent with the fall of the real correlations, a sign that could
+  reverse in a period of rising correlations (\cref{sec:markowitz}).
 \end{enumerate}
 
-\paragraph{Summary of findings.}
+\paragraph{Main findings.}
 We call \emph{window tests} the tests that compare the laws of whole windows (\WC{}, \LRC{}, C2ST,
 MMD, \SigMMD{}), as opposed to KS on the $nL$ pooled returns. With independent windows every
 window test holds its level: in each family and at both sample sizes, the Wilson 95\% interval of
-its rejection rate at nominal 5\% contains 0.05 (\cref{tab:e2-size}). KS does not hold its level.
-Returns within a GARCH window are dependent through their conditional variance, and KS rejects a
-true null at rate 0.110 [0.074, 0.161] with $n=500$ windows and 0.080 [0.050, 0.126] with
-$n=2000$ (Wilson 95\% intervals in brackets). Against volatility clustering at matched
-unconditional variance, the window tests have power. With $n=2000$ windows per sample and GARCH
-persistence 0.95 for the synthetic law against 0.98 for the real one, the rejection rates are 0.79
-for the \WC{} test, 0.93 for MMD, 0.86 for \SigMMD{}, 0.55 for C2ST and 0.30 for the \LRC{}
-statistic (\cref{tab:e2-power,fig:e2-power}).
+its rejection rate at nominal 5\% contains 0.05 (\cref{tab:e2-size}). KS, which treats the pooled
+returns as independent, is not valid when returns within a window are dependent: returns within a
+GARCH window share their conditional variance, and KS rejects a true null at 0.110 [0.074, 0.161]
+with $n=500$ windows and at 0.080 [0.050, 0.126] with $n=2000$ (Wilson 95\% intervals in
+brackets); in the other three families its intervals contain 0.05.
+Against deviations of the one-dimensional marginal (volatility level, tails, jumps), KS is
+nevertheless far more powerful than every window test. At $n=2000$ it rejects Gaussian against
+Student-$t_4$ returns at matched variance, and a variance-matched GBM against a Merton
+jump-diffusion, in every replication; the best window test, the \WC{} test, rejects at 0.67 and
+0.20. Against volatility clustering at matched variance the window tests have power: with $n=2000$
+and GARCH persistence 0.95 against 0.98, they reject at 0.79 (\WC{}), 0.93 (MMD), 0.86
+(\SigMMD{}), 0.55 (C2ST) and 0.30 (\LRC{}) (\cref{tab:e2-power,fig:e2-power}). KS rejects even more
+often there, but it is oversized and its power comes from the thinner tails that lower persistence
+gives the marginal. When the marginal is held exactly fixed, KS has no power and the window tests
+detect the deviation: the \WC{} test rejects at 0.46, 0.94 and 1.00 as the share of windows made
+of independent returns rises from one half to one, below MMD and \SigMMD{} at one half (0.70)
+and comparable to them at the larger shares, and above C2ST and the \LRC{}
+(\cref{fig:e2dep-power}). No window test dominates. A kernel test is the most
+powerful window test, or tied for it, at every alternative of volatility level and of
+clustering, while the \WC{} test is the most powerful against the lightest-tailed alternatives to
+the Student-$t_4$ law ($t_{30}$ and Gaussian). At the smallest deviation of each family with
+$n=500$, every window test stays far below the oracle, which rejects in at least 0.98 of the
+replications at every alternative of the four families; against a quarter
+or a half of GBM windows in a Merton sample no window test rejects more often than 0.08. The
+learned scores are tests, not likelihood estimators: their Spearman correlation with the exact
+log-likelihood ratio lies between 0.024 and 0.556 (\cref{tab:e2-llr}). At the relative boundary
+$\Law(G)=\Law(\Rpast)$, with $n=500$, the anchored test rejects at 0.065 [0.038, 0.108] and 0.055
+[0.031, 0.096] in two designs, and the two-critic test at 0.040 and 0.065, so the excess that
+\cref{prop:boundary-size} allows is not visible at this sample size. A generator that resamples
+the past makes the anchored test reject at 0.965 with a random split, against 0.010 when the split
+respects the source window (\cref{tab:e2-relative-boundary}). With consecutive windows of one GARCH
+path, the random-split permutation test is oversized (0.145 for the \WC{} test, 0.290 for MMD),
+and the Driscoll--Kraay p-value after a time-block split and the wild bootstrap bring the rates to
+0.070 and 0.075 (\cref{tab:e2-dependent-size}).
 
-Against deviations of the one-dimensional marginal (volatility level, tails, jumps), KS is far more
-powerful than every window test. At $n=2000$ it rejects Gaussian against Student-$t_4$ returns at
-matched variance, and a variance-matched GBM against a Merton jump-diffusion, in every
-replication. The \WC{} test is the most powerful window test in both cases and rejects at rates
-0.67 and 0.20. No window test dominates the others. A kernel test (MMD or \SigMMD{}) is the most
-powerful window test, or tied for it, at every alternative of volatility level and of clustering,
-while the \WC{} test is the most powerful against the lightest-tailed alternatives to the
-Student-$t_4$ law ($t_{30}$ and Gaussian). At the smaller deviations all window tests remain far
-below the oracle, whose power is at least 0.98 at every alternative of the four families. KS has
-no power, by construction, against deviations that leave the marginal unchanged. Against such
-alternatives the window tests
-\todo{dependence-only families: power of the window tests, \cref{fig:e2dep-power}}. At the
-relative boundary $\Law(G)=\Law(\Rpast)$, the anchored test rejects at
-\todo{rate, \cref{tab:e2-relative-boundary}} and the two-critic test at
-\todo{rate, \cref{tab:e2-relative-boundary}}. \todo{One sentence on how close the learned logit
-is to the exact log-likelihood ratio, \cref{tab:e2-llr}; one on consecutive GARCH windows,
-\cref{tab:e2-dependent-size}.}
-
-On the real-data pipeline, the placebo panel gives \todo{size of the time-block Driscoll--Kraay
-protocol against the naive protocol, with the residual oversize, \cref{tab:e1-size-sim}}.
-\todo{Whether real \TRAIN{} and \TEST{} windows are distinguishable, \cref{tab:e1-nonstat}; if
-they are, the absolute null is too strict a bar.} The pre-specified power check gives
-\todo{power and boundary size of the verdict rule under both reference designs,
-\cref{tab:e3-power}}. On the S\&P~500 panel, \todo{absolute-test outcome per generator and the
-verdicts, \cref{tab:e3-pooled-tests,tab:e3-verdicts}; whether ``distinguishable from the future
-but not worse than history'' occurs}. \todo{Agreement of the critic ranking with the
-predictive log-likelihood ranking and with the Berkowitz verdicts, \cref{tab:e3-agreement}.}
-Fitting is itself informative. Simulated with the quadratic-exponential scheme of
-\citet{andersen_2008_simple}, Heston needs a bounded volatility of variance to avoid days with
-zero variance, and it then falls well short of the kurtosis of the data
-(\cref{tab:e3-heston-moments}).
+In a simulated factor panel with the dimensions of our data, the time-block Driscoll--Kraay
+protocol rejects a true null at 0.085 [0.054, 0.132] for the \WC{} test (0.050 against a fixed-$b$
+reference) and the wild-bootstrap MMD test at 0.045. The ticker split rejects at 0.990 even with
+Driscoll--Kraay standard errors, the permutation p-value after a time-block split at 0.410 and KS
+at 0.970 (\cref{tab:e1-size-sim}). When the synthetic tickers are drawn independently, as the
+univariate generators draw them, the learned tests over-reject (0.270 for the absolute \WC{} test,
+0.155 for the anchored test). The statistic itself is no more biased than when the synthetic
+panel has a factor, but it is negatively correlated with its Driscoll--Kraay standard error, and
+the rejections concentrate in the replications with a small standard error
+(\cref{tab:e1-sim-se}); \cref{cor:block-bias} gives a model-based explanation, which we have not
+tested. Tested against each other with the same protocol, the real \TRAIN{} and \TEST{} windows are not rejected as
+different ($\pmed=0.452$ for the \WC{} test; \cref{tab:e1-nonstat}), but with few evaluation dates
+(\cref{rem:small-T}) this non-rejection says little about whether the two periods are similar. The
+relative null is motivated by the volatility level that the generators inherit, not by a
+rejection of the past. The power check shows the cost of non-stationarity. In a stationary
+reference design the verdict rule detects a 20\% volatility error in all 100 replications and
+never rejects at the boundary; with the real volatility path of 2018--2022 its power is 0.45 [0.36, 0.55] and its boundary size 0.08 [0.04,
+0.15] (\cref{tab:e3-power}), so on this panel and split no generator can be \GOOD. The absolute
+\WC{} test rejects all five generators (\cref{tab:e3-pooled-tests}). The anchored test rejects GBM
+($\pmed<0.001$), Merton (0.005) and Heston (0.017), which, as calibrated on 2018--2022, are \BAD{},
+Heston borderline. It does not reject \GARCHt{} (0.432), which is distinguishable from the future
+but not detectably worse than history, and \INCONCL{}; the stationary bootstrap, which copies the
+past, receives no verdict (\cref{tab:e3-verdicts}). The witness shows that the critic mainly
+detects a volatility level: every generator is too volatile for 2023--2025
+(\cref{sec:emp-witness}). Each verdict therefore concerns a model together with its calibration
+on a period that contains the 2020 and 2022 turbulence, not the model class alone. The critic ranks
+\GARCHt{}, Merton and GBM exactly as the predictive log-score does (Kendall $\tau=1$), whereas its
+per-ticker rejections agree little with Berkowitz tests (Cohen $\kappa=0.11$), which check one-day
+calibration rather than simulated windows (\cref{tab:e3-agreement}). In the sensitivity analysis
+this ranking holds in all 14 configurations, but the \BAD{} verdicts of Merton and Heston do not,
+and with an alternative split every parametric generator is \INCONCL{} (\cref{sec:robust}).
+Fitting is itself informative. Simulated with the quadratic-exponential scheme of \citet{andersen_2008_simple},
+Heston needs a bounded volatility of variance to avoid days with zero variance, and it then falls
+well short of the kurtosis of the data (\cref{tab:e3-heston-moments}).
 
 In the Markowitz study, the average pairwise correlation of real returns fell from 0.419 in
-\TRAIN{} to 0.268 in \TEST{} (\cref{tab:e4-correlation}). A generator that reproduces the past
-correlation structure more faithfully is therefore not necessarily more useful for the evaluation
-period.
-\todo{Utility of synthetic-trained portfolios relative to real-trained ones, \cref{tab:e4-utility};
-association between test statistics and utility losses, \cref{tab:e4-link}.}
+\TRAIN{} to 0.268 in \TEST{} (\cref{tab:e4-correlation}). Four of the five generators give
+minimum-variance portfolios whose \TEST{} variance is within 6\% of that of the portfolio trained
+on real data (replica-wise variance ratios). With pooled moments, CCC-GARCH-$t$ and MV Student-$t$
+beat it (variance ratios 0.869 and 0.896); their average correlations are the furthest below the
+past one. Factor GARCH-$t$ loses most (1.466 with pooled moments, 1.436 replica-wise) although its
+average correlation is close to the past one (\cref{tab:e4-utility,tab:e4-utility-agg}). In this
+evaluation period test results do not predict these losses. MV Gaussian is rejected in all 30
+universes after size adjustment (first seed), yet its minimum-variance portfolios have \TEST{}
+variance ratios close to one (1.038 replica-wise, 1.004 with pooled moments). Within a generator
+the critic statistic is barely reproducible across synthetic seeds (Spearman correlation between
+the two seeds from $-0.03$ to 0.30; \cref{tab:manual-e4-reliability}), so its near-zero
+correlation with the minimum-variance loss (0.01) is weak evidence. The losses are point
+estimates over one \TEST{} period, without inference over dates. The one consistent correlate is the distance between the synthetic and the past average correlation, with
+a negative sign ($-0.36$ within generators; \cref{tab:e4-tests,tab:e4-link}), which reflects the
+fall in correlations and need not hold in a period in which they rise.
 
 \paragraph{What we do not claim.}
 The \WC{} test is one well-calibrated and interpretable tool within a validated protocol, not a
 uniformly most powerful test. KS is more powerful against marginal deviations, and a kernel test
 is at least as powerful as the \WC{} test at every alternative of volatility level and of
-clustering in our simulations. We do not compare with
-power-optimised deep-kernel tests
-\citep{liu2020learning}. The protocol contributes exact or asymptotically valid inference on
+clustering in our simulations. The power of the critic depends on its optimiser settings and its
+architecture (\cref{sec:robust}). In a post-hoc ablation, whose architecture was chosen after the
+real-data results of the pre-specified perceptron were known and after a pilot on four of the
+simulated designs, a time-pooled convolutional critic keeps the level and comes close to KS
+against tails and jumps: with $n=500$ it rejects $t_{10}$ against $t_4$ windows at 0.98, where the
+perceptron rejects at 0.10 and KS at 1.00 (\cref{tab:e5-arch}). The comparison with KS is thus a
+statement about the pre-specified network, whose verdicts are the ones we report. We do not
+compare with power-optimised deep-kernel tests \citep{liu2020learning}, and on real data, where
+the critic behaves almost like a realised-volatility statistic (\cref{sec:emp-witness}), a fixed
+log realised-volatility statistic on the same seed-0 windows ranks the three likelihood models
+in the same order and reaches between 0.69 and 0.94 of the critic's $\zhac$
+(\cref{tab:e3-rv-baseline}); we did not run it inside the verdict rule. The protocol contributes exact or asymptotically valid inference on
 dependent panels, the relative null, the link with likelihood and an extension to multivariate
-windows, where pooled KS sees only the marginal. A \GOOD{} verdict means that a procedure with
-demonstrated power against a deviation of pre-specified size did not detect one. It never means
-that the generator equals the truth, and its error control rests on a premise that cannot be
-verified (\cref{prop:verdict}). A rejection is conditional on the fitted parameters, so it does not
-separate misspecification from estimation error or from parameter drift between the two periods;
-the relative test is designed to absorb the drift. Univariate verdicts say nothing about the
-cross-sectional dependence that drives portfolio risk (\cref{ex:corr-blind}). Finally, the panel
-consists of current S\&P~500 constituents and is subject to survivorship bias
-\citep{brown1992survivorship,shumway1997delisting}.
+windows, where pooled KS sees only the marginal; the size of its dependent-data version is
+measured, not proved, and it is not nominal in every design. A \GOOD{} verdict means that a
+procedure with demonstrated power against a deviation of pre-specified size did not detect one. It
+never means that the generator equals the truth, and its error control rests on a premise that
+cannot be verified (\cref{prop:verdict}). The relative null does not penalise a generator error
+that happens to point towards the change of regime, and the power check measures power only
+against a volatility 20\% too high, an error that on our data points away from the calmer
+evaluation period. A rejection is conditional on the fitted parameters, so
+it does not separate misspecification from estimation error or from parameter drift between the
+two periods; the relative test is designed to absorb the drift. Under non-stationarity a verdict
+concerns one pair of periods. Univariate verdicts say nothing about the cross-sectional
+dependence that drives portfolio risk (\cref{ex:corr-blind}), and whether synthetic data are good
+for a task has to be checked on that task. Finally, the panel consists of the S\&P~500
+constituents at the end of the sample. This is a selection on outcomes of the evaluation period
+that goes beyond survivorship bias \citep{brown1992survivorship,shumway1997delisting}, and it may
+make the real evaluation panel calmer than the one a forecaster faced at the end of 2022.
 
 \paragraph{Outline.}
 \Cref{sec:lit} reviews related work and \cref{sec:method} defines the procedure. \Cref{sec:theory}

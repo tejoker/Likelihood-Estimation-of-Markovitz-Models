@@ -1,27 +1,26 @@
 % =============================================================================================
 % ABSTRACT (input inside \begin{abstract}...\end{abstract} in main.tex; no \section here).
-% Target: 180-220 words, one paragraph, no citations, no numbers that are not in a generated
-% table. Plan: paper/OUTLINE.md, "Abstract".
-%
-% Planned content, in this order:
-%  1. Problem: synthetic return data is used for back-testing, data sharing and portfolio
-%     construction, but its quality is judged by stylized facts or uncalibrated scores.
-%  2. Method: the critic of a Wasserstein GAN, trained alone on a training split of real versus
-%     synthetic windows, gives a held-out two-sample statistic; exact permutation level for
-%     independent windows; time-block split + Driscoll-Kraay HAC inference for dependent panels;
-%     an anchored relative test (is the generator worse than the real past?) that is exact at its
-%     boundary; a pre-specified power check and a three-valued verdict (GOOD / BAD /
-%     INCONCLUSIVE).
-%  3. Theory: exact level, consistency under idealised training, Neyman-Pearson upper bound and
-%     the local-power factor, anti-conservativeness of the two-critic relative test, bias of
-%     ticker splits on common dates.
-%  4. Simulation: valid size everywhere with independent windows; window tests detect volatility
-%     clustering; the pooled KS test is more powerful against marginal deviations but invalid
-%     under within-window dependence and blind to dependence-only deviations. State plainly that
-%     the critic is not uniformly most powerful.
-%  5. Application: S&P 500 (2018-2025), five univariate generators, verdicts, agreement with
-%     likelihood benchmarks; Markowitz portfolios trained on synthetic data and whether the
-%     verdicts predict utility (they need not: Section 8). Headline numbers: \todo until the
-%     E3/E4 tables are final.
+% Target: 180-220 words, one paragraph, no citations. Plan: paper/OUTLINE.md, "Abstract".
+% Numbers: tab:e1-size-sim (manual_e1_size_sim_main: W-critic, time blocks, Driscoll--Kraay,
+% 5%: 0.085 joint, 0.270 indep.) and tab:e3-power (D2 rule power 0.45) only; everything else is
+% qualitative and matches sec:sim, sec:emp (witness: too volatile for 2023--2025), sec:markowitz
+% (tab:e4-correlation: correlations fell) and sec:robust. "Fixed before the full real-data
+% runs" follows sec:method-decision and the DESIGN change log.
 % =============================================================================================
-\todo{Abstract to be written last, from the final tables (see OUTLINE.md).}
+Synthetic financial returns serve back-testing and portfolio construction, but their quality is
+mostly judged by stylized facts or by scores without a null distribution; we cast the question
+as a two-sample test. A Wasserstein GAN critic, trained alone, gives a held-out mean difference whose
+permutation p-value has exact level for independent windows. For dependent panels, a time-block
+split with a Driscoll--Kraay variance is asymptotically valid for a fixed critic; its simulated
+size at 5\% is 0.085 when synthetic tickers share a factor but 0.270 when they are independent. An
+anchored relative test, exact at its boundary for independent windows, asks whether a generator
+is further than the real past from the evaluation period; a power check fixed before the full
+real-data runs turns it into a verdict: \GOOD, \BAD{} or \INCONCL. In simulations, window tests
+hold their level and detect dependence-only deviations but, against tail and jump deviations,
+stay far below the likelihood-ratio oracle and pooled Kolmogorov--Smirnov tests (invalid under
+within-window dependence). On 100 S\&P~500 stocks, GBM, Merton and Heston, fitted to 2018--2022,
+are \BAD{}: too volatile for 2023--2025. GARCH-$t$ is \INCONCL{}: not detectably worse than
+history, but under realistic non-stationarity the rule detects a 20\% volatility error with
+probability 0.45 only. Verdicts change with the sample split. Over one evaluation period in which
+correlations fell, test statistics did not predict the Markowitz utility of synthetic-data
+portfolios.

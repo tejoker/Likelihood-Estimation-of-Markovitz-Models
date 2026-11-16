@@ -1,0 +1,158 @@
+\section{Data details}\label{app:data}
+% =============================================================================================
+% Owner: data writer. Tables tab:data-universe, tab:data-anomalies and tab:data-panel are
+% written by paper/scripts/data_appendix.py (synthval.data on the raw file;
+% results/e3/meta_fit.json). tab:e3-fit-diagnostics-full and tab:e3-heston-moments are generated
+% by experiments/e3_sp500.py (part fit). Other numbers: results/e3/e3_fit_*.csv,
+% results/e4/universes.csv. Fit diagnostics of the E4 generators: app_mk.tex.
+% =============================================================================================
+
+This appendix documents the construction of the ticker universe (\cref{sec:data-panel}) and
+gives further diagnostics of the generator fits (\cref{sec:data-generators}). The fitting
+algorithms themselves are described in \cref{app:impl}.
+
+\paragraph{Universe.}
+The Bloomberg export contains \texttt{PX\_LAST} (closing price) and \texttt{PX\_VOLUME} for the
+503 tickers that were S\&P~500 constituents when the file was extracted; its requested end date
+is 2025-06-17 and its last trading day 2025-06-16. Only prices enter the analysis; volume
+serves the anomaly screen.
+\Cref{tab:data-universe} gives the steps from the file to the panel. The availability rule
+(a price on the first and on the last trading day, internal gaps of at most three days
+forward-filled, nothing back-filled) removes the 22 tickers whose history starts after
+2018-01-02. None of the remaining 481 tickers has a missing price, so the forward fill is never
+used.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Construction of the ticker universe from the Bloomberg export.}
+  \label{tab:data-universe}
+  \small
+  \fittable{manual_data_universe}
+  \tablenote{Computed from the raw file by \texttt{synthval.data} (table written by
+    \texttt{paper/scripts/data\_appendix.py}). Complete price history: a price on the first and
+    the last trading day and no internal gap longer than three days. Anomaly screen: see
+    \cref{tab:data-anomalies}.}
+\end{table}
+
+\paragraph{Anomaly screen.}
+Two complete-history tickers are data errors. The screen that finds them is a rule, not a
+hand-picked list: a ticker is flagged if one daily log-return exceeds 1 in absolute value, which
+would mean a price ratio beyond $e\approx2.72$ in one day and points to an unadjusted corporate
+action, or if it has at least 20 days with a price but zero volume, which points to stale quotes.
+On the current file the rule flags exactly KDP and AMCR (\cref{tab:data-anomalies}). The
+\texttt{PX\_LAST} series of KDP is not adjusted for the special dividend paid when the Keurig Dr
+Pepper merger closed: the price falls from 123.66 on 2018-07-09 to 22.19 on 2018-07-10, on a
+volume of 23.6 million shares, which leaves one spurious log-return of $-1.718$. Before its NYSE
+listing on 2019-06-11, AMCR is a stale quote: 361 days with only 71 distinct prices and zero
+volume on 232 of them; 298 of its 1258 \TRAIN{} returns are exactly zero (268 of them before
+the listing), with runs of up to 18 days. Both thresholds are far from the values of the
+retained tickers: the largest absolute log-return among them is 0.774 (APA on 2020-03-09, the
+day of the oil price collapse), and none has more than one zero-volume day. One retained ticker
+is unusual without being an error: SMCI has 117 zero \TRAIN{} returns, because its
+split-adjusted \TRAIN{} prices (between 1.16 and 9.39) are quoted to two decimals; it is not in
+the main panel but appears in some E4 universes.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Anomaly screen: the two excluded tickers and, for reference, the extreme and median
+    values over the 479 retained tickers.}
+  \label{tab:data-anomalies}
+  \small
+  \fittable{manual_data_anomalies}
+  \tablenote{Largest absolute daily log-return over 2018-01-03 to 2025-06-16 and its date;
+    days with a price but zero volume over the whole file; exactly zero returns and their
+    longest run in \TRAIN{} (1258 returns). A ticker is flagged if the largest absolute
+    log-return exceeds 1 or if it has at least 20 zero-volume days. Computed from the raw file
+    by \texttt{synthval.data} (table written by \texttt{paper/scripts/data\_appendix.py}).}
+\end{table}
+
+\paragraph{Main panel and E4 universes.}
+The main panel (\cref{tab:data-panel}) is drawn once: the 481 complete-history tickers, sorted
+alphabetically, are permuted with a generator seeded by 20251114, and the first 100 tickers of
+the permutation that are not excluded are kept. The draw without the exclusion would have
+contained KDP and AMCR; with it they are replaced by the next two tickers of the permutation,
+PCAR and TMUS, and the other 98 tickers are unchanged. The E4 universes are 30 independent
+draws of 30 names without replacement from the 479 tickers of the default universe, each with
+its own seed (\cref{sec:mk-design}); universes may overlap, and together they contain 400
+distinct names. Fit diagnostics of the E4 generators are in \cref{app:mk-generators}.
+
+\begin{table}[tbp]
+  \centering
+  \caption{The 100 tickers of the main panel (E1, E3, E5).}
+  \label{tab:data-panel}
+  \small
+  \fittable{manual_data_panel}
+  \tablenote{Seeded draw from the 479-ticker default universe (seed 20251114); read from the
+    metadata of the E3 fits (\texttt{results/e3/meta\_fit.json}) and checked against
+    \texttt{synthval.data.panel\_tickers}.}
+\end{table}
+
+\paragraph{Univariate fits.}
+\Cref{tab:e3-fit-diagnostics-full} is the full version of \cref{tab:e3-fit-diagnostics}, with
+the drifts, the \GARCHt{} intercept, optimiser success and fit times. The parameters at an
+optimiser bound belong to the following tickers. The Merton intensity sits at its upper bound
+of 0.5 jumps per day for GOOG, MTB and NVDA, whose fits describe frequent small jumps rather than
+rare large ones. The only \GARCHt{} fit at the persistence cap is CTRA ($a=0.033$, $b=0.962$);
+with variance targeting, the unconditional variance of every \GARCHt{} fit equals the \TRAIN{}
+sample variance. The 33 Heston fits with a parameter at a bound have $\rho_v=-0.95$ (20
+tickers), $c=\sqrt{1.5}$ (11) or $\kappa_v=0.5$ (5), the upper bound of the mean-reversion rate.
+The stationary-bootstrap block length ranges from 15.8 to 60.4 days across tickers, and the
+rule never falls back to its default.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Fits of the univariate generators on \TRAIN{}, full version (E3, 100 tickers, one fit
+    per ticker and generator).}
+  \label{tab:e3-fit-diagnostics-full}
+  \small
+  \fittable{e3_fit_diagnostics}
+  \tablenote{Maximum likelihood (GBM, Merton, \GARCHt{}) and simulated method of moments
+    (Heston) on the 1258 \TRAIN{} returns of each ticker, daily units. Median and interquartile
+    range [25\%, 75\%] across the 100 tickers. Symbols: $\lambda=\lambda_J$; $\alpha,\beta$ are
+    the GARCH coefficients $a,b$ of \cref{sec:data-generators} ($\omega$ is tied to the sample
+    variance by variance targeting); $\kappa,\theta,\xi,\rho$ are
+    $\kappa_v,\theta_v,\xi_v,\rho_v$. At bound: number of tickers whose estimate sits at an
+    optimiser bound; the last row of each block counts tickers with at least one parameter at a
+    bound. Bootstrap: mean block length in days.}
+\end{table}
+
+\paragraph{Heston simulation.}
+Measure the variance in units of $\theta_v$, so that it has unit mean, and let $A=1-e^{-\kappa_v}$
+and $B=e^{-\kappa_v}$. Given today's value $v$, tomorrow's variance has conditional mean
+$m=A+vB$ and conditional variance $s^2=c^2(2vAB+A^2)$ (the transition moments of the square-root
+process over one day, with $\xi_v^2=2\kappa_v\theta_vc^2$). Since $m^2=A^2+2vAB+v^2B^2$, the
+squared coefficient of variation of the transition satisfies $\psi=s^2/m^2\le c^2$ for every $v$.
+The QE scheme of \citet{andersen_2008_simple} draws tomorrow's variance as a moment-matched
+multiple of a squared shifted Gaussian variable when $\psi\le\psi_c$ and from a mixture of a point
+mass at zero and an exponential law otherwise; we use $\psi_c=1.5$. With $c\le\sqrt{1.5}$ the
+first branch is used on every day, so the simulated variance is positive almost surely; no day
+of the calibration paths of any of the 100 fits has zero variance. For larger $c$ the second
+branch puts mass at zero, and a day that starts and ends at zero variance has a constant return.
+
+\Cref{tab:e3-heston-moments} compares the data and simulated values of the seven moments of the
+Heston calibration and of the kurtosis, which is not targeted. The variance, the tail quantile
+ratio, the autocorrelation of $r_t^2$ at lag 20 and the leverage correlation are matched closely
+(median absolute relative error at most 0.21). The autocorrelations of $r_t^2$ at lags 1 and 5
+are too low in the model (median 0.184 and 0.133 against 0.242 and 0.191), and the simulated
+moments vary much less across tickers than the data moments: the interquartile range of the
+simulated lag-1 autocorrelation, [0.169, 0.198], lies inside that of the data, [0.131, 0.345].
+The kurtosis is the clearest failure, with a median of 5.62 in the model against 13.61 in the
+data. With $c\le\sqrt{1.5}$ the variance process is not volatile enough to generate the handful
+of crash days that dominate the sample kurtosis of daily stock returns, and relaxing the bound
+with a daily step would re-create days with zero variance; sub-daily QE steps would allow a larger
+$c$ (\cref{sec:data-generators}).
+
+\begin{table}[tbp]
+  \centering
+  \caption{Heston calibration by the simulated method of moments: data and simulated moments
+    (E3, 100 tickers, \TRAIN{}).}
+  \label{tab:e3-heston-moments}
+  \small
+  \fittable{e3_heston_moments}
+  \tablenote{Data: moments of each ticker's \TRAIN{} returns (1258 days). Simulated: averages
+    over the \TRAIN{}-length paths of the calibration at the fitted parameters (common random
+    numbers; kurtosis: median over paths). Median and interquartile range across the 100 tickers; median of the absolute
+    relative error and of the weighted deviation $\abs{t}$ (square root of the weight times the
+    difference) per moment. The kurtosis (Pearson's, equal to 3 for a Gaussian law) is a
+    diagnostic and is not among the targeted moments.}
+\end{table}

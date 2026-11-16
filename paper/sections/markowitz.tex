@@ -1,42 +1,532 @@
 \section{Markowitz utility of synthetic data}\label{sec:markowitz}
 % =============================================================================================
-% Target length: 4 pages including 4 tables and 1 figure. Theory: docs/theory.md Section 9
-% (proofs in \cref{app:proofs}). Experiment: E4 (experiments/e4_markowitz.py). Plan: OUTLINE.md,
-% Section 8.
-%
-% Planned subsections (labels):
-%  \subsection{What theory predicts}                               \label{sec:mk-theory}
-%     lem:quad-loss (Lemma 9.1); prop:gmv-sensitivity (Prop 9.2: scale invariance, Kantorovich
-%     bound, quadratic in the relative covariance error); cor:gmv-drivers (Cor 9.3; (ii)-(iii)
-%     heuristic); prop:no-free-lunch (Prop 9.4); examples ex:scale-blind (9.5), ex:spread (9.6),
-%     ex:corr-blind (9.7), ex:drift (9.8). Message: critic distance and portfolio utility are
-%     related but not monotonically; GMV depends on Sigma_G up to scale; drift errors dominate
-%     mean-variance utility yet are undetectable at these sample sizes.
-%  \subsection{Design}                                             \label{sec:mk-design}
-%     30 universes x 30 assets; five generators fitted on TRAIN; B = 20 synthetic TRAIN-length
-%     samples; sample and Ledoit-Wolf moments; GMV (unconstrained, long-only), long-only
-%     mean-variance gamma in {1, 5, 20}, 1/N; evaluated on real TEST against the same rule on
-%     real TRAIN (TRTR); losses: variance ratio, Sharpe gap, CE loss; aggregations replica /
-%     pooled / weight-averaged. Multivariate tests on (N, L) = (30, 5) windows (critic with
-%     time blocks + HAC; MMD wild bootstrap, fixed bandwidth per universe), placebo-calibrated
-%     rejection shares; \todo{as run: 2 test seeds, 60 placebo replications (compute budget)}.
-%  \subsection{Utility of synthetic-trained portfolios}            \label{sec:mk-utility}
-%     tab:e4-utility, tab:e4-correlation (average correlation real TRAIN vs TEST vs generators;
-%     the real correlation fell between TRAIN and TEST, so a generator that fits the past
-%     better need not be more useful); TRTR reference tab:e4-trtr and aggregations
-%     tab:e4-utility-agg in the appendix.
-%  \subsection{Do test verdicts predict utility?}                  \label{sec:mk-link}
-%     tab:e4-tests (+ note), tab:e4-link (+ note), fig:e4-utility-vs-distance; four views of
-%     the link (pooled, within-universe, within-generator, generator-level n = 5); conclusions
-%     conditional on five generators; placebo sizes tab:e4-placebo, fig:e4-placebo-size and
-%     tab:e4-link-pooled in the appendix.
-% Tables/figures (file -> label):
-%   e4_utility.tex -> tab:e4-utility (main); e4_correlation.tex -> tab:e4-correlation (main)
-%   e4_tests.tex (+e4_tests_note) -> tab:e4-tests (main); e4_link.tex (+e4_link_note) -> tab:e4-link (main)
-%   e4_utility_vs_distance.pdf -> fig:e4-utility-vs-distance (main)
-%   appendix: e4_trtr -> tab:e4-trtr, e4_utility_agg -> tab:e4-utility-agg, e4_placebo (+note)
-%   -> tab:e4-placebo, e4_placebo_size.pdf -> fig:e4-placebo-size, e4_link_pooled -> tab:e4-link-pooled
+% Owner: markowitz writer. Theory: docs/theory.md Section 9 (proofs in app:proofs-markowitz).
+% Experiment: E4 (experiments/e4_markowitz.py), as run: 30 universes x 30 assets, B = 20
+% replicas, 2 test seeds, 60 placebo replications per generator (results/e4/meta*.json).
+% Main-text tables: e4_utility, e4_correlation (generated); manual_e4_tests_main,
+% manual_e4_link_main (condensed, written by paper/scripts/e4_tests_main.py and
+% e4_link_main.py from results/e4/*.csv). Full generated test and link tables: app:mk.
+% Derived numbers not in a generated table (counts over universes, gross exposures, the sign
+% count of the link tables, the 400 distinct tickers of results/e4/universes.csv, the reference
+% start date 2020-07-24 = TRAIN day 643) were computed from results/e4/*.csv and the data
+% loader; app:mk repeats them. Section 8.1 keeps the statements (lem:quad-loss ... ex:drift) that
+% theory.tex (sec:theory-markowitz), appendix_proofs.tex and the introduction reference.
+% Reliability table manual_e4_reliability (tab:manual-e4-reliability): seed-to-seed Spearman
+% correlations of the four test quantities, written by paper/scripts/e4_reliability.py from
+% results/e4/e4_tests.csv; its header comment records the critic's 60 to 63 training windows per
+% sample (n_x - n_eval_x) and the 52097 trainable parameters of the E4 ConvCritic. The split of
+% the 18/192 link count (rule: pooled view, universe-bootstrap interval excludes 0; within views,
+% permutation p < 0.05; generator level, exact p < 0.05, never met; counting every printed interval
+% instead would give 23) (4 positive: T vs pooled-moment GMV and GMV long-only, pooled and
+% within-universe views; 14 negative: 8 z_hac, 6 wild-standardised MMD) was counted from
+% results/e4/e4_link.csv. Zero risk-free rate: src/synthval/portfolio.py (rf = 0.0 default,
+% not overridden in experiments/e4_markowitz.py).
 % =============================================================================================
-\todo{Section to be written (OUTLINE.md, Section 8). Anchor citations:
-\citet{markowitz1952portfolio}, \citet{ledoit2004well}, \citet{demiguel2009optimal},
-\citet{chopra1993effect}, \citet{cetingoz2026synthetic}.}
+
+A two-sample test asks whether synthetic windows can be told apart from real ones; a user who
+builds portfolios from synthetic data asks whether the portfolios perform well on real data. This
+section asks whether the two answers agree. \Cref{sec:mk-theory} states what theory predicts,
+\cref{sec:mk-design} describes the experiment E4, \cref{sec:mk-utility} reports the utility of
+portfolios trained on synthetic data and \cref{sec:mk-link} relates it to multivariate \WC{} and
+MMD tests. The answer is negative: the generator that the tests reject most often loses almost
+nothing for the minimum-variance portfolio, the generator with the largest losses is rejected,
+after size adjustment, less often than the two \iid{} generators, and the one quantity that
+tracks the minimum-variance loss is the distance between the synthetic and the past average
+correlation, with a negative sign, because the real correlation fell between \TRAIN{} and
+\TEST{}. Three qualifications apply. The evidence comes from one evaluation period, in which
+correlations fell, and carries no inference over dates; the portfolios use each generator only
+through the unconditional moments of long simulated samples; and within a generator the
+multivariate critic statistic is too noisy across synthetic seeds to show clearly whether it
+tracks the loss.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{What theory predicts}\label{sec:mk-theory}
+
+\Cref{sec:theory-markowitz} summarised what the theory implies for E4; this subsection states the
+results. Let $r_t\in\R^N$ be the daily returns of $N$ assets, with real \TRAIN{} sample $R_{\mathrm{tr}}$
+($\Ttr\times N$) and real \TEST{} sample $R_{\mathrm{te}}$ ($\Tte\times N$), and let $(\mu,\Sigma)$
+be the \TEST{} moments: population moments, or the realised moments
+$(\hat\mu_{\mathrm{te}},S_{\mathrm{te}})$, for which every statement below is an identity for the
+measured quantities. Portfolios lie in $\mathcal W=\{w\in\R^N:\one'w=1\}$, intersected with
+$\{w\ge0\}$ for long-only rules. Given estimates $(\hat\mu,\hat\Sigma)$, the global
+minimum-variance (GMV) portfolio is $\wgmv(\hat\Sigma)=\argmin_{w\in\mathcal W}w'\hat\Sigma w$
+($=\hat\Sigma^{-1}\one/(\one'\hat\Sigma^{-1}\one)$ without the sign constraint) and the mean-variance
+portfolio with risk aversion $\gamma$ is
+$\wmv(\hat\mu,\hat\Sigma)=\argmax_{w\in\mathcal W}\{w'\hat\mu-\tfrac\gamma2w'\hat\Sigma w\}$
+\citep{markowitz1952portfolio}. Trained on real data (TRTR), these maps are applied to the moments
+of $R_{\mathrm{tr}}$ and give $\hat w_{\mathrm{real}}$; trained on synthetic data (TSTR), to the
+moments of a synthetic sample $Y^{(b)}$ of length $\Ttr$ from a generator $G$ calibrated on
+$R_{\mathrm{tr}}$, and give $\hat w^{(b)}_{\mathrm{syn}}$, $b=1,\dots,B$. With $V(w)=w'\Sigma w$,
+$w^*=\wgmv(\Sigma)$ and $V^*=V(w^*)$, the losses are
+\begin{gather}
+  \mathcal L_{\mathrm{gmv}}(w)=V(w)-V^*,\label{eq:gmv-loss}\\
+  \mathcal L_{\mathrm{mv}}(w)=\CE(w^*_{\mathrm{mv}})-\CE(w),\qquad
+  \CE(w)=w'\mu-\tfrac\gamma2\,w'\Sigma w,\qquad w^*_{\mathrm{mv}}=\wmv(\mu,\Sigma).\label{eq:ce}
+\end{gather}
+E4 reports the variance ratio $V(\hat w_{\mathrm{syn}})/V(\hat w_{\mathrm{real}})$, which exceeds
+one exactly when $\mathcal L_{\mathrm{gmv}}(\hat w_{\mathrm{syn}})>\mathcal L_{\mathrm{gmv}}(\hat w_{\mathrm{real}})$,
+and the certainty-equivalent (CE) loss
+$\CE(\hat w_{\mathrm{real}})-\CE(\hat w_{\mathrm{syn}})=\mathcal L_{\mathrm{mv}}(\hat w_{\mathrm{syn}})-\mathcal L_{\mathrm{mv}}(\hat w_{\mathrm{real}})$.
+Proofs are in \cref{app:proofs-markowitz}.
+
+\begin{lemma}[Quadratic loss identities]\label{lem:quad-loss}
+(a) If $\mathcal W=\{w:\one'w=1\}$, then $V(w)-V^*=(w-w^*)'\Sigma(w-w^*)$ for every $w\in\mathcal W$.
+(b) If $\mathcal W$ is closed and convex and $w^*$ minimises $V$ over $\mathcal W$, then
+$V(w)-V^*\ge(w-w^*)'\Sigma(w-w^*)$ for every $w\in\mathcal W$.
+(c) If $\mathcal W=\{w:\one'w=1\}$, then
+$\mathcal L_{\mathrm{mv}}(w)=\tfrac\gamma2(w-w^*_{\mathrm{mv}})'\Sigma(w-w^*_{\mathrm{mv}})$; under
+further convex constraints the equality becomes ``$\ge$''.
+\end{lemma}
+
+With $\Sigma=S_{\mathrm{te}}$, part (a) decomposes the measured GMV gap exactly into a difference
+of squared Mahalanobis distances to the ex-post GMV portfolio,
+$\norm{\hat w_{\mathrm{syn}}-w^*}_{S_{\mathrm{te}}}^2-\norm{\hat w_{\mathrm{real}}-w^*}_{S_{\mathrm{te}}}^2$,
+where $\norm{x}_S^2=x'Sx$.
+
+\begin{proposition}[Sensitivity of the GMV portfolio to the covariance]\label{prop:gmv-sensitivity}
+Let $\mathcal W=\{w:\one'w=1\}$, let $\Sigma$ and $\hat\Sigma$ be symmetric positive definite,
+$A=\Sigma^{-1/2}\hat\Sigma\Sigma^{-1/2}$, $\kappa=\lambda_{\max}(A)/\lambda_{\min}(A)=\cond(\Sigma^{-1}\hat\Sigma)$
+and $M=\Sigma^{-1}-\Sigma^{-1}\one\one'\Sigma^{-1}/(\one'\Sigma^{-1}\one)$, and let
+$\norm{\cdot}_{\mathrm{op}}$ be the spectral norm.
+\begin{enumerate}
+  \item[(a)] (Scale invariance.) $\wgmv(c\hat\Sigma)=\wgmv(\hat\Sigma)$ for every $c>0$; in
+  particular $V(\wgmv(c\Sigma))=V^*$.
+  \item[(b)] (Kantorovich bound.) $1\le V(\wgmv(\hat\Sigma))/V^*\le(1+\kappa)^2/(4\kappa)$, and the
+  upper bound is sharp.
+  \item[(c)] (Quadratic in the relative error.) If $\varepsilon_0=\norm{\Sigma^{-1/2}(\hat\Sigma-\Sigma)\Sigma^{-1/2}}_{\mathrm{op}}$
+  is below one, then $V(\wgmv(\hat\Sigma))/V^*-1\le\varepsilon_0^2/(1-\varepsilon_0^2)$.
+  \item[(d)] (First order.) As $E\to0$, $\wgmv(\Sigma+E)-w^*=-MEw^*+O(\norm{E}^2)$ and
+  $V(\wgmv(\Sigma+E))-V^*=(Ew^*)'M(Ew^*)+O(\norm{E}^3)$, where $M\succeq0$ has kernel spanned by
+  $\one$: the quadratic term vanishes if and only if $w^*$ is also the GMV portfolio of $\Sigma+E$.
+\end{enumerate}
+\end{proposition}
+
+\begin{corollary}[What drives the GMV utility of a generator]\label{cor:gmv-drivers}
+Let $\hat\Sigma_{\mathrm{syn}}$ be the sample covariance of a synthetic sample of length $T_s$ from
+a stationary ergodic generator with covariance $\Sigma_G$, and $\kappa_G=\cond(\Sigma^{-1}\Sigma_G)$.
+\begin{enumerate}
+  \item[(i)] As $T_s\to\infty$,
+  $V(\wgmv(\hat\Sigma_{\mathrm{syn}}))/V^*\to V(\wgmv(\Sigma_G))/V^*\le(1+\kappa_G)^2/(4\kappa_G)$
+  almost surely: in the large-sample limit the GMV utility of a generator depends on it only
+  through $\Sigma_G$, and only up to scale.
+  \item[(ii)] (Heuristic.) At finite $T_s$,
+  $\E\,\mathcal L_{\mathrm{gmv}}\approx\{(\Sigma_G-\Sigma)w^*\}'M\{(\Sigma_G-\Sigma)w^*\}+T_s^{-1}\Tr(M\LRV_G)$,
+  with $\LRV_G$ the long-run covariance of $r_t(r_t'w^*)$ under $G$: tails and volatility
+  clustering enter only through the second, estimation-noise term.
+  \item[(iii)] (Heuristic.) If $\Sigma_G\approx\hat\Sigma_{\mathrm{tr}}$, the \TRAIN{} sample
+  covariance, and $T_s=\Ttr$, then
+  $\hat\Sigma_{\mathrm{syn}}-\Sigma=(\hat\Sigma_{\mathrm{tr}}-\Sigma)+(\hat\Sigma_{\mathrm{syn}}-\Sigma_G)$
+  with two conditionally uncorrelated terms of comparable size: one synthetic sample roughly
+  doubles the estimation-noise part of the TRTR loss, and pooling $B$ samples divides the added
+  part by $B$. The same holds, with more force, for the mean in mean-variance portfolios.
+\end{enumerate}
+\end{corollary}
+
+\begin{proposition}[No free lunch from synthetic data]\label{prop:no-free-lunch}
+Let $Y=g(R_{\mathrm{tr}},U)$ with $U$ independent of $(R_{\mathrm{tr}},\Theta)$, where $\Theta$ is
+any \TEST{} quantity (such as $\Sigma$, $(\mu,\Sigma)$ or $R_{\mathrm{te}}$). Let $\pi$ be a
+portfolio rule with values in a convex set $\mathcal W$ and $\ell(w;\Theta)$ be convex in $w$.
+Then $\bar w=\E[\pi(Y)\mid R_{\mathrm{tr}}]$ lies in $\mathcal W$, uses the data only through
+$R_{\mathrm{tr}}$, and $\ell(\bar w;\Theta)\le\E[\ell(\pi(Y);\Theta)\mid R_{\mathrm{tr}},\Theta]$.
+\end{proposition}
+
+Since $V$ and $-\CE$ are convex, no TSTR rule beats, on average over the synthetic randomness,
+the best rule based on the real past alone, and averaging the weights over replicas does at least
+as well as averaging the losses of replica-wise portfolios. Synthetic data can beat a
+\emph{particular} TRTR rule, such as the sample-covariance GMV portfolio, only by acting as a
+regulariser, as covariance shrinkage does \citep{ledoit2004well,jagannathan2003risk}. Test
+distance and utility can disagree in both directions:
+
+\begin{example}[Rejected by the critic, perfect for GMV]\label{ex:scale-blind}
+Let returns be \iid{} $N(0,\Sigma)$ and $G$ \iid{} $N(0,c\Sigma)$ with $c\neq1$. Windows satisfy
+$Y\eqd\sqrt c\,X$, so $\W(P,Q)=\abs{\sqrt c-1}\,\E\norm{X}>0$ and a consistent critic test rejects
+with probability tending to one (\cref{prop:consistency}); by \cref{prop:gmv-sensitivity}(a) the
+GMV loss of $\Sigma_G=c\Sigma$ is zero.
+\end{example}
+
+\begin{example}[Nearly invisible in $\W$, large GMV loss]\label{ex:spread}
+Let $N=2$, $v_1=(\cos\phi,\sin\phi)'$, $v_2=(-\sin\phi,\cos\phi)'$, $\Sigma=v_1v_1'+\eta^2v_2v_2'$
+and $\Sigma_G=v_1v_1'+s\eta^2v_2v_2'$ with $0<s,\eta<1$ and
+$\tan\phi=(1-\eta\sqrt s)/(1+\eta\sqrt s)$. Then $\kappa_G=1/s$ and
+$V(\wgmv(\Sigma_G))/V^*=(1+s)^2/(4s)$, the Kantorovich bound, which equals $1.5625$ for $s=1/4$
+whatever $\eta$. For \iid{} Gaussian windows of length $L$, the quadratic Wasserstein distance
+gives $\W\le W_2=\sqrt L\,\eta(1-\sqrt s)\to0$ as $\eta\to0$. The error lies in the low-variance
+spread direction $v_2$, which GMV weights heavily (for $\eta=0.1$, $w^*=(-1.48,2.48)'$ and
+$\wgmv(\Sigma_G)=(-4.49,5.49)'$) and which $\W$ discounts by $\sqrt{\lambda_2}=\eta$.
+\end{example}
+
+\begin{example}[Univariate tests cannot see correlation]\label{ex:corr-blind}
+A generator with exactly the univariate window laws of the data and independent assets satisfies
+every per-ticker null of E3, so each univariate test rejects it with probability at most $\alpha$;
+its covariance is $\diag(\Sigma)$, and its GMV portfolio can be arbitrarily bad.
+\end{example}
+
+\begin{example}[Drift errors are undetectable yet decisive]\label{ex:drift}
+Let returns be \iid{} Gaussian with known standard deviation $\sigma$, and let the synthetic drift
+of one asset be off by $\delta_\mu$. By \cref{prop:oracle-bound}(b), no level-$\alpha$ two-sample
+test that uses $\Tte$ real days has power above
+$1-\Phi(z_{1-\alpha}-\abs{\delta_\mu}\sqrt{\Tte}/\sigma)$, however many synthetic draws it uses.
+For $\abs{\delta_\mu}=\sigma/\sqrt{\Ttr}$, one standard error of the
+\TRAIN{} mean, and $\Tte/\Ttr=615/1258$, the bound is $1-\Phi(1.645-0.70)\approx0.17$ at
+$\alpha=0.05$. Errors of this size dominate mean-variance utility
+\citep{michaud1989markowitz,chopra1993effect}: with $\hat\Sigma=\Sigma$ and the budget constraint
+only, \cref{lem:quad-loss}(c) gives the loss $(2\gamma)^{-1}(\hat\mu-\mu)'M(\hat\mu-\mu)$.
+\end{example}
+
+For E4 this predicts that GMV losses track the accuracy of the covariance up to scale, not the
+rejection rate; that mean-variance losses are dominated by mean estimation noise, which no test
+detects and pooling replicas reduces; and that the covariance that matters is that of \TEST{}, so
+that fidelity to the past and usefulness for the future differ when the covariance changes.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Design of E4}\label{sec:mk-design}
+
+\paragraph{Universes and generators.}
+E4 draws 30 universes of $N=30$ assets, each without replacement and with its own seed, from the
+479 names of the complete universe (\cref{sec:data-panel}); universes may share tickers, and
+together they contain 400 distinct names. Five
+multivariate generators are fitted to the real \TRAIN{} returns of each universe: MV Gaussian
+(\iid{}, sample mean and covariance); MV Student-$t$ (\iid{}, location, scatter and degrees of
+freedom by ECME; \citealp{liu1995ml}); CCC-GARCH-$t$ (\GARCHt{} margins with variance targeting
+and persistence cap 0.995, Gaussian copula with constant correlation estimated from the normal
+scores of the standardised residuals; \citealp{bollerslev1990modelling,joe2005asymptotic}); MV
+bootstrap (stationary bootstrap of whole \TRAIN{} days with blocks shared by all assets;
+\citealp{politis1994stationary}); and factor GARCH-$t$ (single index equal to the equal-weight
+return of the same 30 assets, OLS loadings, \GARCHt{} factor and independent \GARCHt{} residuals).
+Fitting details are in \cref{app:impl} and diagnostics in \cref{app:mk-generators}.
+
+\paragraph{Utility.}
+For each universe and generator, $B=20$ synthetic samples of $\Ttr=1258$ days are simulated from a
+stationary start (burn-in 250 days). The portfolios therefore use a generator only through the
+moments of long simulated samples, essentially its unconditional mean and covariance: the
+conditional covariance forecasts that CCC-GARCH-$t$ and factor GARCH-$t$ could deliver from their
+end-of-\TRAIN{} state are deliberately not used, and a variant that would use them (for instance
+\TEST{}-length samples started from that state, as in the tests below) was not run. Comparisons
+between dynamic and \iid{} generators below concern their unconditional covariances, not their
+forecasts. On each sample, and on $R_{\mathrm{tr}}$, the mean is the sample mean and the
+covariance the sample covariance or the Ledoit--Wolf estimator with identity target
+\citep{ledoit2004well}. Six rules are built: GMV, GMV long-only, long-only mean-variance with
+$\gamma\in\{1,5,20\}$ and $1/N$ \citep{demiguel2009optimal}. The weights are held fixed with daily
+rebalancing and evaluated on the 615 \TEST{} days through daily simple returns, against the same
+rule trained on $R_{\mathrm{tr}}$. The losses are the variance ratio, the Sharpe loss
+$\SR(\hat w_{\mathrm{real}})-\SR(\hat w_{\mathrm{syn}})$ (annualised, with a zero risk-free
+rate) and the CE loss with the $\gamma$ of the rule ($\gamma=5$ for GMV), in percent per
+year ($252\times100$ times the daily value); ratios above one and positive losses mean that TSTR
+is worse. Every portfolio is fully invested, so a positive risk-free rate would leave the weights,
+the variance ratios and the CE losses unchanged; it would lower the Sharpe ratios and change the
+Sharpe losses between portfolios of different volatility. The returns are price returns
+(\cref{sec:data-panel}), so the \TRAIN{} means and the levels of the certainty equivalents and
+Sharpe ratios omit the dividend yield, and the selection of the universe on membership at the end
+of \TEST{} biases the \TRAIN{} means upward. The losses are aggregated over
+replicas in three ways: \emph{replica-wise}, the mean loss of the $B$ single-replica portfolios
+(the DESIGN measure, which contains the added noise of \cref{cor:gmv-drivers}(iii));
+\emph{pooled}, the loss of one portfolio built from the moments of the $B$ stacked replicas, which
+isolates misspecification; and \emph{averaged weights} (\cref{prop:no-free-lunch}). The $1/N$
+gaps are zero by construction. No inference over dates is provided. All losses are point
+estimates on the same 615 \TEST{} days, which every universe shares, so a statement that holds in
+all 30 universes describes one realisation seen through 30 overlapping portfolios, not 30
+independent confirmations; a test over \TEST{} days, such as the HAC test of Sharpe-ratio
+differences of \citet{ledoit2008robust} or its analogue for variances, was not run.
+
+\paragraph{Tests.}
+For each universe and generator, one synthetic sample of \TEST{} length is simulated from the end
+of \TRAIN{} (GARCH filters continue from their \TRAIN{} state). It and the real \TEST{} sample are
+divided by the per-ticker \TRAIN{} standard deviation and cut into non-overlapping windows of
+shape $(N,L)=(30,5)$, 123 per sample. The tested object thus differs from the one used for
+utility: one \TEST{}-length sample started from the end-of-\TRAIN{} state, against $B$
+\TRAIN{}-length samples from a stationary start; for the \iid{} generators the two differ only in
+length, for the others also in the starting state. The \WC{} test uses the convolutional critic of
+\cref{sec:method-critic}, the time-block split and $\phac$. Each critic is trained on the 60 to 63
+windows per sample of its training half, each of dimension $30\times5=150$, far fewer than the
+52\,097 trainable parameters of the network. No architecture or training ablation was run for
+this multivariate critic (the ablation of \cref{sec:robust} concerns the univariate critic), and
+\cref{sec:mk-link} shows that its statistic is noisy across synthetic seeds. MMD uses the wild
+bootstrap with a bandwidth fixed per universe (median heuristic of the real \TEST{} windows), so
+that all generators of a universe face the same kernel, and they also share the split, critic
+initialisation and mini-batches (the critic's input standardisation still uses the pooled
+training half, which depends on the generator). Two synthetic seeds were run (DESIGN: ten;
+compute budget); rejection shares across universes are reported for the first seed and for $\pmed$
+\eqref{eq:pmed}. A reference row uses the last 615 days of real \TRAIN{} (2020-07-24 to
+2022-12-30) in place of a synthetic sample. Because $\phac$ and $\pwild$ need not be calibrated
+with 123 windows and persistent volatility, 60 placebo replications per generator (DESIGN: 200)
+apply the same call to two independent draws of the fitted generator; they give the size and
+size-adjusted Monte Carlo p-values (\cref{app:mk-placebo}). E4 uses the absolute tests only: no
+anchored relative test, power check or verdict is computed for the multivariate generators.
+
+\paragraph{Link.}
+Each (universe, generator) pair is one point, with the seed means of $T$, $\zhac$, $\TMMD$ and the
+wild-standardised MMD statistic, and a benchmark that is not a test: the absolute difference
+$\abs{\Delta\,\text{avg.\ corr.}}$ between the mean pairwise correlation of the synthetic replicas
+and that of real \TRAIN{}. Spearman correlations with the losses are computed pooled over the 150
+points, within universes (across the five generators), within generators (across the 30
+universes, which removes generator-level offsets) and between the five generator means
+(\cref{app:mk-link}). Universes share every \TEST{} date and overlap in tickers, so intervals that
+treat them as independent are optimistic; conclusions are conditional on the five generators.
+The reproducibility of each test quantity is measured by the Spearman correlation between its
+values for the two synthetic seeds (\cref{tab:manual-e4-reliability}).
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Utility of portfolios trained on synthetic data}\label{sec:mk-utility}
+
+\begin{table}[tbp]
+  \centering
+  \caption{Utility losses of portfolios trained on synthetic data relative to the same rule
+  trained on real \TRAIN{} (E4). Means over 30 universes of 30 assets of the replica-wise losses
+  ($B=20$ synthetic \TRAIN{}-length samples per universe and generator), evaluated on the 615
+  \TEST{} days. Var.\ ratio: \TEST{} variance of the TSTR portfolio over that of the TRTR
+  portfolio; Sharpe loss: annualised Sharpe ratio of TRTR minus TSTR; CE loss: certainty
+  equivalent of TRTR minus TSTR, with the $\gamma$ of the rule ($\gamma=5$ for GMV), percent per
+  year. Ratios above one and positive losses: TSTR worse. Sample: sample covariance; LW:
+  Ledoit--Wolf (identity target), used for both TSTR and TRTR. Point estimates; no intervals.
+  Other aggregations: \cref{tab:e4-utility-agg}.}
+  \label{tab:e4-utility}
+  \small
+  \fittable{e4_utility}
+\end{table}
+
+\begin{table}[tbp]
+  \centering
+  \caption{Correlation structure of real and synthetic samples (E4). Avg.\ corr.: mean pairwise
+  return correlation, mean over the 30 universes (sd across universes); synthetic values are
+  means over the 20 \TRAIN{}-length replicas. Log-vol corr.: mean pairwise correlation of
+  rolling 20-day log-volatilities. $\kappa$: median over universes of
+  $\cond(S_{\mathrm{te}}^{-1}\hat\Sigma)$, with $\hat\Sigma$ the real \TRAIN{} covariance or that
+  of a synthetic replica (median over replicas first); Kant.\ bound: the corresponding median of
+  $(1+\kappa)^2/(4\kappa)$, the bound of \cref{prop:gmv-sensitivity}(b). At cap: GARCH components
+  whose persistence reached the cap 0.995, out of all components (CCC-GARCH-$t$: 30 margins per
+  universe; factor GARCH-$t$: factor and 30 residuals).}
+  \label{tab:e4-correlation}
+  \small
+  \fittable{e4_correlation}
+\end{table}
+
+\Cref{tab:e4-utility} reports the replica-wise losses and \cref{tab:e4-correlation} the
+correlation structure; the TRTR benchmark and the other aggregations are in
+\cref{app:mk-aggregation}. Ledoit--Wolf moments change the losses little; we discuss sample
+moments.
+
+\paragraph{Minimum-variance portfolios.}
+Four generators give GMV portfolios whose \TEST{} variance is within 6\% of the TRTR variance
+(replica-wise ratios 0.954 for MV Student-$t$, 1.021 for CCC-GARCH-$t$, 1.038 for MV Gaussian,
+1.054 for the MV bootstrap); factor GARCH-$t$ has 1.436. With pooled moments the ratios are 0.896,
+0.869, 1.004, 0.993 and 1.466 in the same order (\cref{tab:e4-utility-agg}): pooling reduces the
+noise but does not help factor GARCH-$t$, whose loss is misspecification. With pooled moments,
+CCC-GARCH-$t$ and MV Student-$t$ build better GMV portfolios than the real data they were fitted to
+in all 30 universes, and factor GARCH-$t$ has the largest replica-wise ratio of the five generators
+in all 30 (counts from the E4 output files; as noted in \cref{sec:mk-design}, these are 30 views
+of one \TEST{} period).
+
+\paragraph{The correlation regime shift.}
+The mean pairwise correlation fell from 0.419 in \TRAIN{} to 0.268 in \TEST{}, in each of the 30
+universes, and the correlation of log-volatilities from 0.603 to 0.302 (\cref{tab:e4-correlation});
+\TRAIN{} contains the market-wide crash of 2020. Generators calibrated on \TRAIN{} inherit
+the past correlation to different degrees: MV Gaussian exactly (0.419), the MV bootstrap and factor
+GARCH-$t$ nearly (0.406, 0.398), MV Student-$t$ less (0.359; plausibly because the $t$ scatter
+estimate downweights days with a large Mahalanobis distance, among them the market-wide days of
+2020) and CCC-GARCH-$t$ least (0.310), a documented attenuation of the model, whose volatilities
+co-move only through the correlation of the shocks (log-volatility correlation 0.127). By
+fidelity to the past CCC-GARCH-$t$ is the worst generator; by usefulness for the future, measured
+by the pooled-moment GMV variance, it is the best. Lower correlations act like shrinkage of the
+covariance towards its diagonal, which is the direction in which the real covariance moved: its
+GMV weights are less leveraged (mean gross exposure $\sum_i\abs{w_i}$ of the replica-wise
+portfolios 1.706 against 1.986 for TRTR), and its pooled-moment variance ratio is the lowest in 19
+of the 30 universes (MV Student-$t$ in 10). This does not contradict \cref{prop:no-free-lunch}:
+the attenuated covariance is a regulariser that happened to point in the direction of the regime
+change, an advantage that a different future could reverse. Whether the real past alone, treated
+in the same spirit, achieves the same gain was not examined: shrinkage towards a
+constant-correlation target \citep{ledoit_2004_honey}, a covariance estimated on the most recent
+part of \TRAIN{} (such as its last 615 days, the reference row of \cref{tab:e4-tests}) and EWMA or
+DCC forecasts \citep{engle2002dynamic} were not run. They would be needed to show that synthetic
+data add anything beyond a shrinkage of the correlations.
+
+Factor GARCH-$t$ illustrates the mechanism of \cref{ex:spread}. It matches the average correlation
+and the co-movement of volatilities (0.374) better than CCC-GARCH-$t$, yet it has the largest GMV
+loss and the largest condition number (31.16, Kantorovich bound 8.299). Two features of its
+construction plausibly contribute, and E4 does not separate them (\cref{app:mk-generators}).
+First, its covariance is one factor plus a diagonal, so the residual covariances, which carry the
+industry structure, are zero. Second, the factor is the equal-weight return of the same 30
+assets, so in the data the OLS residuals add up to zero every day and have negative covariances
+on average; the simulated residuals are independent, violate this identity and add idiosyncratic
+variance to the equal-weight direction. Both errors change the low-variance spread directions on
+which GMV portfolios load, while the average correlation is right. An external factor, such as
+the equal-weight return of all 479 names or an index, or factors from principal components would
+remove the adding-up artefact and leave only the omitted industry structure; this variant was not
+run. The Kantorovich bound held in every replica but does not rank the generators: CCC-GARCH-$t$
+has a larger $\kappa$ (24.38) than the real \TRAIN{} covariance (18.65) and the lowest pooled
+variance ratio.
+
+\paragraph{Mean-variance portfolios.}
+For every generator and mean-variance rule the replica-wise TSTR portfolio has a larger \TEST{}
+variance and a lower CE than the TRTR portfolio: variance ratios from 1.117 to 1.597, CE losses
+from 0.32 to 5.03 percent per year. These losses are mostly noise in the synthetic means: pooling
+the replicas lowers the CE loss in 14 of the 15 pairs of generator and rule (for MV Gaussian with
+$\gamma=1$ from 3.57 to $-1.36$), as \cref{cor:gmv-drivers}(iii) predicts, and averaged weights do
+at least as well as the replica-wise portfolios in every universe, generator and rule, as
+\cref{prop:no-free-lunch} requires. Even trained on real data, no mean-variance rule beats $1/N$
+in Sharpe ratio (0.72 for $\gamma=5$ against 0.83, with a zero risk-free rate;
+\cref{tab:e4-trtr}), as in \citet{demiguel2009optimal}.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Do test results predict utility?}\label{sec:mk-link}
+
+\begin{table}[tbp]
+  \centering
+  \caption{Rejection shares of the multivariate tests across the 30 universes at $\alpha=0.05$
+  (E4): real \TEST{} against one synthetic \TEST{}-length sample per seed, windows
+  $(N,L)=(30,5)$, 123 per sample. \WC{}: time-block split, Driscoll--Kraay p-value; MMD: wild
+  bootstrap, bandwidth fixed per universe. First: first synthetic seed; $\pmed$:
+  $\min\{1,2\med_sp_s\}$ over two seeds. Placebo size: rejection rate when both samples are
+  independent draws from the fitted generator (60 replications per generator,
+  \cref{tab:e4-placebo}). Size-adjusted: p-values calibrated against the placebo scores of the
+  same generator and test. Reference row: the last 615 days of real \TRAIN{} instead of a
+  synthetic sample; it has no placebo. Rates only; Wilson 95\% intervals, which treat universes as
+  independent, are in \cref{tab:e4-tests-full}.}
+  \label{tab:e4-tests}
+  \small
+  \fittable{manual_e4_tests_main}
+\end{table}
+
+\paragraph{What the tests say.}
+With nominal p-values and the first seed, the \WC{} test rejects each generator in 0.63 to 1.00
+of the universes and MMD in 0.33 to 0.97, and the \WC{} test rejects the recent real past in 0.67
+of them (\cref{tab:e4-tests}). The placebo shows that the
+nominal $\phac$ is oversized for generators with persistent volatility: 0.27 at 5\% for
+CCC-GARCH-$t$ and factor GARCH-$t$ and 0.13 for the MV bootstrap, against 0.05 and 0.07 for the
+\iid{} generators (\cref{fig:e4-placebo-size}; the cause is discussed in \cref{app:mk-placebo}).
+The reference row cannot be size-adjusted. After size adjustment the \WC{} test still rejects MV
+Gaussian in all universes and MV Student-$t$ in 0.87 of them (first seed), but CCC-GARCH-$t$, the
+MV bootstrap and factor GARCH-$t$ only in 0.33, 0.33 and 0.40 (0.07, 0.10 and 0.27 with $\pmed$).
+MMD also separates the \iid{} generators from the dynamic ones and rejects the latter less often.
+Both tests find the generators without volatility clustering easiest to distinguish from real
+\TEST{} windows.
+
+\paragraph{What the tests do not say.}
+This ordering is unrelated to utility. MV Gaussian is rejected in every universe after size
+adjustment (first seed) and has the largest critic statistic of the five generators in 17 of the
+30 universes, yet its replica-wise GMV variance ratio lies between 1.007 and 1.060 in every
+universe and its pooled-moment ratio is 1.004 on average. No witness analysis was run for the
+multivariate critic, so what it detects is not known. If it behaves like the univariate critic of
+\cref{sec:emp-witness}, which is close to a realised-volatility statistic, it responds mainly to
+the level of window volatility and, for a generator without clustering, to the missing dispersion
+of that level across windows. A common volatility level acts as a scale, to which the GMV
+portfolio is blind (\cref{ex:scale-blind}), and the dispersion enters the GMV loss only through
+estimation noise (\cref{cor:gmv-drivers}(ii)). Factor GARCH-$t$ is rejected less often than
+either \iid{} generator after size adjustment, and has the largest GMV loss in every universe.
+Mean-variance losses come from mean errors that no test can see (\cref{ex:drift}).
+
+\begin{table}[tbp]
+  \centering
+  \caption{Reproducibility of the E4 test quantities across synthetic seeds: Spearman
+  correlation between the values of the first and the second synthetic seed. Within generator:
+  across the 30 universes of one generator (the variation used by the within-generator view of
+  \cref{tab:e4-link}), and the mean of the five values. Pooled: over the 150 (universe,
+  generator) points. Reference: last 615 days of real \TRAIN{}, the same data in both seeds, so
+  that only the randomness of the test differs (split, initialisation and mini-batches of the
+  critic; wild-bootstrap multipliers of MMD). \WC{}: time-block split, critic trained on 60 to 63
+  windows of dimension 150 per sample; MMD: bandwidth fixed per universe.}
+  \label{tab:manual-e4-reliability}
+  \small
+  \fittable{manual_e4_reliability}
+\end{table}
+
+\paragraph{How reproducible the test quantities are.}
+A correlation between a test quantity and a loss across universes is informative only if the
+quantity itself is reproducible across universes. \Cref{tab:manual-e4-reliability} shows that,
+within a generator, the critic statistic is not. Across the 30 universes of a generator, the
+values of $T$ for the two synthetic seeds have Spearman correlation between $-0.03$ and 0.30 (mean
+0.14), and those of $\zhac$ between 0.10 and 0.51. For MMD$^2_u$ the values are 0.22 to 0.83 (mean
+0.44). With the data held fixed (reference row), $T$ still has seed-to-seed correlation 0.28,
+while MMD$^2_u$ is identical in both seeds (1.00): the randomness of the test alone, a split and a
+network trained on few windows, makes $T$ barely reproducible. The link uses the mean of the two
+seeds, which halves the variance of the seed noise but leaves it large relative to the variation
+of $T$ across the universes of a generator (\cref{app:mk-link} quantifies the attenuation).
+
+\begin{table}[tbp]
+  \centering
+  \caption{Spearman correlations between test quantities and utility losses (E4; sample
+  moments). Panel A: replica-wise portfolios (the DESIGN measure); panel B: portfolios from the
+  moments of the pooled replicas (misspecification only). Test quantities are seed means (two
+  seeds); $\abs{\Delta\,\text{avg.\ corr.}}$: absolute difference between the synthetic and the
+  real \TRAIN{} mean pairwise correlation (not a test). Pooled: over the 150 (universe,
+  generator) points, universe-bootstrap 95\% percentile interval (2000 draws). Within-universe and
+  within-generator: mean Spearman correlation across the 5 generators of a universe or the 30
+  universes of a generator, two-sided permutation p-values (2000 permutations). Generator level:
+  Spearman correlation of the 5 generator means, exact two-sided p-value over the 120 orderings.
+  Universes share dates, so intervals are optimistic. All losses:
+  \cref{tab:e4-link-full,tab:e4-link-pooled}.}
+  \label{tab:e4-link}
+  \small
+  \fittable{manual_e4_link_main}
+\end{table}
+
+\paragraph{Correlations between test quantities and losses.}
+\Cref{tab:e4-link} and \cref{fig:e4-utility-vs-distance} make the comparison systematic. For the
+replica-wise GMV variance ratio, the \WC{} statistic $T$ has a pooled correlation of 0.10
+[$-0.04$, 0.25], a within-generator correlation of 0.01 (permutation $p=0.853$) and a
+generator-level correlation of 0.50 (exact $p=0.450$, $n=5$). Given the low reproducibility of
+$T$, the within-generator value is weak evidence of no association: it is compatible with seed
+noise alone and does not exclude a moderate association between the loss and a noise-free critic
+distance. The MMD quantities, whose statistics are on average more reproducible, are no better:
+both have within-generator correlations with the GMV variance ratio of $-0.08$ for replica-wise
+and $-0.02$ for pooled-moment portfolios, and the wild-standardised MMD statistic is even
+correlated negatively with the loss ($-0.21$ pooled). For the CE loss with $\gamma=5$ no test
+quantity has a pooled correlation larger than 0.16 in absolute value. With pooled-moment
+portfolios (panel B), $T$ orders the generators roughly as their GMV losses (pooled 0.30 [0.19,
+0.42], within universe 0.39 with $p<0.001$, generator level 0.70 with exact $p=0.233$). Its
+within-generator correlation, $-0.01$ ($p=0.895$), is weak evidence for the same reason, and the
+between-generator association rests on five generators, of which only factor GARCH-$t$ has a
+large loss. The evidence that test results do not predict utility thus comes from the comparison
+of generators (MV Gaussian rejected everywhere yet with GMV variance ratios close to one, 1.038
+replica-wise and 1.004 pooled; factor GARCH-$t$ rejected less often yet losing most) and from MMD, not from the within-generator correlations of the critic.
+Over the full tables, 18 of the 192 combinations of test quantity, loss, aggregation and view have
+a pooled interval excluding zero or a permutation p-value below 0.05. If all associations were null and
+the comparisons independent, about eight would be expected by chance (\cref{app:mk-link}); the
+comparisons share their points, so the count is descriptive. The four positive ones are all $T$
+against pooled-moment GMV losses, in the pooled and within-universe views, which mostly rank the
+generators; the other 14 are negative and all involve a studentised statistic ($\zhac$ or the
+wild-standardised MMD statistic).
+
+\begin{figure}[tbp]
+  \centering
+  \inputfigure{e4_utility_vs_distance}
+  \caption{Utility losses against test statistics (E4), one point per (universe, generator), 30
+  universes $\times$ 5 generators. Top: GMV variance ratio (TSTR over TRTR); bottom: mean-variance
+  ($\gamma=5$) CE loss in percent per year; replica-wise portfolios, sample moments. Left: \WC{}
+  statistic $T$; right: $\TMMD$; seed means over two seeds. Insets: pooled Spearman $\rho$ and
+  within-generator $\bar\rho$ with universe-bootstrap 95\% percentile intervals. Dashed lines: no
+  loss.}
+  \label{fig:e4-utility-vs-distance}
+\end{figure}
+
+\paragraph{The correlation shift.}
+The one quantity with a consistent association is not a test statistic.
+$\abs{\Delta\,\text{avg.\ corr.}}$ is correlated with the GMV variance ratio at $-0.29$ [$-0.44$,
+$-0.14$] pooled and $-0.36$ ($p<0.001$) within generator for replica-wise portfolios, and at
+$-0.64$ [$-0.70$, $-0.57$] and $-0.41$ ($p<0.001$) for pooled-moment portfolios. The further a
+generator's correlation is from the past, the smaller its GMV loss. The synthetic correlation lies
+below the \TRAIN{} one in 122 of the 150 points (in all 30 universes for CCC-GARCH-$t$ and MV
+Student-$t$), and the real correlation fell, so departing from the past meant moving towards the
+future; a generator that reproduced the past correlation perfectly was penalised for it. The
+association holds within generators, so it does not come from generator-level offsets, and it is
+specific to GMV: for the CE loss with $\gamma=5$ it is $-0.03$ pooled. It is also a property of
+this evaluation period, in which the correlation fell in each of the 30 universes; under rising
+correlations the sign would plausibly reverse. The alternative split of \cref{sec:robust}, with
+\TEST{} starting in 2022, was not run for E4.
+
+\paragraph{Summary.}
+Closeness in distribution does not imply usefulness for portfolio construction. The GMV portfolio
+depends only on the covariance matrix up to scale, so features that a window test detects can be
+irrelevant to it; mean-variance utility is driven by mean errors that no test sees at these sample
+sizes; and when cross-sectional dependence shifts between calibration and evaluation, the
+generator closest to the past is not the most useful. These findings are conditional on the
+design. They come from one evaluation period, in which correlations fell, as point estimates
+without inference over dates, and from five generators; in a period of rising correlations the
+negative association between the correlation distance and the GMV loss could reverse. The tests
+examine a \TEST{}-length sample started from the end-of-\TRAIN{} state, whereas the portfolios
+use each generator only through the unconditional moments of long stationary samples, so the
+conditional forecasts of the GARCH-type generators are not exploited. Within a generator, the multivariate critic statistic is so noisy
+across seeds that its correlation with the loss is weak evidence either way, and the evidence
+rests on the comparison of generators and on MMD. None of this is a failure of the test, which
+answers, with an approximate size adjustment, whether synthetic windows are distinguishable from
+real \TEST{} windows. Whether synthetic data are good for building portfolios has to be checked
+on that task, by comparing TSTR with TRTR portfolios on held-out real data.

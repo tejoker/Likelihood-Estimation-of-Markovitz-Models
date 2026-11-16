@@ -1,0 +1,312 @@
+\section{Robustness: details}\label{app:robust}
+% =============================================================================================
+% E5 as run (results/e5/meta_grid.json, meta_split.json, meta_simpower.json) and the
+% architecture ablation (experiments/e5_architecture.py -> results/e5arch/ ->
+% paper/tables/e5_arch_sim.tex, e5_arch_real.tex and their notes).
+% Tables: tab:e5-sensitivity (generated e5_sensitivity), tab:e5-split (manual_e5_split_battery:
+% the generated e5_split.tex is too wide, below 7pt), tab:e5-simpower, tab:e5-arch (generated
+% e5_arch_sim), tab:e5-arch-real (manual_e5_arch_real: the generated e5_arch_real.tex is too
+% wide). Manual tables: paper/scripts/e5_app_tables.py; condensed main-text tables:
+% paper/scripts/e5_tables.py.
+% tab:e5-calibration was not produced (gridsize, gridpower and gridrealvol not run).
+% Derived numbers (evaluation sizes, HAC lags, paired outcomes, exact McNemar p-values) were
+% recomputed from results/e5/e5_grid_raw.csv, e5_split_power_raw.csv, e5_simpower_raw.csv and
+% results/e3/e3_{power,realvol}_raw.csv; see the writer's report.
+% Architecture ablation, real data: the rule decisions of the MLP and the pooled critic coincide
+% in every one of the 20 paired replications of D1 and D2, at the alternative and at the boundary
+% (recomputed from results/e5arch/e5_grid{power,realvol}_raw.csv and the first 20 replications of
+% results/e3/e3_{power,realvol}_raw.csv). Selection pilot: docs/DESIGN.md change log, 2026-11-16
+% ("a pilot on four E2 designs at n = 500"); no pilot results are in the repository.
+% =============================================================================================
+
+This appendix documents the E5 runs behind \cref{sec:robust}: what was run, further results of
+the grid and of the alternative split, the simulated power of the critic under different
+optimiser settings (\cref{tab:e5-simpower}) and the architecture ablation
+(\cref{tab:e5-arch,tab:e5-arch-real}).
+
+\subsection{What was run}
+
+The settings below are those of the full configuration recorded with the results; where the
+docstring of \texttt{experiments/e5\_robustness.py} gives other replication counts, it describes
+the plan before the compute cuts. The \emph{grid} covers the default and 13 one-at-a-time changes,
+five generators and the five synthetic seeds of E3, with the absolute \WC{} test and the anchored
+relative test under the dependent protocol (time-block split, Driscoll--Kraay p-values). The
+\emph{split} part refits the five generators on the alternative \TRAIN{} period and runs the full
+E3 battery: the \WC{}, \LRC{} and C2ST tests with Driscoll--Kraay p-values, MMD and \SigMMD{} with
+the wild bootstrap, KS (invalid under dependence), and the anchored and two-critic relative tests,
+with five seeds. The power and the boundary size of the rule at this split come from the
+replication functions of E3 for D1 and D2, with 25 replications of five seeds each (the docstring
+says 50). The \emph{simpower} part runs 50 replications per cell (the docstring says 100).
+
+Three parts were not run. \emph{gridsize} would have estimated the size of the absolute test in
+each configuration from 200 placebo replications in each of two simulated designs, with an exact
+comparison against the default on the paired rejections. \emph{gridpower} and \emph{gridrealvol}
+would have estimated the power and boundary size of the rule in each configuration under D1 and
+D2, with 50 replications per design. The calibration table planned for this appendix therefore
+does not exist, and the column ``Rule power'' of \cref{tab:e5-sensitivity} is empty. Above all,
+a change of decision in the grid cannot be attributed to a change of size or to a change of
+power. Only the default pipeline has a measured size: in the factor-panel placebo of E1 with
+common volatility regimes, the absolute \WC{} test rejects at 0.085 [0.054, 0.132] and the
+anchored test at 0.080 [0.050, 0.126] at nominal 5\% when the synthetic panel is a joint draw,
+and at 0.270 [0.213, 0.335] and 0.155 [0.111, 0.212] when the synthetic tickers are drawn
+independently with the same margins, the situation of the univariate generators of E3
+(\cref{tab:e1-size-sim}).
+
+The architecture ablation (\texttt{experiments/e5\_architecture.py}, results in
+\texttt{results/e5arch}) has two parts. On simulated data it reruns the \WC{} test with the
+pooled critic in ten cells of E2 ($n=500$; 200 replications in each of the two null cells, which
+were first run with 50 replications and then extended, and 50 in each of the eight alternative
+cells) and two alternative cells of E2-dep ($n=2000$; 50
+replications each). On real data it reruns the E3
+protocol with E3's five seeds, and designs D1 and D2 with 20 replications of five seeds each,
+paired with the first 20 replications of E3. No part of E1 was rerun with the pooled critic.
+
+\subsection{Grid: sample sizes, lags and seeds}
+
+In the default configuration each sample has 3000 \TEST{} windows, of which the absolute test
+evaluates 1500; the anchored test evaluates 1500 synthetic windows and, depending on which time
+blocks a seed assigns to the evaluation half, 3000 to 3200 of the 6200 \TRAIN{} windows. With
+$L=5$, $10$ and $60$ a sample has 12300, 6100 and 1000 \TEST{} windows, of which the absolute test
+evaluates 6000 to 6300, 3000 to 3100 and 500. With $L=60$ each ticker has 10 \TEST{} windows, so
+with $K=10$ every time block holds a single window date and each half five dates. Training
+fractions 0.3 and 0.7 leave 2100 and 900 evaluation windows per sample in the absolute test,
+against 1500 by default. The Andrews plug-in, applied to each of the two evaluation samples
+separately, selects 0 to 4 lags (in window dates) in the absolute test and 0 to 7 in the
+anchored test of the default configuration; the Newey--West rule selects 2 and 2 or 3, and
+changes no decision.
+
+The seed combination is not a formality. In the default configuration the five single-seed
+anchored p-values of GBM are 0.403, 0.177, $2.4\times10^{-4}$, $2.4\times10^{-10}$ and
+$2.2\times10^{-6}$; three of the five seeds reject on their own for GBM, Merton and Heston, and one
+for \GARCHt. With five seeds, $\pmed\le0.05$ requires the third smallest $p_s$ to be at most
+$0.025$ (\cref{rem:combine-seeds}). An analysis with a single seed would have reached opposite
+conclusions for GBM depending on the seed.
+
+\begin{table}[tbp]
+  \centering
+  \caption{E5 grid, all p-values: anchored relative and absolute \WC{} tests per configuration
+    and generator (100 tickers, \TEST{} 2023-01-03 to 2025-06-16, five synthetic seeds,
+    $\alpha=0.05$). Condensed version: \cref{tab:manual-e5-sensitivity}.}
+  \label{tab:e5-sensitivity}
+  \small\setlength{\tabcolsep}{3pt}
+  \fittable{e5_sensitivity}
+  \tablenote{Entries are $\pmed$ over the five seeds of the Driscoll--Kraay p-values (time-block
+    split) of the anchored relative test (rel.), followed by the verdict (B = \BAD, I = \INCONCL),
+    and of the absolute \WC{} test (abs.). Bold: absolute rejection at 5\%. $^\dagger$: the
+    decision at 5\% differs from the default row. $^\ddagger$: relative test invalid for the
+    stationary bootstrap (no verdict). Rule power: ``--'' because the power check was not rerun
+    for any configuration (parts gridpower and gridrealvol not run).}
+\end{table}
+
+\subsection{Alternative split}
+
+The alternative split has 43 \TEST{} windows and 50 \TRAIN{} windows per ticker (4300 and 5000 per
+sample). The fit diagnostics resemble those of E3 except for Heston. The Merton intensity
+$\lambda_J$ is at its bound for 3 tickers at both splits, and the \GARCHt{} persistence reaches its
+cap for no ticker, against one in E3. The Heston simulated-moments fit has at least one parameter
+at a bound for 52 tickers ($c$ for 27, $\kappa_v$ for 4, $\rho_v$ for 32), against 33 in E3 (11, 5
+and 20).
+
+Among the absolute tests at the alternative split (\cref{tab:e5-split}), the \WC{}, \LRC{} and
+C2ST tests and MMD reject only GBM. \SigMMD{} rejects GBM, Merton and Heston ($\pmed$ 0.004,
+0.004 and 0.012), as it does at the main split (\cref{tab:e3-pooled-tests}). KS rejects every
+generator but is invalid. No valid test rejects \GARCHt{} or the stationary bootstrap. The
+secondary two-critic test rejects only GBM ($\pmed=0.012$).
+
+\begin{table}[tbp]
+  \centering
+  \caption{Alternative split, full E3 battery: \TRAIN{} 2018-01-03 to 2021-12-31, \TEST{}
+    2022-01-03 to 2025-06-16, same 100 tickers, generators refitted; five synthetic seeds;
+    $\alpha=0.05$. Rule power and boundary size, and the main split: \cref{tab:manual-e5-split};
+    the same battery at the main split: \cref{tab:e3-pooled-tests}.}
+  \label{tab:e5-split}
+  \small
+  \fittable{manual_e5_split_battery}
+  \tablenote{Entries are $\pmed=\min\{1,2\med_sp_s\}$ over the five seeds. \WC{}, \LRC{}, C2ST
+    and the relative tests: time-block split and Driscoll--Kraay p-value; MMD and \SigMMD: wild
+    bootstrap; KS$^\ast$: asymptotic \iid{} p-value, invalid under dependence. Bold: rejection at
+    5\% by a valid test. $^\dagger$: two-critic test, secondary and anti-conservative at the
+    boundary (\cref{prop:boundary-size}). $^\ddagger$: relative tests invalid for the stationary
+    bootstrap (verdict n/a). Verdict: anchored test with the rule power of this split (D2: 0.60,
+    below $\bmin$; \cref{tab:manual-e5-split}). Table written by
+    \texttt{paper/scripts/e5\_app\_tables.py} from the E5 results.}
+\end{table}
+
+For the rule, the single-seed rejection rates are 1.00 under the D1 alternative and 0.12 [0.03,
+0.31] (Clopper--Pearson) at the D1 boundary, where the rule rejects in no replication. In D2 the
+single-seed rates are 0.56 both under the alternative and at the boundary. The paired outcomes of
+the rule over the 25 replications of D2 are 15 rejections of both $G^0$ and $G^*$, 10 rejections of
+neither and none of only one (\cref{tab:manual-e5-split-paired}). The nominal threshold hides a
+clear separation. All 15 rejected alternatives have $\pmed\le7.8\times10^{-6}$, below the
+smallest of the 25 boundary values ($3.8\times10^{-5}$), so a critical value just below that
+value rejects the alternative in 15 of the 25 replications and the boundary in none, and within the
+same replication the alternative $\pmed$ is below the boundary $\pmed$ in 21 of the 25. At the
+main split, over the 100 replications of D2, the rule rejects both in 8, only the alternative in 37
+and neither in 55, so there the 20\% volatility error adds detections beyond the boundary
+rejections at the nominal threshold as well; the 45 rejected alternatives all lie below the
+smallest of the 100 boundary values ($2.0\times10^{-4}$), and the alternative $\pmed$ is below the
+boundary $\pmed$ of the same replication in all 100.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Paired outcomes of the verdict rule at the alternative and at the boundary of the power
+    designs, at the main split (E3, 100 replications) and at the alternative split (E5, 25
+    replications); $\pmed$ over five synthetic seeds, $\alpha=0.05$. Rule at 5\%: replications in
+    which both $G^*=1.2\,G^0$ and $G^0$ are rejected, only $G^*$, or neither (no replication
+    rejects only $G^0$). $\pmed$: smallest boundary value over the replications and largest value
+    among the rejected alternatives. Alternative below: number of replications whose alternative
+    $\pmed$ is below the smallest boundary $\pmed$, and below the boundary $\pmed$ of the same
+    replication. Derived from \texttt{results/e3/e3\_power\_raw.csv},
+    \texttt{e3\_realvol\_raw.csv} and \texttt{results/e5/e5\_split\_power\_raw.csv} by
+    \texttt{paper/scripts/e5\_split\_discrimination.py}.}
+  \label{tab:manual-e5-split-paired}
+  \small
+  \fittable{manual_e5_split_paired}
+\end{table} The median anchored statistic in D2 is 0.673 under the
+alternative and 0.231 at the boundary at the alternative split, against 0.638 and 0.012 at the
+main split; in D1 at the alternative split it is 0.603 and 0.004. The boundary statistic is
+therefore shifted at the alternative split, not merely more variable. \Cref{rem:nonstat-past}
+describes two mechanisms: the anchored target is random through the assignment of heterogeneous
+\TRAIN{} blocks to the evaluation half, and the last \TRAIN{} block borders the first \TEST{}
+dates. We have not separated them.
+
+\subsection{Optimiser settings on simulated data}
+
+\Cref{tab:e5-simpower} uses two E2 alternatives with independent windows, $n=500$ windows of $L=20$
+per sample, a random 50/50 split and the exact permutation p-value with $B=1000$. In (a) both
+samples are Student-$t_5$ with daily volatility 0.02 and 0.022. In (c) both are \GARCHt{} with
+persistence 0.98 and 0.90, matched unconditional variance and degrees of freedom. Every cell uses
+the same samples and the same test randomness in each replication, so cells can be compared on
+the paired rejections; we use exact McNemar (binomial) tests on the discordant pairs
+\citep{mcnemar_1947_note}. Against the volatility shift, rate $10^{-4}$ at 1000 steps rejects in
+19 replications in which the default does not and the reverse never happens (exact
+$p<10^{-5}$); it also beats rate $10^{-4}$ at 500 steps (18 against 0) and at 3000 steps (12
+against 1, $p=0.003$). Against clustering the two rates at 1000 steps do not differ (8 against
+6, $p=0.79$), but at rate $10^{-4}$ 1000 steps beat 500 steps (12 against 0, $p<0.001$). At the
+default rate the power changes little with the number of steps (0.44, 0.40 and 0.34 against the
+volatility shift; 0.26, 0.30 and 0.30 against clustering), and no difference between two step
+counts is significant (smallest exact $p=0.30$). The default cells agree with the \WC{} power at
+the same alternatives in \cref{tab:e2-power} (0.30 and 0.34 with $n=500$) within Monte Carlo
+error. With 200 instead of 1000 permutations the critic and the statistic are identical in every
+replication; the p-values differ by at most 0.039 and 0.080, and the rejection rates by 4 and 0
+of 50 replications (4 against 0 and 2 against 2 discordant pairs). One test takes on average 4
+to 5\,s with 500 steps, 8 to 10\,s with 1000 steps and 28 to 33\,s with 3000 steps in a
+single-threaded worker.
+
+The result does not support the check run that led to the default rate of $10^{-3}$
+(\cref{sec:method-critic}): at 1000 steps the rate of \citet{gulrajani2017improved} is at least as
+powerful against both alternatives here, and much more powerful against the volatility shift. The
+default was fixed before any E2 or real-data run and was kept, because re-tuning on the
+alternatives used to evaluate the test would select the test on its evaluation data. The level of
+every cell is exact regardless (\cref{prop:exact-level}).
+
+\begin{table}[tbp]
+  \centering
+  \caption{Power of the \WC{} test under different optimiser settings (E5 simpower; independent
+    windows, $n=500$ windows of $L=20$ per sample, 50 replications per cell, $\alpha=0.05$).}
+  \label{tab:e5-simpower}
+  \small
+  \fittable{e5_simpower}
+  \tablenote{Rejection rate at 5\% [Wilson 95\% interval]. p-value: permutation of the held-out
+    evaluation labels with the critic fixed, $B=1000$ (last column: $B=200$ with the same trained
+    critic as the default cell). All cells use the same samples and test randomness per
+    replication. Alternatives as in E2: (a) Student-$t_5$ with volatility $\times1.1$; (c)
+    \GARCHt{} persistence 0.90 against 0.98 at matched unconditional variance and degrees of
+    freedom.}
+\end{table}
+
+\subsection{Critic architecture}
+
+The ablation replaces only the network of the univariate critic and keeps every other setting of
+the \WC{} test (standardisation, objective \eqref{eq:wgan-gp} with $\lgp=10$, Adam with rate
+$10^{-3}$, 1000 steps, batch 128, 50/50 split, $B=1000$ permutations). The default is the
+multilayer perceptron of \cref{sec:method-critic}. The alternative is a time-pooled
+one-dimensional CNN: two convolutions with 64 channels and kernel 5 (``same'' padding), each
+followed by a LeakyReLU(0.2), an average of the feature map over the $L$ positions, a dense layer
+of width 64, a LeakyReLU and a linear output. The critic is therefore the average over the window
+of one learned function of local patches of nine days. It is invariant to where in the window a
+local pattern occurs and pools the evidence of every day of the window, as a test on pooled
+returns does, while still seeing short-range dependence such as volatility clustering within its
+receptive field. The architecture was chosen after the real-data results of the perceptron were
+known, and after a pilot on four E2 designs at $n=500$ in which it was far more powerful than the
+perceptron at the same size. The pilot is recorded only in the change log of the protocol, which
+does not list its designs; its results are not part of the reported runs. The ablation is
+therefore post hoc in two respects: the pre-specified verdicts of \cref{sec:emp} remain those of
+the perceptron, and the simulated comparison below is partly made on the experiment and sample
+size on which the network was selected. The argument of the previous subsection against
+re-tuning on the evaluation designs applies to this choice as well.
+
+Every replication reuses the windows and the test randomness of the same replication of E2 or
+E2-dep, so the two networks are compared replication by replication (exact McNemar test on the
+discordant replications). On simulated data (\cref{tab:e5-arch}) the size of the pooled critic is
+0.06 [0.03, 0.10] and 0.05 [0.03, 0.09] in the two null designs (200 replications each), as
+\cref{prop:exact-level} requires, and its power is higher than that of the perceptron in every
+alternative design, significantly so in all but the block design of E2-dep, where the perceptron
+already rejects at 0.86. The gains are largest where the perceptron was weakest: 0.10 to 0.98
+against Student-$t_{10}$ windows when the other sample is $t_4$, 0.10 to 0.92 when every
+synthetic window is GBM instead of Merton, 0.38 to 0.96 against a 10\% volatility increase and
+0.36 to 0.88 against persistence 0.90. Against $t_{10}$ tails and all-GBM windows the pooled
+critic far exceeds MMD and nearly matches pooled KS (0.98 and 0.92, against 0.08 and 0.06 for MMD
+and 1.00 for KS); with half of the synthetic windows GBM it rejects at 0.16, against 0.06 for MMD
+and 0.30 for KS. Against the volatility level it is close to both (0.44 against 0.30 and 0.40 at
+a 5\% increase, 0.96 against 0.98 and 1.00 at 10\%). In the dependence-only designs,
+where KS has no power by construction, it rejects at 0.90 and 0.96, above MMD (0.70 and 0.78).
+Because the network was selected on E2 designs at $n=500$, the gains in the ten E2 cells are
+optimistic. The two E2-dep cells ($n=2000$) lie outside the recorded pilot and are the closest
+to held-out evidence: there the power rises from 0.46 to 0.90 in the mixture design and from 0.86
+to 0.96 in the block design, the latter not significantly (exact McNemar $p=0.18$). The
+comparison of \cref{sec:sim} is therefore a statement about the default perceptron, not about
+learned critics in general: in the E2 designs, the kind on which the alternative network was
+selected, the weakness of the \WC{} test against marginal deviations is largely an architectural
+one. The price is computation: on average 66\,s
+per test against 9\,s for the perceptron on one CPU thread.
+
+On the S\&P~500 panel (\cref{tab:e5-arch-real}) the pooled critic, run with E3's fitted models,
+seeds and test streams, gives the same five decisions: GBM, Merton and Heston \BAD{}, \GARCHt{}
+\INCONCL{}, no verdict for the bootstrap. In the 20 replications of D1 and D2 that it shares with
+the perceptron, the two networks reach the same decision of the rule in every replication, at the
+alternative and at the boundary, so their rule power (1.00 [0.84, 1.00] in D1, 0.45 [0.26, 0.66]
+in D2) and boundary size (0.00 [0.00, 0.17] and 0.20 [0.06, 0.44]) coincide. At the D2 boundary these
+20 replications differ from the full run: over the 100 replications of E3 the perceptron's
+boundary size is 0.08 [0.04, 0.15]. The result is consistent with the real,
+non-stationary \TRAIN{} volatility path of D2, rather than the power of the network, keeping the
+D2 power below $\bmin$ and \GARCHt{} from a \GOOD{} verdict, but 20 replications cannot establish
+it. Two gaps remain. The rule power under learning rate $10^{-4}$, the setting that is more
+powerful against the volatility shift in \cref{tab:e5-simpower}, was not estimated (parts gridpower and gridrealvol were not
+run). The size of the pooled critic under the dependent protocol of the real data was not
+measured, because E1 was run with the perceptron only, so its real-data decisions have no
+measured size.
+
+\begin{table}[tbp]
+  \centering
+  \caption{Critic architecture ablation on simulated data: default multilayer perceptron (MLP)
+    against the time-pooled CNN critic (post hoc; architecture selected after a pilot on four E2
+    designs at $n=500$), paired replications of E2 (independent windows, $n=500$, $L=20$) and
+    E2-dep ($n=2000$), $\alpha=0.05$.}
+  \label{tab:e5-arch}
+  \small\setlength{\tabcolsep}{3pt}
+  \fittable{e5_arch_sim}
+  \tablenote{\inputnote{e5_arch_sim_note}}
+\end{table}
+
+\begin{table}[tbp]
+  \centering
+  \caption{Critic architecture ablation on the S\&P~500 panel: E3 protocol (100 tickers, \TEST{}
+    2023-01-03 to 2025-06-16, five synthetic seeds, $\alpha=0.05$) with the default MLP and with
+    the time-pooled CNN critic (post hoc); rule power and boundary size in designs D1 and D2.}
+  \label{tab:e5-arch-real}
+  \small
+  \fittable{manual_e5_arch_real}
+  \tablenote{Same fitted models, seeds and test streams for both critics. Absolute \WC{} and
+    anchored relative test: $\pmed=\min\{1,2\med_sp_s\}$ over the five seeds of the
+    Driscoll--Kraay p-values (time-block split, $K=10$); in parentheses, the number of seeds that
+    reject at 5\% on their own. Verdict: \BAD{} if the anchored $\pmed\le0.05$; \GOOD{} if not and
+    the rule power is at least $\bmin=0.8$ in both D1 and D2; \INCONCL{} otherwise; \INVALID: no
+    relative test for the stationary bootstrap. Rule: share of replications (number in
+    parentheses) in which $\pmed\le0.05$ against $G^*=1.2\,G^0$ (power, Wilson 95\% interval) and
+    against $G^0$ (boundary size, Clopper--Pearson 95\% interval). MLP, all replications: E3
+    (\cref{tab:e3-power}); paired replications: the first 20 replications of E3, which the pooled
+    critic reuses. The pooled architecture was chosen after the real-data results of the MLP were
+    known. Table written by \texttt{paper/scripts/e5\_app\_tables.py} from the E3 and ablation
+    results.}
+\end{table}

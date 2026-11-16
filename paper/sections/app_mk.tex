@@ -1,0 +1,319 @@
+\section{Markowitz experiment: details}\label{app:mk}
+% =============================================================================================
+% Owner: markowitz writer. Completes sec:markowitz (E4, experiments/e4_markowitz.py; as run:
+% 30 universes, B = 20, 2 test seeds, 60 placebo replications; results/e4/meta*.json).
+% Generated tables: e4_trtr, e4_utility_agg, e4_tests (+ note), e4_placebo (+ note),
+% e4_link (+ note), e4_link_pooled; figure e4_placebo_size. Numbers not in a generated table
+% (fit diagnostics, counts over universes, the Kantorovich check, the sign count of the link
+% table) were computed from results/e4/{e4_diagnostics,e4_utility,e4_trtr,e4_link_points,
+% e4_link}.csv with short scripts. The residual-correlation null sqrt(1/Ttr + 1/(N-1)^2) = 0.0445
+% (Ttr = 1258, N = 30; the code's resid_corr_rms_null, FactorGARCHt.fit_info_) and the ratio of
+% resid_corr_rms to it (2.52 to 3.88 over universes) were computed from e4_diagnostics.csv.
+% Seed-to-seed reliability: tab:manual-e4-reliability in sec:mk-link (paper/scripts/
+% e4_reliability.py from results/e4/e4_tests.csv; values re-checked here from the same CSV).
+% The 18 of 192 link combinations (4 positive; smallest generator-level exact p = 0.083) were
+% recounted from e4_link.csv; the chance count 8.0 = 0.05 x 144 + (2/120) x 48. Attenuation
+% bounds 0.50 and 0.78: sqrt(2r/(1+r)) with the mean within-generator r of
+% tab:manual-e4-reliability (0.14 for T, 0.44 for MMD^2_u); ten seeds (DESIGN): 10r/(1+9r) = 0.62
+% for T. Critic training windows per sample: 123 - n_eval = 60 to 63 (e4_tests.csv).
+% =============================================================================================
+
+This appendix completes \cref{sec:markowitz}. It reports fit diagnostics of the five generators,
+the TRTR benchmark and the three aggregations of the utility losses, the full test table with
+the placebo that calibrates it, the full link tables and what the seed-to-seed reliability of the
+test quantities implies for the link. Numbers that do not appear in a table
+were computed from the E4 output files. All results use the settings as run: 30 universes of 30
+assets, $B=20$ synthetic replicas, two synthetic seeds in the tests part and 60 placebo
+replications per generator.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Generators and diagnostics}\label{app:mk-generators}
+
+The fitted degrees of freedom of MV Student-$t$ have median 5.08 across universes (range 4.57 to
+5.67). The MV bootstrap has a median mean block length of 52.9 days (range 50.9 to 54.4). For
+CCC-GARCH-$t$ the mean off-diagonal copula correlation is 0.356 on average over universes. Part
+of the attenuation of its return correlations thus comes from the copula estimate (0.356 against
+0.419 in the data) and part from the dynamics (0.310 in simulated samples;
+\cref{tab:e4-correlation}). Its margins have a median
+persistence of 0.968 (mean over universes of the per-universe median), and 14 of the 900 margins
+reached the persistence cap of 0.995.
+
+For factor GARCH-$t$ the single-index regressions $r_{it}=a_i+b_im_t+e_{it}$ have a mean $R^2$ of
+0.447 on average over universes (range 0.392 to 0.492). The factor $m_t$ is the equal-weight mean
+of the log-returns of the same $N=30$ assets, so the OLS residuals add up to zero every day,
+$\sum_ie_{it}=0$. Hence $\sum_{i\ne j}\Cov(e_i,e_j)=-\sum_i\Var(e_i)$ in sample, which holds the
+average pairwise residual correlation close to $-1/(N-1)$ whatever dependence is left in the
+residuals, so that average is uninformative. The root mean square of the pairwise residual
+correlations is informative. It is 0.140 on average over universes (range 0.112 to 0.173), against
+$\sqrt{1/\Ttr+1/(N-1)^2}=0.045$ for residuals that are independent across assets, as the model
+assumes; this null is sampling noise of order $\Ttr^{-1/2}$ plus the adding-up term. The excess
+over the null (the ratio is 2.5 to 3.9 across universes) measures the dependence beyond the market
+factor, such as industry effects, that the model leaves out by setting the residual correlations
+to zero.
+
+The adding-up identity also shapes the simulated covariance. With variance targeting, the
+unconditional covariance of the model, $bb'\Var(m)+\diag\{\Var(e_1),\dots,\Var(e_N)\}$ with
+$b=(b_1,\dots,b_N)'$, equals the \TRAIN{} sample covariance (divisor $\Ttr$) except for the
+off-diagonal residual covariances, which it sets to zero. It therefore drops two things: the
+positive residual covariances of industry effects and the negative ones that the adding-up
+identity creates. In the data the equal-weight mean return is the factor itself. In simulated
+samples the residuals are independent and do not add up to zero, so the equal-weight mean also
+carries the idiosyncratic variance $N^{-2}\sum_i\Var(e_i)$. Both parts change the low-variance
+directions on which GMV portfolios load. E4 does not separate their contributions to the GMV loss
+of factor GARCH-$t$, and the variant with an external factor, which would remove the adding-up
+identity, was not run (\cref{sec:mk-utility}). Twelve of its 930 GARCH components reached the
+cap. No portfolio optimisation failed in any replica.
+
+The Kantorovich bound of \cref{prop:gmv-sensitivity}(b) was checked replica by replica, with
+$S_{\mathrm{te}}$ the \TEST{} sample covariance of daily log-returns, the matrix that also enters
+$\kappa$ in \cref{tab:e4-correlation} (the variance ratios of \cref{tab:e4-utility} use the daily
+simple returns of the portfolios instead): for every replica-wise GMV portfolio (sample moments),
+the variance under $S_{\mathrm{te}}$ relative to that of the ex-post GMV portfolio
+$\wgmv(S_{\mathrm{te}})$ was below $(1+\kappa_G)^2/(4\kappa_G)$. The bound is loose. The median
+bound of the real \TRAIN{} covariance is 5.177 (\cref{tab:e4-correlation}), while the TRTR GMV
+portfolio has 1.58 times the variance of the ex-post GMV portfolio on average over universes.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{TRTR benchmark and aggregation of the losses}\label{app:mk-aggregation}
+
+\begin{table}[tbp]
+  \centering
+  \caption{Out-of-sample performance of the portfolios trained on real \TRAIN{} (TRTR) on the 615
+  \TEST{} days (E4). Means over the 30 universes. Vol.: annualised standard deviation of daily
+  simple portfolio returns; Sharpe: annualised Sharpe ratio with a zero risk-free rate; CE:
+  certainty-equivalent return with the $\gamma$ of the rule ($\gamma=5$ for GMV and $1/N$),
+  percent per year. Sample: sample covariance; LW: Ledoit--Wolf. Point estimates.}
+  \label{tab:e4-trtr}
+  \small
+  \fittable{e4_trtr}
+\end{table}
+
+\Cref{tab:e4-trtr} gives the benchmark against which every loss is measured. Ledoit--Wolf
+shrinkage lowers the volatility of the GMV portfolio slightly (13.89\% against 14.12\% per year).
+The long-only GMV portfolio has a lower volatility than the unconstrained one (13.33\%), the
+familiar effect of the sign constraint as shrinkage \citep{jagannathan2003risk}. The $1/N$
+portfolio has the highest Sharpe ratio, 0.83, and a higher certainty equivalent at $\gamma=5$ than
+the mean-variance portfolio with $\gamma=5$ (6.97\% against 4.64\% per year), as in
+\citet{demiguel2009optimal}. The CE values of rules with different $\gamma$ are not comparable
+with each other. A positive risk-free rate would lower the Sharpe ratios, and could change their
+ranking across portfolios of different volatility, but not the CE comparison of $1/N$ with the
+mean-variance portfolio, because every portfolio is fully invested (\cref{sec:mk-design}).
+
+\begin{table}[tbp]
+  \centering
+  \caption{Utility losses under three aggregations over the $B=20$ replicas (E4; sample moments;
+  means over 30 universes). Replica: mean loss of the 20 portfolios built on single replicas (as
+  in \cref{tab:e4-utility}); Pooled: one portfolio from the moments of the 20 stacked replicas;
+  Avg.\ $w$: the mean of the 20 replica-wise weight vectors. Var.\ ratio: \TEST{} variance of the
+  TSTR portfolio over the TRTR one; CE loss: TRTR minus TSTR certainty equivalent, percent per
+  year. Point estimates.}
+  \label{tab:e4-utility-agg}
+  \small
+  \fittable{e4_utility_agg}
+\end{table}
+
+\Cref{tab:e4-utility-agg} separates misspecification from estimation noise. Pooling the replicas
+lowers the variance ratio for every generator and rule except the unconstrained GMV portfolio of
+factor GARCH-$t$ (1.436 replica-wise, 1.466 pooled). For the mean-variance rules it lowers the CE
+loss in 14 of the 15 cases, the exception being CCC-GARCH-$t$ with $\gamma=1$
+(\cref{cor:gmv-drivers}(iii)). The averaged weights satisfy
+\cref{prop:no-free-lunch}: in each of the 1500 combinations of universe, generator, estimator and
+rule ($1/N$ excluded), both the variance ratio and the CE loss of the averaged weights are at
+most the mean of the replica-wise ones. For the long-only mean-variance rules with $\gamma=1$ the
+averaged weights have variance ratios between 0.606 and 0.706: averaging concentrated long-only
+portfolios over replicas diversifies them, at a CE cost that remains positive for every generator.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Tests and placebo}\label{app:mk-placebo}
+
+\begin{table}[p]
+  \centering
+  % Landscape: the table is rotated with \rotatebox (graphicx), no extra package.
+  \rotatebox{90}{\begin{minipage}{0.95\textheight}
+    \centering
+    \caption{Multivariate tests of E4 with Wilson 95\% intervals: full version of
+    \cref{tab:e4-tests}. $\alpha=0.05$; 30 universes; two synthetic seeds.}
+    \label{tab:e4-tests-full}
+    \footnotesize
+    \fittable{e4_tests}
+    \tablenote{\inputnote{e4_tests_note}}
+  \end{minipage}}
+\end{table}
+
+\begin{table}[p]
+  \centering
+  % Landscape: the table is rotated with \rotatebox (graphicx), no extra package.
+  \rotatebox{90}{\begin{minipage}{0.95\textheight}
+    \centering
+    \caption{Placebo size of the E4 tests under $H_0$: both samples are independent \TEST{}-length
+    draws from the generator fitted on one universe, tested exactly as in \cref{tab:e4-tests} (60
+    replications per generator; rejection rates with Wilson 95\% intervals at three levels).}
+    \label{tab:e4-placebo}
+    \footnotesize
+    \fittable{e4_placebo}
+    \tablenote{\inputnote{e4_placebo_note}}
+  \end{minipage}}
+\end{table}
+
+\begin{figure}[tbp]
+  \centering
+  \inputfigure{e4_placebo_size}
+  \caption{Placebo rejection rates of the E4 tests against the nominal level $\alpha\in[0,0.2]$:
+  empirical distribution functions of the HAC p-values of the \WC{} test (left) and of the
+  wild-bootstrap p-values of MMD (right), 60 placebo replications per generator. Dashed: the
+  diagonal (exact size); dotted: $\alpha=0.05$.}
+  \label{fig:e4-placebo-size}
+\end{figure}
+
+\paragraph{Placebo design.}
+For each generator, placebo replication $r=0,\dots,59$ uses the generator fitted on universe
+$r\bmod30$, so each universe contributes two replications. Two independent \TEST{}-length samples
+$X^*$ and $Y^*$ are simulated from the end of \TRAIN{}, divided by the real \TRAIN{} standard
+deviations, cut into $(30,5)$ windows with \TEST{} date ranks and tested with exactly the call of
+the tests part; the MMD bandwidth is the median heuristic of the $X^*$ windows, as it is that of
+the real \TEST{} windows in the tests part. Each replication records the p-values and a score:
+$\zhac$ for the \WC{} test and $-\pwild$ for MMD (larger is more evidence against $H_0$).
+
+\paragraph{Results.}
+\Cref{tab:e4-tests-full} repeats \cref{tab:e4-tests} with intervals and the mean statistics.
+\Cref{tab:e4-placebo} and
+\cref{fig:e4-placebo-size} give the placebo. For the two \iid{} generators the Driscoll--Kraay
+p-value of the \WC{} test has its nominal size (0.050 and 0.067 at 5\%), the studentised
+statistic $\zhac$ has mean $-0.13$ and $0.05$ and standard deviation $0.98$ and $1.03$, and the KS
+test does not reject uniformity of the p-values. For the generators with persistent volatility
+the test is anti-conservative. For CCC-GARCH-$t$, factor GARCH-$t$ and the MV bootstrap, in this
+order, the size at 5\% is 0.267 [0.171, 0.390], 0.267 [0.171, 0.390] and 0.133 [0.069, 0.242], and
+$\zhac$ has mean 0.87, 0.35 and 0.22 and standard deviation 1.34, 1.47 and 1.37. The size of the
+wild bootstrap of MMD also exceeds the nominal level for these three generators (0.117, 0.100 and
+0.133), and the permutation p-values, which ignore the dependence between windows, are oversized
+for all three under both tests.
+
+The ordering, nominal for \iid{} generators, intermediate for the block bootstrap (mean blocks of
+about 53 days) and worst for the GARCH generators, points to volatility persistence. Two
+mechanisms are consistent with the moments of $\zhac$. Its positive mean indicates that $T$ is
+biased upwards under $H_0$: within one sample, training and evaluation blocks are adjacent pieces
+of the same persistent path, with no gap between them, so a critic that learns the volatility
+regime of one sample in its training blocks still finds it in the adjacent evaluation blocks.
+\Cref{lem:decoupling} controls this dependence only with a gap, which the time-block split does
+not have (\cref{sec:method-inference}). Its standard deviation above one indicates that the
+Driscoll--Kraay variance is too small with 60 to 63 evaluation dates (one per window) per
+sample (\cref{rem:small-T}). The 123 windows of a 615-day sample are few; the E3 panel has a different
+geometry (100 tickers per date) and its size is measured separately in E1.
+
+The size-adjusted shares of \cref{tab:e4-tests} use the placebo as a Monte Carlo null. The
+calibrated p-value $p_{\mathrm{cal}}=(1+n_s)/61$, where $n_s$ is the number of the 60 placebo
+scores of the same generator and test at least as large as the score of seed $s$, is a Monte
+Carlo p-value for the hypothesis that the real \TEST{} sample is a draw from the fitted
+generator. It treats the universe as drawn at random (the placebo pools two replications from
+each universe), so it is approximate for a given universe. It is also discrete. With two seeds,
+$\pmed=\min\{1,p_{\mathrm{cal},1}+p_{\mathrm{cal},2}\}$ is at least $2/61\approx0.033$, and it is at
+most 0.05 only if $n_1+n_2\le1$: both seeds must score above all, or all but one, of the placebo
+replications. This explains why the size-adjusted MMD shares with $\pmed$ are zero for the three
+dynamic generators while the first-seed shares are not. The reference row (last 615 days of real
+\TRAIN{}) has no placebo, and its nominal rejection share cannot be corrected for the oversize
+documented here.
+
+% ---------------------------------------------------------------------------------------------
+\subsection{Link between tests and utility}\label{app:mk-link}
+
+\begin{table}[p]
+  \centering
+  % Landscape: the table is rotated with \rotatebox (graphicx), no extra package.
+  \rotatebox{90}{\begin{minipage}{0.95\textheight}
+    \centering
+    \caption{Spearman correlations between test quantities and utility losses (E4; replica-wise
+    portfolios, sample moments; full version of panel A of \cref{tab:e4-link}). Intervals: 2000
+    universe-bootstrap draws; $p_u$, $p_g$: 2000 permutations.}
+    \label{tab:e4-link-full}
+    \footnotesize
+    \fittable{e4_link}
+    \tablenote{\inputnote{e4_link_note}}
+  \end{minipage}}
+\end{table}
+
+\begin{table}[p]
+  \centering
+  % Landscape: the table is rotated with \rotatebox (graphicx), no extra package.
+  \rotatebox{90}{\begin{minipage}{0.95\textheight}
+    \centering
+    \caption{As \cref{tab:e4-link-full}, for portfolios built from the moments of the 20 pooled
+    replicas, which isolate the misspecification of the generator (full version of panel B of
+    \cref{tab:e4-link}). Intervals and p-values as in \cref{tab:e4-link-full}.}
+    \label{tab:e4-link-pooled}
+    \footnotesize
+    \fittable{e4_link_pooled}
+  \end{minipage}}
+\end{table}
+
+\paragraph{Link design.}
+Each of the 150 (universe, generator) points carries the seed means of $T$, $\zhac$, $\TMMD$ and
+the wild-standardised MMD statistic (the MMD V-statistic centred and scaled by the mean and
+standard deviation of its wild-bootstrap replicates), the correlation error
+$\abs{\Delta\,\text{avg.\ corr.}}$, and the losses of every rule, estimator and aggregation. The
+studentised statistics replace the p-values, which lose resolution for strong rejections. The
+test quantities come from one \TEST{}-length sample per seed started at the end of \TRAIN{} and
+the losses from $B$ \TRAIN{}-length samples from a stationary start, so the link concerns the
+unconditional moments of each generator (\cref{sec:mk-design}). Four
+views are reported because there are only five generators. The \emph{pooled} Spearman correlation
+uses all 150 points. The \emph{within-universe} correlation is computed across the five
+generators of each universe and averaged over universes; its permutation p-value permutes the
+generator labels of the losses within each universe, so it is conditional on these generators.
+Both views mostly rank the five generators. The \emph{within-generator} correlation is computed
+across the 30 universes of each generator and averaged over generators; its permutation p-value
+permutes universes within each generator, and it is insensitive to generator-level offsets of a
+statistic, such as the placebo bias of the critic. The \emph{generator-level} correlation is that of
+the five generator means, with an exact p-value over the 120 orderings; it is the only view whose
+sampling unit is the generator. Intervals resample universes with replacement, keeping all
+generators of a drawn universe together.
+
+\paragraph{Results.}
+\Cref{tab:e4-link-full,tab:e4-link-pooled} give all six losses. Besides the GMV variance ratio,
+the absolute correlation error is associated with the long-only GMV loss when the replicas are
+pooled ($-0.37$ [$-0.55$, $-0.19$] pooled, $-0.21$ within generator, $p=0.014$), more weakly than
+for the unconstrained portfolio, plausibly because the sign constraint limits the long-short
+positions through which correlations act. As for the unconstrained portfolio, the negative sign
+reflects an evaluation period in which correlations fell (\cref{sec:mk-link}). Neither the test
+quantities nor the correlation error has a consistent association with any mean-variance loss.
+Counting over both tables, 18 of the 192 combinations of the four test quantities, six losses,
+two aggregations and four views have a pooled interval that excludes zero or a permutation
+p-value below 0.05; the four positive ones are $T$ against the pooled-moment GMV and long-only GMV
+losses, in the pooled and within-universe views, and the 14 others are negative and all involve
+a studentised statistic ($\abs{\rho}$ between 0.15 and 0.31). The count is descriptive. If all
+associations were null, the comparisons independent and the intervals exact, about eight would
+be expected by chance, slightly fewer than 5\% of 192 (\cref{sec:mk-link}): 0.05 for each of the
+144 comparisons of the first three views and $2/120$ for each of the 48 generator-level ones,
+none of which reaches 0.05 here. The comparisons share the 150 points and the intervals are
+optimistic, so the count varies far more under the null than a binomial count would. The one
+pattern that recurs, the positive association of $T$ with the pooled-moment GMV losses, is
+between generators: within generators it vanishes.
+
+The generator-level view has $n=5$. Its exact two-sided p-value cannot fall below
+$2/120\approx0.017$, which requires a perfect rank agreement or reversal; the largest
+generator-level correlations in the tables, $0.90$ for $T$ and $-0.90$ for the correlation error,
+both against the Sharpe loss of the mean-variance portfolio with $\gamma=5$, have $p=0.083$. Any
+statement about which kind of generator is more useful therefore rests on five generators and
+does not extend beyond them. The within-generator view is the one that a single generator's user
+faces: across universes, it shows no association between any test quantity and the
+unconstrained or long-only GMV loss, under either aggregation (all permutation p-values above
+0.05; \cref{tab:e4-link-full,tab:e4-link-pooled}).
+
+\paragraph{Reliability of the test quantities.}
+How much this absence says depends on how reproducible the test quantities are across synthetic
+seeds (\cref{tab:manual-e4-reliability}). Within generators, the mean seed-to-seed Spearman
+correlation across universes is 0.14 for $T$, 0.26 for $\zhac$ and 0.44 for $\TMMD$. Under a
+classical measurement model, the seed mean of two runs, which enters the link, has reliability
+$2r/(1+r)$ for a seed-to-seed correlation $r$, and its correlation with any fixed property of a
+universe, such as a loss, is at most the square root of that reliability: about 0.50 for $T$ and
+0.78 for $\TMMD$ at these mean values of $r$. A moderate association between the expected critic
+statistic and the GMV loss would thus be at least halved and hard to detect with 30 universes
+per generator, so the within-generator correlations of $T$ with the GMV losses (0.01
+replica-wise, $-0.01$ with pooled moments) are weak evidence of no association. The same absence
+is more informative for MMD, whose statistic is more reproducible, most for the two \iid{}
+generators. The reference row, whose data are the same under both seeds, still has a
+seed-to-seed correlation of 0.28 for $T$, so the test itself, through the random split and the
+training of the critic on 60 to 63 windows per sample, contributes much of this noise. The ten
+seeds of the design would raise the reliability of the seed mean of $T$ to about 0.62 under the
+same model; two were run. No architecture or training ablation of the multivariate critic was
+run either. The evidence that the tests and utility order the generators differently therefore
+rests on the comparison of generators, with the caveat of $n=5$ above, and on MMD
+(\cref{sec:mk-link}).

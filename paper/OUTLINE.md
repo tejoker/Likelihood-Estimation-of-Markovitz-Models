@@ -357,6 +357,26 @@ Tables and figures (file stem -> label -> place):
 | `tables/e5_simpower.tex` | `tab:e5-simpower` | App G | pending |
 | `tables/e5_calibration.tex` | `tab:e5-calibration` | App G | pending (may be partial: gridsize/gridpower not run) |
 
+Condensed and derived tables of the v1 revision (written by `paper/scripts/<script>.py` to
+`tables/manual_*.tex`; generated files are never edited):
+
+| File | Label | Place | Script |
+|---|---|---|---|
+| `tables/manual_e1_fixedb_check.tex` | `tab:e1-fixedb-check` | App C (`app:sim-e1`) | `e1_fixedb_check.py` (from `results/e1/e1_sim_raw.csv`) |
+| `tables/manual_e1_sim_se.tex` | `tab:e1-sim-se` | §5.6 | `e1_sim_se_diag.py` |
+| `tables/manual_e1_sim_stat.tex` | `tab:manual-e1-sim-stat` | §4.7 (`sec:theory-dependence`) | `e1_sim_stat.py` |
+| `tables/manual_e1_sim_z.tex`, `manual_e1_sim_dependence.tex` | `tab:e1-sim-z`, `tab:e1-sim-dependence` | App C | `e1_sim_diag.py` |
+| `tables/manual_theory_calibration.tex` | `tab:manual-theory-calibration` | §4.8 | `theory_calibration.py` |
+| `tables/manual_e3_rv_baseline.tex` | `tab:e3-rv-baseline` | §7.4 | `e3_rv_baseline.py` |
+| `tables/manual_e3_verdicts_cal_main.tex` | `tab:e3-verdicts` | §7.7 | `e3_verdicts_cal_main.py` |
+| `tables/manual_e4_reliability.tex` | `tab:manual-e4-reliability` | §8.4 | `e4_reliability.py` |
+| `tables/manual_e5_split_paired.tex` | `tab:manual-e5-split-paired` | App G | `e5_split_discrimination.py` |
+| `tables/manual_e5_sensitivity.tex`, `manual_e5_split.tex` | `tab:manual-e5-sensitivity`, `tab:manual-e5-split` | §9 | `e5_tables.py` |
+| `tables/manual_e5_split_battery.tex`, `manual_e5_arch_real.tex` | `tab:e5-split`, `tab:e5-arch-real` | App G | `e5_app_tables.py` |
+
+New statement label of the revision: `cor:block-bias` (§4.7, time-block split under a persistent
+factor; model-based reading of the E1 oversize in `rem:small-T`).
+
 ## 13. Missing references (proposed keys; not in `references.bib`)
 
 Cite these keys where needed and list them in your report; the lead adds verified entries.

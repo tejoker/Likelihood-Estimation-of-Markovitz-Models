@@ -1,0 +1,22 @@
+\begin{tabular}{llrrrrrr}
+\toprule
+ & & \multicolumn{4}{c}{Calibrated $p$-values} & \multicolumn{2}{c}{Nominal $p$-values} \\
+\cmidrule(lr){3-6}\cmidrule(lr){7-8}
+Generator & Test & Rej.\ 5\% [95\% CI] & BH & BY & Storey $\hat\pi_0$ & Rej.\ 5\% & Median $p$ \\
+\midrule
+GBM & \WC{} (HAC) & 0.66 [0.56, 0.75] & 61 & 40 & 0.08 & 79 & 0.001 \\
+ & MMD (wild) & 0.61 [0.51, 0.70] & 0 & 0 & 0.14 & 80 & 0.002 \\
+\addlinespace
+Merton & \WC{} (HAC) & 0.32 [0.24, 0.42] & 7 & 0 & 0.42 & 42 & 0.077 \\
+ & MMD (wild) & 0.36 [0.27, 0.46] & 0 & 0 & 0.42 & 64 & 0.014 \\
+\addlinespace
+GARCH-$t$ & \WC{} (HAC) & 0.18 [0.12, 0.27] & 0 & 0 & 0.70 & 29 & 0.183 \\
+ & MMD (wild) & 0.15 [0.09, 0.23] & 0 & 0 & 0.52 & 34 & 0.130 \\
+\addlinespace
+Heston & \WC{} (HAC) & 0.19 [0.13, 0.28] & 6 & 0 & 0.56 & 35 & 0.129 \\
+ & MMD (wild) & 0.22 [0.15, 0.31] & 0 & 0 & 0.56 & 45 & 0.079 \\
+\addlinespace
+Stat.\ bootstrap & \WC{} (HAC) & 0.13 [0.08, 0.21] & 2 & 0 & 0.58 & 22 & 0.216 \\
+ & MMD (wild) & 0.16 [0.10, 0.24] & 0 & 0 & 0.74 & 37 & 0.147 \\
+\bottomrule
+\end{tabular}

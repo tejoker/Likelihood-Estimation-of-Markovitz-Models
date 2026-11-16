@@ -4,7 +4,9 @@
 % Proofs: sections/appendix_proofs.tex (input by appendix.tex under \section{Proofs}).
 % Labels follow paper/OUTLINE.md, Section 6. New labels (not in the outline registry):
 %   sec:theory-markowitz, ass:anc, ass:rel, prop:anchored-target, rem:anchored-null,
-%   rem:nonstat-past, rem:ks-marginal, tab:theory-status, app:proofs-* (appendix subsections).
+%   rem:nonstat-past, rem:ks-marginal, tab:theory-status, app:proofs-* (appendix subsections),
+%   cor:block-bias, rem:calibrated-bad, tab:manual-theory-calibration
+%   (paper/scripts/theory_calibration.py), tab:manual-e1-sim-stat (paper/scripts/e1_sim_stat.py).
 % =============================================================================================
 
 This section states what the protocol of \cref{sec:method} guarantees and what it does not. A
@@ -68,8 +70,13 @@ i.i.d.\ returns, and a window density is a product of daily densities. In the \G
 $\sigma_{t+1}^2=\omega/(1-b)+a\sum_{j\ge0}b^j\varepsilon_{t-j}^2$ is a function of past returns
 (the model is observation-driven), so the likelihood is explicit given $\sigma_1^2$; yet the
 returns are not Markov of any finite order when $a,b>0$ (sketch in \cref{app:proofs-windows}).
-The autocorrelation of squared returns decays like $(a+b)^h$ \citep{francq_2019_garch}, and at
-persistence $0.98$ the volatility half-life is $\log0.5/\log0.98\approx34$ days, beyond $L=20$.
+The conditional variance has persistence $a+b$: shocks to $\sigma_t^2$ decay like $(a+b)^h$, and
+so does the autocorrelation of the squared shocks $\varepsilon_t^2$ when $\E\varepsilon_t^4<\infty$
+\citep{francq_2019_garch}. With
+standardised Student-$t_\nu$ innovations that requires $(a+b)^2+2a^2(\nu-1)/(\nu-4)<1$, which fails
+for the E2 parameters ($a=0.08$, $b=0.90$, $\nu=5$), so for them only the statement about
+$\sigma_t^2$ applies. At persistence $0.98$ the volatility half-life is
+$\log0.5/\log0.98\approx34$ days, beyond $L=20$.
 In the Heston model the variance is a latent continuous state with its own shock and no closed-form
 filter, so the likelihood is intractable \citep{aitsahalia2007maximum}; we simulate it with the
 quadratic-exponential scheme of \citet{andersen_2008_simple} (\cref{sec:data-generators}). The
@@ -102,9 +109,8 @@ Lipschitz maps (affine and convolutional layers, LeakyReLU, LayerNorm with a pos
 $\epsilon$), so $\Lip(\ghat)<\infty$ and $\fhat\in L^p(P)$ whenever $P\in\Pspace{p}(\R^d)$, although
 the constant is not controlled.
 
-\begin{fact}[Kantorovich--Rubinstein duality; \citealp{villani2009optimal}, Ch.~5--6]
-\label{fact:kr-duality}
-For $P,Q\in\Pspace{1}(\R^d)$,
+\begin{fact}[Kantorovich--Rubinstein duality]\label{fact:kr-duality}
+\citep[Ch.~5--6]{villani2009optimal}. For $P,Q\in\Pspace{1}(\R^d)$,
 $\W(P,Q):=\inf_{\pi\in\Pi(P,Q)}\int\norm{x-y}\,\pi(dx,dy)=\sup_{f\in\Lip_1}(Pf-Qf)$, where
 $\Pi(P,Q)$ is the set of couplings and $\Lip_c=\{f:\Lip(f)\le c\}$. $\W$ is a metric on
 $\Pspace{1}$, and it metrises weak convergence together with convergence of first moments.
@@ -162,9 +168,12 @@ any Lipschitz property, and its $\W$ reading is approximate and descriptive.
 \end{remark}
 
 \begin{remark}[Why hold data out]\label{rem:holdout}
-The plug-in distance $\W(P_n,Q_m)$ is biased upwards: $\E\,\W(P_n,P)$ is of order $n^{-1/d}$ for
-$d\ge3$ \citep{fournier2015rate}, which is about $0.68$ for $d=20$ and $n=2000$ and swamps
-plausible effects. The in-sample training objective is biased upwards in the same way. The
+The plug-in distance $\W(P_n,Q_m)$ is biased upwards, since $\E\,\W(P_n,P)$ decays at the rate
+$n^{-1/d}$ for $d\ge3$ \citep{fournier2015rate}, with a constant that depends on $d$ and on $P$. With
+one window the bias is $\E\,\W(\delta_{X_1},P)=\E\norm{X_1-X_1'}$, $X_1'$ an independent copy, which
+is of the order of the scale of the windows. The rate factor is still $0.68$ at $d=20$ and
+$n=2000$, so at this rate going from one window to 2000 removes only about a third of that bias.
+The in-sample training objective is biased upwards in the same way. The
 held-out $T$ is conditionally unbiased for $\Dcrit(\fhat)$ and has an exact null distribution
 (\cref{prop:exact-level}), at the cost of sample splitting, which \cref{prop:local-power}
 quantifies. This is the template of sample-split two-sample tests
@@ -239,16 +248,18 @@ individual $p_s$.
 \subsection{Consistency}\label{sec:theory-consistency}
 
 The standardisation $A$ is estimated on the training half. Under the conditions of
-\cref{ass:consistency} below it converges almost surely to the population standardisation $A^*$,
-and the estimation error adds $o_\Prob(1)$ terms to every step (\cref{app:proofs-consistency}).
+\cref{ass:consistency} below, if moreover the real share $n_t/(n_t+m_t)$ of the training windows
+converges and the limiting pooled law has positive coordinate variances, $A$ converges in
+probability (almost surely for nested training halves) to a population standardisation $A^*$, and
+the estimation error adds $o_\Prob(1)$ terms to every step (\cref{app:proofs-consistency}).
 We therefore state the results for the standardised laws $A^*_\#P$ and $A^*_\#Q$ and for the
 network $\ghat$, with Lipschitz constants in standardised coordinates, and, in this subsection
 only, write $P,Q$ for $A^*_\#P,A^*_\#Q$ and $\fhat$ for $\ghat$.
 
 \begin{assumption}[Consistency regime]\label{ass:consistency}
 \emph{(C1)} (A1) holds, $P,Q\in\Pspace{2}(\R^d)$ and $P\neq Q$.
-\emph{(C2)} $n_t,m_t,n_e,m_e\to\infty$ and $B\ge\lceil2/\alpha\rceil$ (otherwise $\pperm$ can
-never fall below $\alpha$).
+\emph{(C2)} $n_t,m_t,n_e,m_e\to\infty$ and $B\ge\lceil2/\alpha\rceil$ ($\pperm\le\alpha$ requires
+only $B+1\ge1/\alpha$; the stronger condition is used in the proof).
 \emph{(C3)} (Hard Lipschitz constraint, an idealisation of the gradient penalty.) There are
 $c<\infty$ and classes $\mathcal F_n\subset\Lip_c$ with $\Prob(\fhat\in\mathcal F_n)\to1$.
 \emph{(C4)} (Richness.) There are $n_0$ and $f_0\in\bigcap_{n\ge n_0}\mathcal F_n$ with
@@ -358,12 +369,14 @@ $\theta_m=\tau/\sqrt m$ with $\tau>0$.
   \item[(a)] $\bNP(P\to Q_{\theta_m};m,\alpha)\to1-\Phi(z_{1-\alpha}-\tau\sqrt I)$.
   \item[(b)] Let $f\in L^2(P)$ be fixed, with $\sigma_f^2=\Var_Pf>0$ and orientation
   $r_f=-\Corr_P(f,h)\ge0$ (the critic scores real windows higher). The test that rejects when
-  $z>z_{1-\alpha}$, and the permutation test with the same $f$, have power under
+  $z>z_{1-\alpha}$, and the permutation test with the same $f$ and $B\to\infty$, have power
+  under
   $P^{\otimes n}\otimes Q_{\theta_m}^{\otimes m}$ tending to
   $1-\Phi\big(z_{1-\alpha}-\tau\sqrt I\,r_f\sqrt{\rho\kappa/(1+\kappa)}\big)$.
-  \item[(c)] At $\kappa=1$ and $\rho=1/2$ (the defaults), the noncentrality of every fixed-critic
-  test is at most half the oracle's. Where the oracle has power $0.80$ at $\alpha=0.05$, every
-  fixed-critic test has asymptotic power at most $0.34$.
+  \item[(c)] At $\kappa=1$ and $\rho=1/2$ (the defaults), the noncentrality of every test based on
+  the held-out mean difference of a fixed critic (studentised or permutation) is at most half the
+  oracle's. Where the oracle has power $0.80$ at $\alpha=0.05$, every such test has asymptotic
+  power at most $0.34$.
 \end{enumerate}
 \end{proposition}
 \noindent\textit{Proof.} In \cref{app:proofs-likelihood}; proved for a fixed critic, sketched for
@@ -372,9 +385,11 @@ a learned one.
 The factor $\sqrt{\rho\kappa/(1+\kappa)}$ separates the two costs of not knowing the densities:
 the two-sample cost $\sqrt{\kappa/(1+\kappa)}$, which tends to one only when $P$ is effectively
 known, and the splitting cost $\sqrt\rho$. The factor $r_f\le1$ is the price of a sub-optimal
-direction. With a learned critic the argument applies conditionally on the training half with
-$f=\fhat$, so the bound in (c) holds for learned critics too; a rigorous version needs a central
-limit theorem uniform over the critic class, which we do not provide.
+direction. The bound concerns the mean-difference statistic $T$ that the protocol uses; other
+statistics of the held-out critic values, such as rank or quantile comparisons, are not covered.
+With a learned critic the argument applies conditionally on the training half with $f=\fhat$, so
+the bound in (c) holds for mean-difference tests with learned critics too; a rigorous version
+needs a central limit theorem uniform over the critic class, which we do not provide.
 
 \begin{example}[Volatility level]\label{ex:vol-level}
 Let $P=N(0,\sigma^2I_L)$ and $Q_\theta=N(0,(1+\theta)^2\sigma^2I_L)$. The score is proportional to
@@ -438,8 +453,11 @@ either is broken.
 
 There are three samples: $\Rnew$, windows $X_1,\dots,X_n$ with law $\Pnew$; the synthetic sample,
 $Y_1,\dots,Y_m$ with law $\QG$; and $\Rpast$, windows $Z_1,\dots,Z_k$ with law $\Ppast$. Markets
-are non-stationary, so the absolute null $\QG=\Pnew$ is expected to fail for every generator
-calibrated on the past (E1(c), \cref{tab:e1-nonstat}). The relative question is whether $G$ is at
+are non-stationary, and a generator calibrated on the past inherits features of the past, such
+as its volatility level, that need not persist; on our data the absolute \WC{} test rejects every
+generator (\cref{tab:e3-pooled-tests}), whereas the window tests do not reject the past windows
+themselves against the new ones (E1(c), \cref{tab:e1-nonstat}), a comparison for which they have
+little power with about 15 \TEST{} evaluation dates (\cref{sec:emp-placebo}). The relative question is whether $G$ is at
 least as close to $\Rnew$ as $\Rpast$ is. For a sample $W$ and a part $\mathrm{p}\in\{\trn,\evl\}$
 of it, $W^{\mathrm p}f$ denotes the mean of $f$ over that part.
 
@@ -557,8 +575,8 @@ On real data $\Rpast$ is the \TRAIN{} panel, whose windows are not identically d
 $\QG$ equal to the pooled \TRAIN{} window law. The time-block split sends a random half of the
 \TRAIN{} blocks to the evaluation part, so $Z^{\evl}\fhat$ estimates the critic mean over a random
 half of the \TRAIN{} regimes while $\QG\fhat$ averages over all of them. The target $\delta$ is then
-a random variable centred near zero whose spread reflects the heterogeneity between blocks, which
-the Driscoll--Kraay variance of the evaluation part does not capture. By the argument of
+a random variable, not necessarily centred at zero, whose spread reflects the heterogeneity between
+blocks, which the Driscoll--Kraay variance of the evaluation part does not capture. By the argument of
 \cref{prop:boundary-size}(a), the rejection rate at this boundary is about
 $\E[1-\Phi(z_{1-\alpha}-\delta/\sigma)]$, which exceeds $\alpha$ when $\delta$ is roughly symmetric
 and not small relative to the evaluation standard deviation $\sigma$. In addition, the last
@@ -567,7 +585,11 @@ in the evaluation part it raises $Z^{\evl}\fhat$, in the direction of rejection.
 no calibration for a single-seed anchored p-value on real data. The verdict uses $\pmed$ over the
 synthetic seeds, and the size of this rule at the pooled-\TRAIN{} boundary and its power are
 estimated in design D2, which keeps the real \TRAIN{} volatility path, as well as in the
-stationary design D1 (\cref{def:power-check}, \cref{tab:e3-power}).
+stationary design D1 (\cref{def:power-check}, \cref{tab:e3-power}). The estimate depends on the
+periods: at the main split the boundary size of the rule in D2 is 0.08 [0.04, 0.15], at the
+alternative split of E5 it is 0.60 [0.39, 0.79] (Clopper--Pearson 95\% intervals;
+\cref{tab:manual-e5-split}). \Cref{rem:calibrated-bad} states when the boundary replications
+calibrate an observed $\pmed$, and separates the power of the rule from its miscalibration.
 \end{remark}
 
 For the two-critic test we use the regime of \citet{bounliphone2016test}-type comparisons with
@@ -616,8 +638,8 @@ $z=z_{1-\alpha}$.
   $\Prob(\abs{\delta^{\mathrm{2c}}}>\varepsilon\sigma_N)\ge\eta$ for some $\varepsilon,\eta>0$ and
   all large samples, then $\liminf\Prob(\text{reject})\ge\alpha+\eta\{\bar g(\varepsilon)-\alpha\}>\alpha$.
   \item[(c)] If the training halves are held fixed while the evaluation sizes grow, then
-  $\Prob(\text{reject})\to\Prob(\delta^{\mathrm{2c}}>0)+\alpha\Prob(\delta^{\mathrm{2c}}=0)$, which
-  equals $1/2$ when $\delta^{\mathrm{2c}}$ has no atom at zero.
+  $\Prob(\text{reject})\to\Prob(\delta^{\mathrm{2c}}>0)+\alpha\Prob(\delta^{\mathrm{2c}}=0)$. Under
+  the conditions of (b) this limit equals $1/2$ when $\delta^{\mathrm{2c}}$ has no atom at zero.
 \end{enumerate}
 \end{proposition}
 \noindent\textit{Proof.} In \cref{app:proofs-relative}.
@@ -628,7 +650,12 @@ WGAN-GP training makes it $o_\Prob(\sigma_N)$. The proof uses only the condition
 probability and the symmetry, so the conclusion also holds for the HAC version of the two-critic
 test. The anchored test avoids the problem: with one critic the target is exactly zero at the
 boundary (\cref{prop:anchored-target}(a)) and the permutation is exact (\cref{prop:anchored}(a)).
-E2 part e compares the two tests at the boundary (\cref{sec:sim-relative}).
+E2 part e compares the two tests at the boundary (\cref{sec:sim-relative}). With $n=500$ windows
+per sample the two-critic test rejects at 0.040 and 0.065 at nominal 5\% in its two boundary
+designs, and the anchored test at 0.065 and 0.055 (\cref{tab:e2-relative-boundary}): in that
+design the spread of $\delta^{\mathrm{2c}}$ induced by training is small relative to $\sigma_N$,
+and the excess allowed by part (b) is not visible. The anchored test is preferred because its level
+is exact for every critic and every sample size, not because the two-critic test failed there.
 
 \begin{remark}[Guarantee of the two-critic test; the MMD version]\label{rem:rel-guarantee}
 Under \cref{ass:rel}, a two-critic rejection means that the critic family, given equal resources,
@@ -690,8 +717,9 @@ including data-dependent lags, are in \citet{andrews1991heteroskedasticity},
 
 With the time-block split the evaluation dates of a sample form a union of at most $K$ contiguous
 blocks; because $K$ is fixed while the blocks grow, (D1) for the underlying date sequence carries
-the central limit theorem and (D3) over to the union (the edge terms are of order $KH$ divided by
-the number of dates; we omit the routine details).
+the central limit theorem and (D3) over to the union. The edge terms are of order $KH^2$ divided by
+the number of dates, which vanishes when $H$ grows like the cube root of that number, the
+\citet{andrews1991heteroskedasticity} rate (\cref{app:proofs-dependence}).
 
 \begin{proposition}[Asymptotic validity of the HAC test for a fixed critic]\label{prop:hac}
 Under \cref{ass:mixing} and $H_0':Pf=Qf$, $\zhac\dto N(0,1)$, so the test that rejects when
@@ -742,9 +770,11 @@ persistent volatility, so \cref{lem:decoupling} gives no useful bound. At the E3
 block holds about three window dates per ticker, so most evaluation windows lie within one or two
 windows of a training block, while the volatility half-life at persistence $0.98$ is about 34
 days. What the split does guarantee is that training and evaluation dates are disjoint, which
-removes the common-date bias of \cref{prop:ticker-bias} below. The residual dependence across
-block boundaries is controlled only empirically: by the simulated placebo of E1, which runs the
-exact real-data pipeline (\cref{sec:emp-placebo}), and by E2 part g (\cref{sec:sim-dependent}).
+removes the common-date bias of \cref{prop:ticker-bias} below. It does not remove the bias that a
+persistent common factor carries from training dates to adjacent evaluation dates
+(\cref{cor:block-bias}). The residual dependence across block boundaries is controlled only
+empirically: by the simulated placebo of E1, which runs the exact real-data pipeline
+(\cref{sec:emp-placebo}), and by E2 part g (\cref{sec:sim-dependent}).
 
 \begin{proposition}[Bias under ticker splits on common dates]\label{prop:ticker-bias}
 Let the real windows be $X_{i\tau}=\psi(F_\tau,\varepsilon_{i\tau})$ for tickers $i$ and dates
@@ -754,8 +784,8 @@ $P^{(v)}$ be the law of $\psi(v,\varepsilon)$, so that every real window has law
 $\bar P=\int P^{(v)}\mu_F(dv)$. Let the synthetic windows be mutually independent, independent of
 the real data, with law $\bar Q=\bar P$ (the pooled null holds). Split the tickers into training
 and evaluation sets independently of the data, each ticker contributing one window per date, and
-let $\fhat$ be $\Gsig$-measurable, where $\Gsig$ is generated by the training windows (real and
-synthetic), the split and $\xi$.
+let $\fhat$ be measurable with respect to $\Gsig\vee\sigma(F)$, for example $\Gsig$-measurable,
+where $\Gsig$ is generated by the training windows (real and synthetic), the split and $\xi$.
 \begin{enumerate}
   \item[(a)] Conditionally on $(\Gsig,F)$ the real evaluation windows are independent with
   $X_{i\tau}\sim P^{(F_\tau)}$, and $\E[T\mid\Gsig,F]=(\hat P_F-\bar Q)\fhat$, where
@@ -764,7 +794,8 @@ synthetic), the split and $\xi$.
   in general it is a covariance between the critic and the realised factor path and need not
   vanish.
   \item[(c)] (Idealised critic.) If $\fhat=\log(d\hat P_F/d\bar Q)$, the Bayes logit of the
-  population version of the training problem given $F$, then
+  population version of the training problem given $F$ (the limit when the number of training
+  tickers per date grows, so that the training half reveals $F$), then
   $\E[T\mid\Gsig,F]=\Jeff(\hat P_F,\bar Q)\in(0,\infty]$ whenever $\hat P_F\neq\bar Q$. For Gaussian
   scale mixtures, $\psi(v,\varepsilon)=v\varepsilon$ with $\varepsilon\sim N(0,I_L)$ and $v>0$, this
   holds almost surely as soon as $\mu_F$ has no atoms.
@@ -780,10 +811,46 @@ Driscoll--Kraay and other HAC variances estimate the dispersion of $T$ around $\
 cannot remove it; the permutation p-value, which also ignores the cross-sectional dependence, is
 worse. A placebo that compares real tickers with real tickers on the same dates cannot reveal the
 bias, because both samples share the realised path. The simulated placebo E1(a) runs the ticker
-split with permutation p-values as a comparison row; its rejection rate at nominal 5\% is
-\todo{E1 ticker-split permutation size, \cref{tab:e1-size-sim}}, against
-\todo{E1 time-block DK size, \cref{tab:e1-size-sim}} for the time-block split with the
-Driscoll--Kraay p-value.
+split with permutation p-values as a comparison row; its rejection rate at nominal 5\% is 1.000
+[0.981, 1.000], and with the Driscoll--Kraay p-value still 0.990 [0.964, 0.997], as the proposition
+predicts for a bias in the mean. The time-block split with the Driscoll--Kraay p-value rejects at
+0.085 [0.054, 0.132] (Wilson 95\% intervals, 200 replications; \cref{tab:e1-size-sim}).
+
+The time-block split makes training and evaluation dates disjoint, but the proof of
+\cref{prop:ticker-bias}(a)--(b) does not use that the two halves share their dates. It uses only
+that, given $(\Gsig,F)$, the real evaluation windows are independent with laws $P^{(F_\tau)}$ and
+the synthetic ones are independent of $(\Gsig,F)$ with law $\bar Q$.
+
+\begin{corollary}[Time-block split under a persistent factor]\label{cor:block-bias}
+In the model of \cref{prop:ticker-bias}, split the dates instead of the tickers: $\mathcal T$ is
+cut into disjoint sets $\mathcal T_{\trn}$ and $\mathcal T_{\evl}$, chosen independently of the
+data, and every real and synthetic ticker contributes its windows on $\mathcal T_{\trn}$ to the
+training half and those on $\mathcal T_{\evl}$ to the evaluation half. Let $\fhat$ be
+$\Gsig$-measurable and $\hat P_{F,\evl}=\abs{\mathcal T_{\evl}}^{-1}\sum_{\tau\in\mathcal
+T_{\evl}}P^{(F_\tau)}$. Then $\E[T\mid\Gsig,F]=(\hat P_{F,\evl}-\bar Q)\fhat$ and
+$\E T=\E[(\hat P_{F,\evl}-\bar Q)\fhat]$. This vanishes if $(F_\tau)_{\tau\in\mathcal T_{\evl}}$ is
+independent of $(F_\tau)_{\tau\in\mathcal T_{\trn}}$. In general it is a covariance between the
+critic, which depends on the factor path on the training dates, and the factor path on the
+evaluation dates, and it need not vanish when $(F_\tau)$ is persistent across adjacent blocks.
+\end{corollary}
+\begin{proof}
+The real evaluation windows are functions of $(F_\tau,\varepsilon_{i\tau})_{\tau\in\mathcal
+T_{\evl}}$. $\Gsig$ depends on the real data only through $(F_\tau,\varepsilon_{i\tau})_{\tau\in
+\mathcal T_{\trn}}$, so the $\varepsilon_{i\tau}$ with $\tau\in\mathcal T_{\evl}$ are independent of
+$(\Gsig,F)$, and the proof of \cref{prop:ticker-bias}(a)--(b) applies with $\mathcal T_{\evl}$ in
+place of $\mathcal T$, under the same integrability. If $(F_\tau)_{\tau\in\mathcal T_{\evl}}$ is
+independent of $(F_\tau)_{\tau\in\mathcal T_{\trn}}$, it is independent of $\Gsig$, and
+$\E[P^{(F_\tau)}\fhat\mid\Gsig]=\bar P\fhat=\bar Q\fhat$ for $\tau\in\mathcal T_{\evl}$ by
+stationarity.
+\end{proof}
+
+With a persistent factor the realised window law on the evaluation dates resembles the one on the
+adjacent training dates, which the critic has learned to score as real. The corollary is stated,
+like \cref{prop:ticker-bias}, for mutually independent synthetic windows, the situation of
+univariate generators that simulate tickers independently; when the synthetic panel has a common
+factor of its own, the same computation gives $(\hat P_{F,\evl}-\hat Q_{F',\evl})\fhat$ with the
+realised mixture $\hat Q_{F',\evl}$ of the synthetic factor path, which need not vanish either.
+\Cref{rem:small-T} compares this mechanism with the E1 measurements.
 
 \begin{remark}[Few evaluation dates]\label{rem:small-T}
 For features driven by common factors, precision is governed by the number of distinct evaluation
@@ -794,8 +861,42 @@ Bartlett kernel and bandwidth \citep{kiefer_2005_new}, or a cluster variance ove
 $t_{G-1}$ critical values \citep{bester_2011_inference}, are the standard small-sample
 corrections; the two pairings should not be mixed. The pipeline reports the normal-reference
 Driscoll--Kraay p-value; fixed-$b$ p-values are computed as comparison rows in E1, which measures
-the size of the complete pipeline (\cref{sec:emp-placebo}).
+the size of the complete pipeline (\cref{sec:emp-placebo}). There, at nominal 5\%, the \WC{} test
+rejects at 0.085 with the normal reference and at 0.050 with the fixed-$b$ reference for equal
+variances when the synthetic panel shares the factor structure of the real one, but at 0.270 and
+0.245 when the synthetic tickers are independent (\cref{tab:e1-size-sim}). The second case is not
+a small-sample variance effect alone: the mean of $\zhac$ is 0.74 there, against 0.11 in the first
+case (\cref{tab:e1-sim-z,sec:sim-dependent}). \Cref{cor:block-bias} suggests a mechanism, which
+is model-based and heuristic. The conditional mean $(\hat P_{F,\evl}-\bar Q)\fhat$ of $T$ is a
+function of the realised factor path, and so is the Driscoll--Kraay standard error, through the
+date-level variance of the real critic values. When the synthetic tickers are independent, their
+date sums carry no common factor, the standard error is driven by the real path alone, and a
+conditional bias that is small on average can still shift $\zhac$ if it is dependent on that
+standard error. A synthetic factor of its own adds variation to the standard error that is
+independent of the real path, which weakens this dependence.
+\Cref{tab:manual-e1-sim-stat} is consistent with this reading. The mean of $T$ for the \WC{} test
+is small and nearly the same in the two cells (0.026 and 0.029, with Monte Carlo standard errors
+0.015 and 0.014), but with independent synthetic tickers $T$ and its standard error have
+Pearson correlation $-0.64$, against 0.22 in the joint cell, so that positive values of $T$ come with
+small standard errors; the \LRC{} test shows the same sign pattern, and the rejections concentrate
+in the replications with a small standard error (\cref{tab:e1-sim-se}). The E1 panel lies outside the
+model of the corollary, because its idiosyncratic and synthetic GARCH components are also
+serially dependent within a ticker, and the corollary does not quantify the effect.
 \end{remark}
+
+\begin{table}[tbp]
+  \centering
+  \caption{Statistic and Driscoll--Kraay standard error of the absolute learned tests in the E1(a)
+    placebo (time-block split, 200 replications per cell). joint: the synthetic panel is an
+    independent draw of the whole factor panel; indep.: independent synthetic tickers. Mean of
+    $T$ with its Monte Carlo standard error, standard deviation of $T$, share of replications with
+    $T>0$, median Driscoll--Kraay standard error of $T$, correlation of $T$ with that standard
+    error over the replications, and mean of $\zhac$ (as in \cref{tab:e1-sim-z}). Derived from
+    \texttt{results/e1/e1\_sim\_raw.csv} by \texttt{paper/scripts/e1\_sim\_stat.py}.}
+  \label{tab:manual-e1-sim-stat}
+  \small
+  \fittable{manual_e1_sim_stat}
+\end{table}
 
 \begin{remark}[Wild bootstrap for the kernel tests]\label{rem:wild}
 MMD and \SigMMD{} have no train/evaluation split. Under dependence they use the wild bootstrap of
@@ -811,50 +912,137 @@ their size is measured in E1 and in E2 part g.
 \subsection{What the verdict controls}\label{sec:theory-verdict}
 
 \begin{definition}[Power check]\label{def:power-check}
-A power check is a pre-registered pair $(\Cdesign,\vartheta^*)$. $\Cdesign$ is a reference
+A power check is a pre-specified pair $(\Cdesign,\vartheta^*)$. $\Cdesign$ is a reference
 simulation design that reproduces the empirical one: the sizes of $\Rpast$, $\Rnew$ and $G$, the
 window length, the split, the critic settings, the inference, the seed combination and, where
-possible, the dependence. $\vartheta^*$ is a pre-specified deviation of the generator. We use two
-designs: D1, a per-ticker \GARCHt{} panel fitted on \TRAIN, with $\Rpast^*$ of \TRAIN{} length from
-the stationary law and $\Rnew^*$, $G^*$ of \TEST{} length; and D2, in which the past windows are
-the real \TRAIN{} realised volatilities times fresh Gaussian noise and $\Rnew$ is the real \TEST{}
-sample. The deviation is a synthetic volatility $1.2$ times too high. The power $\beta(\vartheta^*)$
-is the probability that the verdict rule rejects, estimated from $R$ replications by $\hat\beta$,
-with one-sided Clopper--Pearson lower bound $\betaL$ \citep{clopper_1934_use}. The same design with
-the generator replaced by an independent draw from the law of $\Rpast^*$ (D1), or from the pooled
-law of the past windows (D2), gives the boundary size $\abd$.
+possible, the dependence. $\vartheta^*$ is a pre-specified deviation of the generator. The
+boundary generator $G^0$ is an independent draw with the law of the past windows. We use two
+designs. D1 is a per-ticker \GARCHt{} panel fitted on \TRAIN: $\Rpast^*$ is a \TRAIN-length path
+started from stationarity, $\Rnew^*$ a \TEST-length path started from the fitted end-of-\TRAIN{}
+state, $G^0$ a \TEST-length path started from stationarity, and the alternative $G^*$ is $1.2$
+times an independent \TEST-length path started from the end-of-\TRAIN{} state. In D2 the past
+windows are the real \TRAIN{} realised volatilities times fresh Gaussian noise, $\Rnew$ is the
+real \TEST{} sample, $G^0$ has the pooled law of the past windows, and $G^*=1.2\,G^0$. In D2 the
+alternative differs from the boundary only by the volatility factor; in D1 it also differs by its
+initial state, so the D1 power is the power against a compound deviation, not against the
+volatility factor alone. The power $\beta(\vartheta^*)$ is the probability that the verdict rule
+rejects under $G^*$, estimated from $R$ replications by $\hat\beta$, with one-sided
+Clopper--Pearson lower bound $\betaL$ \citep{clopper_1934_use}. The same design with $G^0$ in place
+of $G^*$ gives the boundary size $\abd$, estimated by $\hat\alpha_{\mathrm{bd}}$. Since $\abd$ can
+exceed $\alpha$, $\hat\beta$ mixes the discrimination between $G^*$ and $G^0$ with the
+miscalibration of the rule.
+The size-adjusted power $\beta_{\mathrm{adj}}(\vartheta^*)=\Prob(p^{\mathrm{alt}}\le c_\alpha)$,
+where $p^{\mathrm{alt}}$ is the rule's $\pmed$ under $G^*$ and $c_\alpha$ the $\alpha$-quantile of
+its law $p^{\mathrm{bd}}$ under $G^0$, measures the discrimination alone. It is estimated with
+$\hat c_\alpha$, the $\lfloor\alpha R\rfloor$-th smallest of the $R$ boundary values, at which the
+empirical boundary size is $\lfloor\alpha R\rfloor/R\le\alpha$. We recommend reporting
+$\hat\beta_{\mathrm{adj}}$ together with $\hat\alpha_{\mathrm{bd}}$ and its Clopper--Pearson
+interval.
 \end{definition}
 
 \begin{definition}[Verdict]\label{def:verdict}
 Let $\alpha=0.05$, $\bmin=0.8$ and let $\pmed$ be the anchored p-value combined over the synthetic
-seeds (\cref{rem:combine-seeds}). The verdict \eqref{eq:verdict} is $V=\BAD$ if $\pmed\le\alpha$;
-$V=\GOOD$ if $\pmed>\alpha$ and $\hat\beta\ge\bmin$ under every design (D1 and D2); and
+seeds (\cref{rem:combine-seeds}); as implemented, each single-seed p-value is the Driscoll--Kraay
+p-value $p_s=1-\Phi(\zhac)$ of $\Danc$. The verdict \eqref{eq:verdict} is $V=\BAD$ if
+$\pmed\le\alpha$; $V=\GOOD$ if $\pmed>\alpha$ and $\hat\beta\ge\bmin$ under every design (D1 and D2); and
 $V=\INCONCL$ otherwise. The stationary bootstrap, for which the anchored test is invalid
 (\cref{rem:anchored-null}), receives \INVALID. A stricter variant replaces $\hat\beta$ by $\betaL$.
 \end{definition}
 
 \begin{proposition}[What the verdict controls]\label{prop:verdict}
-(a) If each single-seed anchored p-value $p_s$ satisfies $\Prob(p_s\le u)\le u$ for all $u$, then
-$\Prob(V=\BAD)\le\alpha$. This holds in finite samples at $\QG=\Ppast$ under \cref{ass:anc}
-(\cref{prop:anchored}(a)), and asymptotically at $\QG=\Ppast$ under the conditions of
-\cref{prop:anchored}(c), where $\delta=0$ by \cref{prop:anchored-target}(a). It does not bound the
-false-\BAD{} rate on real data, where the past is non-stationary (\cref{rem:nonstat-past}); there
-the boundary size $\abd$ of the rule is estimated. (b) If the rejection probability of the rule at
-the true configuration is at least $\beta(\vartheta^*)$, then
-$\Prob(V=\GOOD)\le\Prob(\pmed>\alpha)\le1-\beta(\vartheta^*)$, which is at most $1-\bmin$ up to the
-Monte Carlo error of $\hat\beta$.
+(a) If each single-seed anchored p-value $p_s$ satisfies $\Prob(p_s\le u)\le u$ for all
+$u\in(0,1)$, then $\Prob(V=\BAD)\le\alpha$. For the permutation version of the anchored p-value
+this premise holds in finite samples at $\QG=\Ppast$ under \cref{ass:anc} (\cref{prop:anchored}(a)).
+The rule as implemented uses the Driscoll--Kraay p-values (\cref{def:verdict}), for which the
+premise holds only in the limit, also when the windows are independent: at $\QG=\Ppast$ under the
+conditions of \cref{prop:anchored}(c), where $\delta=0$ by \cref{prop:anchored-target}(a),
+$\limsup\Prob(V=\BAD)\le\alpha$. On real data, where the past is non-stationary
+(\cref{rem:nonstat-past}), the premise does not hold; there the boundary size $\abd$ of the rule
+is estimated (\cref{def:power-check}), and a \BAD{} verdict has a real-data error interpretation
+only when the Clopper--Pearson interval of $\hat\alpha_{\mathrm{bd}}$ covers $\alpha$ or lies below
+it.
+(b) If the rejection probability of the rule at the true configuration is at least
+$\beta(\vartheta^*)$, then $\Prob(V=\GOOD)\le\Prob(\pmed>\alpha)\le1-\beta(\vartheta^*)$, which is
+at most $1-\bmin$ up to the Monte Carlo error of $\hat\beta$.
 \end{proposition}
 \begin{proof}
-(a) $\{V=\BAD\}=\{\pmed\le\alpha\}$; apply \cref{rem:combine-seeds}, and at the boundary under (c)
-use dominated convergence to pass from conditional to unconditional validity.
+(a) $\{V=\BAD\}=\{\pmed\le\alpha\}$; apply \cref{rem:combine-seeds}. Under
+\cref{prop:anchored}(c), its Markov bound $\Prob(\pmed\le\alpha)\le(2/S)\sum_s\Prob(p_s\le\alpha/2)$
+holds for every sample size, and $\limsup\Prob(p_s\le\alpha/2)\le\alpha/2$ for each seed follows
+from the conditional limit by dominated convergence.
 (b) $\{V=\GOOD\}\subset\{\pmed>\alpha\}$.
 \end{proof}
 
+That the Driscoll--Kraay version is valid only in the limit is visible at the sizes used. The
+single-seed Driscoll--Kraay anchored p-value rejects at the boundary in 0.09 [0.04, 0.16] of the D1
+replications (Clopper--Pearson; \cref{tab:e3-power}) and in 0.080 [0.050, 0.126] of the
+replications of the joint cell of E1 (Wilson; \cref{tab:e1-size-sim}), two stationary simulated
+panels; in D1 the seed combination absorbs the excess, with a boundary size of the rule of 0.00
+[0.00, 0.04]. The \BAD{} condition at the end of (a) is a reporting diagnostic, not a change to the
+pre-specified rule; \cref{rem:calibrated-bad} gives the calibration that replaces the nominal level
+when it fails.
+
 Part (b) is only as strong as its premise, which cannot be verified: the true deviation must be at
 least as detectable as $\vartheta^*$ under $\Cdesign$. \GOOD{} therefore means ``no detectable
-deviation of the pre-specified size and type'', never ``equal to the truth''. The power check is a
-design-stage calculation, like a sample-size calculation; with $R=100$ replications the standard
+deviation of the pre-specified size and type'', never ``equal to the truth''. Our $\vartheta^*$ is
+an upward volatility error, which in D2 points away from the calmer \TEST{} period. Power against
+downward volatility errors or errors in other features is not covered (a factor 0.8 was not
+run), and under a non-stationary past a non-rejection of the anchored null can reflect a generator
+bias aligned with the regime change (\cref{rem:anchored-null}). The D2 boundary size, in turn,
+is that of a boundary generator with Gaussian windows whose scales are drawn independently across
+tickers and windows (\cref{sec:method-decision}). D1 is a design-stage
+calculation, like a sample-size calculation. D2 is a power analysis conditional on the realised
+$\Rnew$ and on the \TRAIN{} volatility path: it uses the evaluation data, though not the generators,
+so \GOOD{} against \INCONCL{} depends on $\Rnew$ through $\pmed$ and through $\hat\beta$. Part (b)
+is unaffected, because $\{V=\GOOD\}\subset\{\pmed>\alpha\}$. With $R=100$ replications the standard
 error of $\hat\beta$ near $0.8$ is $0.04$, which motivates the Clopper--Pearson variant.
+
+\begin{remark}[Calibrating \BAD{} against the boundary replications]\label{rem:calibrated-bad}
+Let $p^{\mathrm{bd}}_1,\dots,p^{\mathrm{bd}}_R$ be the rule's $\pmed$ in the $R$ boundary
+replications of a design and $p^{\mathrm{obs}}$ the observed $\pmed$ of a generator. The Monte
+Carlo p-value
+\[
+  p_{\mathrm{MC}}=\frac{1+\#\{r:p^{\mathrm{bd}}_r\le p^{\mathrm{obs}}\}}{R+1}
+\]
+satisfies $\Prob(p_{\mathrm{MC}}\le u)\le u$ for every $u\in(0,1)$ if, under the null,
+$(p^{\mathrm{obs}},p^{\mathrm{bd}}_1,\dots,p^{\mathrm{bd}}_R)$ is exchangeable: apply
+\cref{lem:rank} to the negated values. This is the Monte Carlo test principle
+\citep{dufour_2006_monte}, with ties resolved conservatively, and its validity rests entirely on
+the exchangeability. D2 keeps the real $\Rnew$, as the observed value does, but provides
+exchangeability only approximately. Its past windows keep the real \TRAIN{} volatility path but
+not the real within-window law (Gaussian noise, so no conditional tails, within-window clustering
+or leverage) nor the same-date return correlation across tickers; its boundary generator $G^0$
+has the pooled \TRAIN{} window law but not the structure of a fitted model; and on real data the
+standard error of $\Danc$ is 0.59 to 0.79 times its D2 value (\cref{app:emp-derived}). The Monte
+Carlo p-values of \cref{sec:emp-verdicts} are therefore approximate calibrations, more
+informative than the nominal level when $\hat\alpha_{\mathrm{bd}}>\alpha$, but not exact. The
+size-adjusted power of \cref{def:power-check} separates discrimination from miscalibration
+(\cref{tab:manual-theory-calibration}). At the main split the D2 power of the rule is 0.45 at the
+nominal threshold, with boundary size 0.08, and still 0.45 at $\hat c_\alpha=0.025$, where the
+boundary size is 0.05; in all 100 replications the alternative $\pmed$ lies below the boundary
+$\pmed$ of the same replication. At the alternative split of E5 the D2 power and boundary size are
+both 0.60 at the nominal threshold, and the size-adjusted power is still 0.60 at
+$\hat c_\alpha=3.8\times10^{-5}$ (boundary size 0.04). There the rule still separates the boundary
+generator from one with 20\% too much volatility, but the Clopper--Pearson interval of
+$\hat\alpha_{\mathrm{bd}}$ lies above $\alpha$, so a nominal \BAD{} verdict would have no
+real-data error interpretation.
+\end{remark}
+
+\begin{table}[tbp]
+  \centering
+  \caption{Calibration of the verdict rule in the power-check designs: nominal boundary size and
+    power at $\alpha=0.05$, estimated $\alpha$-quantile $\hat c_\alpha$ of the boundary $\pmed$
+    (the $\lfloor\alpha R\rfloor$-th smallest of the $R$ boundary values), boundary size and
+    size-adjusted power at $\hat c_\alpha$ (\cref{def:power-check}), and the number of replications
+    in which the alternative $\pmed$ is below the boundary $\pmed$ of the same replication. Main
+    split: E3 (\cref{tab:e3-power}); alternative split: E5 (\cref{tab:manual-e5-split}). $R$
+    replications, $S$ synthetic seeds. Derived from \texttt{results/e3/e3\_power\_raw.csv},
+    \texttt{e3\_realvol\_raw.csv} and \texttt{results/e5/e5\_split\_power\_raw.csv} by
+    \texttt{paper/scripts/theory\_calibration.py}.}
+  \label{tab:manual-theory-calibration}
+  \small
+  \fittable{manual_theory_calibration}
+\end{table}
 
 \begin{remark}[Equivalence-test alternative]\label{rem:equivalence}
 A \GOOD{} verdict with a formal error guarantee would follow from a non-inferiority test
@@ -889,19 +1077,23 @@ portfolio $\wgmv(\hat\Sigma)=\hat\Sigma^{-1}\one/(\one'\hat\Sigma^{-1}\one)$, ev
 optimum (\cref{lem:quad-loss}), the weights depend on $\hat\Sigma$ only up to scale, and
 \begin{equation}\label{eq:kantorovich-preview}
   1\le\frac{V(\wgmv(\hat\Sigma))}{V(\wgmv(\Sigma))}\le\frac{(1+\kappa)^2}{4\kappa},
-  \qquad \kappa=\cond(\Sigma^{-1}\hat\Sigma),
+  \qquad \kappa=\frac{\lambda_{\max}(\Sigma^{-1/2}\hat\Sigma\Sigma^{-1/2})}
+  {\lambda_{\min}(\Sigma^{-1/2}\hat\Sigma\Sigma^{-1/2})},
 \end{equation}
 a sharp bound that is quadratic in the relative covariance error (\cref{prop:gmv-sensitivity}).
 In the large-sample limit the GMV utility of a generator therefore depends on it only through its
 covariance matrix, up to scale (\cref{cor:gmv-drivers}); tails, volatility clustering and jumps,
 which the critic detects, matter only through that matrix. The two criteria can disagree in both
-directions. A generator whose covariance is $c\Sigma$ with $c\neq1$ is rejected by a consistent
+directions. Here $\kappa$ is the ratio of the extreme eigenvalues of $\Sigma^{-1}\hat\Sigma$,
+written $\cond(\Sigma^{-1}\hat\Sigma)$ in \cref{sec:mk-theory}. A generator whose covariance is
+$c\Sigma$ with $c\neq1$ is rejected by a consistent
 critic test and loses nothing for GMV (\cref{ex:scale-blind}); a covariance error in a
 low-variance spread direction attains the bound \eqref{eq:kantorovich-preview} while $\W$ between
 the window laws tends to zero (\cref{ex:spread}); univariate tests cannot see correlations
-(\cref{ex:corr-blind}); and a drift error equal to one \TRAIN{} standard error dominates
-mean-variance utility, yet by \cref{prop:oracle-bound}(b) no level-5\% two-sample test that uses
-the 615 \TEST{} days detects it with power above $0.17$ (\cref{ex:drift}). Finally, under convex
+(\cref{ex:corr-blind}); and a drift error of one asset equal to one \TRAIN{} standard error
+dominates mean-variance utility, yet by \cref{prop:oracle-bound}(b) no level-5\% two-sample test
+that uses the 615 \TEST{} days of that asset detects it with power above $0.17$
+(\cref{ex:drift}). Finally, under convex
 losses no portfolio rule trained on synthetic data beats the best rule based on the real past
 (\cref{prop:no-free-lunch}); synthetic data can only help as a regulariser. These results motivate
 the design of E4 (\cref{sec:mk-link}): an association between critic distance and GMV loss is
@@ -940,7 +1132,10 @@ targets.
     \Cref{prop:hac}: HAC test & proved (standard results) & \cref{ass:mixing}; fixed critic \\
     \Cref{lem:decoupling}: decoupling & proved & no useful bound without a gap \\
     \Cref{prop:ticker-bias}: ticker-split bias & proved & factor model \\
-    \Cref{prop:verdict}: verdict & proved under premises & valid $p_s$; unverifiable power premise \\
+    \Cref{cor:block-bias}: time-block bias under a persistent factor & proved & factor model; independent synthetic windows \\
+    \Cref{rem:small-T}: mechanism of the E1 oversize & heuristic & -- \\
+    \Cref{prop:verdict}: verdict & proved under premises & valid $p_s$ (asymptotic only for the Driscoll--Kraay $p_s$ used); unverifiable power premise \\
+    \Cref{rem:calibrated-bad}: Monte Carlo calibration of \BAD{} & proved (Monte Carlo test) & exchangeable observed and boundary $\pmed$ (approximate in D2) \\
     \Cref{sec:mk-theory}: GMV and utility results & proved; parts heuristic & positive definite matrices; convex loss \\
     \bottomrule
   \end{tabular}

@@ -1,8 +1,11 @@
 \section{Related literature}\label{sec:lit}
 % =============================================================================================
 % Source: docs/literature.md (entries, "Closest competitors", "Positioning for a CREST
-% audience", "Citation map"). Only keys of references.bib, except two proposed keys that are
-% listed in OUTLINE.md Section 13 (kiefer_2005_new, zhou_2025_anchor). Positioning only: no
+% audience", "Citation map"). Only keys of references.bib (Sections 9 and 10 of the .bib hold
+% the keys proposed in OUTLINE.md Section 13 and the six keys added in the referee revision:
+% im_2018_quantitatively, gulrajani_2019_towards, sutherland_2017_generative,
+% jitkrittum_2016_interpretable, meehan_2020_three, lucic_2018_gans; each checked against the
+% publisher or arXiv record at integration, 2026-11-16). Positioning only: no
 % results, no numbers. Never "first". Subsection labels: OUTLINE.md Section 12, plus
 % sec:lit-summary (added here).
 % =============================================================================================
@@ -30,7 +33,12 @@ facts \citep{cont2001empirical} visually or through summary statistics
 \citep{alaa2022faithful} or discriminator scores: the held-out error of a classifier trained after
 the fact \citep{yoon2019time}, a real-versus-simulated classification competition
 \citep{francopedroso2018ets}, or a discriminator output used to calibrate a market simulator
-\citep{storchan2021learning}. Such scores have no null distribution, and a low discriminative score
+\citep{storchan2021learning}. In machine learning, critics for several GAN objectives, the
+Wasserstein one included, have been trained after the fact on training samples and the resulting
+divergences evaluated on held-out samples as metrics for image generators
+\citep{im_2018_quantitatively}, and \citet{gulrajani_2019_towards} define such neural-network
+divergences on held-out data so that a generator that memorises its training set does not score
+well. Such scores have no null distribution, and a low discriminative score
 cannot be told apart from a weak classifier unless the power of the procedure is known; hence the
 pre-specified power check in our decision rule (\cref{sec:method-decision}).
 
@@ -62,10 +70,20 @@ $n^{-1/d}$ for $d\ge3$ \citep{fournier2015rate}. A finite critic measures a weak
 \citep{arora2017generalization}, and with a soft penalty a good critic need not estimate $\W$ well
 \citep{mallasto2019well}. Our statistic is therefore an IPM over trained critics, whose
 conditional mean is bounded by the critic's Lipschitz constant times $\W$ between the standardised
-window laws (\cref{prop:unbiased,rem:gp-soft}), not an estimate of $\W$.
+window laws (\cref{prop:unbiased,rem:gp-soft}), not an estimate of $\W$. A trained critic is
+also a random function of its seed and hyper-parameters, and large-scale comparisons of GANs
+depend on random restarts and on the hyper-parameter search budget \citep{lucic_2018_gans}. We
+therefore combine p-values over seeds by a rule that preserves the validity of the individual
+p-values under arbitrary dependence between them (\cref{rem:combine-seeds}) and report how the
+verdicts change with the critic's hyper-parameters (\cref{sec:robust}).
 
-The MMD test compares kernel mean embeddings \citep{gretton2012kernel}; \citet{liu2020learning}
-learn a deep kernel on a training split to maximise a power proxy (MMD-D). The classifier
+The MMD test compares kernel mean embeddings \citep{gretton2012kernel}.
+\Citet{sutherland_2017_generative} choose the kernel on a training split by maximising an estimate
+of a power proxy, test on the held-out split, and use the optimised MMD and its witness function
+to criticise generative models; \citet{liu2020learning} extend this to deep kernels (MMD-D), and
+\citet{jitkrittum_2016_interpretable} choose test locations by maximising a lower bound on power,
+so that the selected features show where the two laws differ. These tests, like the evaluation
+metrics of \cref{sec:lit-synthetic}, treat the samples as independent. The classifier
 two-sample test (C2ST) of \citet{lopezpaz2017revisiting} tests whether held-out accuracy differs
 from one half. Accuracy discards magnitude: in the Gaussian mean-shift problem accuracy tests are
 only $1/\sqrt{\pi}$ as efficient as Hotelling-type tests \citep{kim2021classification}. The
@@ -106,18 +124,35 @@ A relative test compares two candidate models with one reference sample.
 \Citet{bounliphone2016test} use the difference of two MMD estimates and their joint asymptotic
 normality, which requires independent \iid{} samples and two candidates that both differ from the
 reference, the MMD U-statistic being degenerate at equality; our MMD relative test follows them
-and inherits this condition. See also \citet{jitkrittum2018informative},
-\citet{gerber2024likelihood} on deciding which of two simulators produced the data, and
-\citet{zhou_2025_anchor} on relative tests with a discrepancy maximised over deep kernels.
-% zhou_2025_anchor: description to be checked against arXiv:2510.10477 (lead).
-In our relative null one candidate is the real past $\Rpast$: is $G$ as good a proxy for the future
+and inherits this condition. See also \citet{jitkrittum2018informative} and
+\citet{gerber2024likelihood} on deciding which of two simulators produced the data. Closest in
+aim, \citet{zhou_2025_anchor} ask which of two distributions is closer to an anchor distribution:
+they maximise the difference between the two anchored discrepancies over deep kernels, which also
+selects the direction of the hypothesis, and then calibrate the selected test, for independent
+samples. Our relative test differs in four respects. One of the two candidates is the real past,
+so the question is whether a generator does better than historical simulation; the windows are
+serially and cross-sectionally dependent; the discrepancy is the held-out mean difference of one
+critic, whose witness can be inspected; and the test enters a decision rule with a pre-specified
+power check.
+% zhou_2025_anchor: description checked against the arXiv:2510.10477 abstract (anchor-based
+% maximum discrepancy over a deep-kernel space; Phase I infers the hypothesis, Phase II tests it).
+In our relative null, then, $\Rpast$ is one of the candidates: is $G$ as good a proxy for the future
 $\Rnew$ as history is? With learned critics, the difference of two separately trained
-discrepancies compares IPMs over two data-dependent classes and is anti-conservative at the
-boundary $\QG=\Ppast$ (\cref{prop:boundary-size}). The anchored test trains one critic to separate
-$\Rnew$ from a balanced pool of synthetic and past windows and compares its means on held-out
-synthetic and past windows, which is exact at the boundary for every critic
-(\cref{prop:anchored}). The argument is the elementary fixed-witness one; its value is exactness
-at the boundary, where the other two versions are not exact.
+discrepancies compares IPMs over two data-dependent classes, and at the boundary $\QG=\Ppast$
+its size is at least the nominal level and can exceed it (\cref{prop:boundary-size}). The
+anchored test trains one critic to separate $\Rnew$ from a balanced pool of synthetic and past
+windows and compares its means on held-out synthetic and past windows; its permutation p-value is
+exact at the boundary for every critic (\cref{prop:anchored}). The argument is the elementary
+fixed-witness one; its value is exactness at the boundary, where the other two versions are not
+exact. Exactness needs the synthetic and past windows to be exchangeable at the boundary
+(\cref{ass:anc}). Serially dependent windows are not, and the Driscoll--Kraay version of the test
+used on such panels has no such guarantee: its size is measured
+(\cref{sec:sim-dependent,sec:emp-placebo}). A generator that copies its training data violates the
+assumption as well. Data copying is a known failure of generator evaluation:
+\citet{meehan_2020_three} test for it by comparing the distances of generated and of held-out real
+samples to the training sample. Our stationary bootstrap copies blocks of $\Rpast$ by
+construction, so we do not test for copying; we withhold its verdict (\INVALID{};
+\cref{sec:method-relative,tab:e2-relative-boundary}).
 
 \subsection{Specification testing and density forecast evaluation in econometrics}
 \label{sec:lit-econometrics}
@@ -200,9 +235,13 @@ multipliers, which we use for MMD and \SigMMD{} (\cref{rem:wild}); block bootstr
 
 Two features are less standard. First, the critic is trained on data that depend on the evaluation
 data. A ticker split puts both halves on the same dates and biases the statistic
-(\cref{prop:ticker-bias}); a split by contiguous time blocks removes this bias, and the remaining
-dependence across block boundaries, bounded under mixing (\cref{lem:decoupling}), is controlled
-empirically in our design (\cref{sec:sim-dependent,sec:emp-placebo}). Second, per-ticker tests are
+(\cref{prop:ticker-bias}); a split by contiguous time blocks makes training and evaluation dates
+disjoint, which removes the common-date bias but does not make the two halves independent, and
+a persistent factor can still bias the statistic across adjacent blocks (\cref{cor:block-bias}). Under
+mixing, \cref{lem:decoupling} bounds the remaining dependence across block boundaries only when a
+gap separates the two halves; the implemented split has none, and under persistent volatility
+adjacent blocks remain strongly dependent, so the effect of this dependence on size is measured,
+not bounded (\cref{sec:sim-dependent,sec:emp-placebo}). Second, per-ticker tests are
 dependent through the market factor: Benjamini--Hochberg control relies on positive regression
 dependence, and arbitrary dependence needs the Benjamini--Yekutieli correction
 \citep{benjamini1995controlling,benjamini2001control}.
@@ -234,7 +273,10 @@ reproduces the past better is not necessarily more useful (\cref{tab:e4-correlat
 
 \subsection{Summary of the positioning}\label{sec:lit-summary}
 
-None of the following is ours: a witness learned on one split and tested on the other
+None of the following is ours: a critic or neural-network divergence trained after the fact to
+evaluate a generator \citep{im_2018_quantitatively,gulrajani_2019_towards}; a kernel learned on one
+split to criticise a generative model \citep{sutherland_2017_generative}; a witness learned on one
+split and tested on the other
 \citep{kubler2022witness,kirchler2020two,cheng2022classification}; a split-then-permute
 Wasserstein test \citep{wang2022two}; a WGAN critic used to validate a financial simulator
 \citep{bai2026calibrating}; a formal two-sample test of a market generator

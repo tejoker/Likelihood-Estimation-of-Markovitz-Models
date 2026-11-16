@@ -1,0 +1,23 @@
+\begin{tabular}{llrrr}
+\toprule
+Model & Parameter & Median & IQR & At bound \\
+\midrule
+GBM & $\sigma\times100$ & 2.11 & [1.85, 2.51] & 0 \\
+\addlinespace
+Merton & $\sigma\times100$ & 1.38 & [1.18, 1.60] & 0 \\
+ & $\lambda_J$ & 0.152 & [0.108, 0.237] & 3 \\
+ & $\sigma_J\times100$ & 3.73 & [3.18, 4.86] & 0 \\
+\addlinespace
+GARCH-$t$ & $a+b$ & 0.965 & [0.940, 0.976] & 1 \\
+ & $\nu$ & 4.88 & [4.43, 5.76] & 0 \\
+\addlinespace
+Heston & $\kappa_v$ & 0.061 & [0.038, 0.098] & 5 \\
+ & $\sqrt{\theta_v}\times100$ & 2.13 & [1.87, 2.54] & 0 \\
+ & $\rho_v$ & $-$0.47 & [$-$0.81, $-$0.19] & 20 \\
+ & $c=\xi_v/\sqrt{2\kappa_v\theta_v}$ & 1.05 & [0.93, 1.12] & 11 \\
+ & share with $c\le1$ (Feller) & 0.43 &  &  \\
+ & tickers with a parameter at a bound & 33 &  &  \\
+\addlinespace
+Stat.\ bootstrap & mean block length (days) & 52.3 & [43.9, 55.7] & 0 \\
+\bottomrule
+\end{tabular}

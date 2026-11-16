@@ -1,0 +1,30 @@
+\begin{tabular}{llrrrrr}
+\toprule
+ & & \multicolumn{4}{c}{Real \TEST{} vs real \TRAIN{} (10 test seeds)} & Stationary placebo \\
+\cmidrule(lr){3-6}\cmidrule(lr){7-7}
+Test & $p$-value & Median stat. & Median $p$ & $2\times$median $p$ & Share $p\le0.05$ & size at 5\% [95\% CI] \\
+\midrule
+\WC{} & HAC$^{\star}$ & 0.089 & 0.226 & 0.452 & 0.100 & 0.100 [0.066, 0.149] \\
+ & HAC, fixed-$b$ (cons.) & 0.089 & 0.273 & 0.546 & 0.000 & 0.045 [0.024, 0.083] \\
+ & HAC, fixed-$b$ (eq.\ var.) & 0.089 & 0.258 & 0.516 & 0.000 & 0.080 [0.050, 0.126] \\
+ & permutation & 0.089 & 0.007 & 0.015 & 0.700 & 0.470 [0.402, 0.539] \\
+\addlinespace
+\LRC{} & HAC$^{\star}$ & 0.573 & 0.035 & 0.071 & 0.600 & 0.055 [0.031, 0.096] \\
+ & HAC, fixed-$b$ (cons.) & 0.573 & 0.079 & 0.158 & 0.100 & 0.025 [0.011, 0.057] \\
+ & HAC, fixed-$b$ (eq.\ var.) & 0.573 & 0.061 & 0.121 & 0.300 & 0.045 [0.024, 0.083] \\
+ & permutation & 0.573 & 0.001 & 0.002 & 0.800 & 0.410 [0.344, 0.479] \\
+\addlinespace
+C2ST & HAC$^{\star}$ & 0.523 & 0.193 & 0.386 & 0.300 & 0.055 [0.031, 0.096] \\
+ & HAC, fixed-$b$ (cons.) & 0.523 & 0.221 & 0.441 & 0.000 & 0.035 [0.017, 0.070] \\
+ & HAC, fixed-$b$ (eq.\ var.) & 0.523 & 0.209 & 0.418 & 0.100 & 0.045 [0.024, 0.083] \\
+ & permutation & 0.523 & 0.002 & 0.004 & 0.900 & 0.355 [0.292, 0.423] \\
+\addlinespace
+MMD & wild bootstrap$^{\star}$ & 0.006 & 0.202 & 0.403 & 0.000 & 0.105 [0.070, 0.155] \\
+ & permutation & 0.006 & 0.002 & 0.004 & 1.000 & 1.000 [0.981, 1.000] \\
+\addlinespace
+\SigMMD{} & wild bootstrap$^{\star}$ & 0.002 & 0.687 & 1.000 & 0.000 & 0.130 [0.090, 0.184] \\
+ & permutation & 0.002 & 0.002 & 0.004 & 1.000 & 1.000 [0.981, 1.000] \\
+\addlinespace
+KS & asymptotic i.i.d.\ (invalid) & 0.032 & 0.000 & 0.000 & 1.000 & 0.980 [0.950, 0.992] \\
+\bottomrule
+\end{tabular}

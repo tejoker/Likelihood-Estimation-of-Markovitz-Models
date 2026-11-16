@@ -101,3 +101,10 @@ parts) -> E4 (all parts). Command for each:
   E6 (`experiments/e6_neural.py`) runs after E3's v2 power designs. Run-time settings:
   `run_v2.sh` uses 4 GPU workers (3 for the memory-heavy E1 and E5 split parts) to keep at
   least 2 GB of RAM free.
+- 2026-11-16: `run_v2.sh` chooses the worker count of each part from available memory (keep
+  2.6 GB free; 1400 MB per worker, 2200 MB for E1 and the E5 split). E1 `sim`: the 54 blocks
+  computed between 14:34 and 16:14 were written under a library fingerprint that differs from
+  the current one only by the additive QuantGAN code (new `models/neural.py`, `PANEL_MODELS`
+  registry, a new branch of `pipeline.fit_panel` used only by panel models); none of it is
+  called by E1, so these blocks were copied into the current checkpoint directory instead of
+  being recomputed.
