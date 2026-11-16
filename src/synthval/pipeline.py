@@ -155,7 +155,19 @@ def pipeline_config() -> dict[str, Any]:
         "POWER_N_REPS": POWER_N_REPS, "POWER_MIN": POWER_MIN,
         "TRAIN": list(config.TRAIN), "TEST": list(config.TEST), "N_PANEL": config.N_PANEL,
         "PANEL_SEED": config.PANEL_SEED,
+        # Runtime protocol (part of every checkpoint key that includes this dict): device and the
+        # architectures chosen by arch="auto" (v1: cpu, mlp, conv; v2: cuda, pooled, pooled).
+        **runtime_config(),
     }
+
+
+def runtime_config() -> dict[str, Any]:
+    """Device, ``arch="auto"`` choices and torch version of this process."""
+    import torch
+
+    from .twosample.nets import default_arch, get_device
+    return {"DEVICE": str(get_device()), "ARCH_1D": default_arch(1), "ARCH_2D": default_arch(2),
+            "TORCH": torch.__version__}
 
 
 # ----------------------------------------------------------------------------------------------

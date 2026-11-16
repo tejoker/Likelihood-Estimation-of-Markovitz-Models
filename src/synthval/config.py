@@ -6,9 +6,22 @@ from pathlib import Path
 
 ROOT: Path = Path(__file__).resolve().parents[2]
 DATA_CSV: Path = ROOT / "data" / "sp500_price_volume.csv"
-RESULTS_DIR: Path = ROOT / "results"
-FIG_DIR: Path = ROOT / "paper" / "figures"
-TAB_DIR: Path = ROOT / "paper" / "tables"
+
+
+def _dir_from_env(var: str, default: Path) -> Path:
+    """``$var`` (absolute, or relative to ``ROOT``) if set, else ``default``."""
+    v = os.environ.get(var)
+    if not v:
+        return default
+    p = Path(v)
+    return p if p.is_absolute() else ROOT / p
+
+
+# Output directories. A second protocol version (e.g. the GPU v2 runs, experiments/v2.py) sets
+# SYNTHVAL_RESULTS_DIR / SYNTHVAL_FIG_DIR / SYNTHVAL_TAB_DIR so it never overwrites v1 outputs.
+RESULTS_DIR: Path = _dir_from_env("SYNTHVAL_RESULTS_DIR", ROOT / "results")
+FIG_DIR: Path = _dir_from_env("SYNTHVAL_FIG_DIR", ROOT / "paper" / "figures")
+TAB_DIR: Path = _dir_from_env("SYNTHVAL_TAB_DIR", ROOT / "paper" / "tables")
 
 # Sample split: calibration ("real past") and evaluation ("real new").
 FULL = ("2018-01-02", "2025-06-17")

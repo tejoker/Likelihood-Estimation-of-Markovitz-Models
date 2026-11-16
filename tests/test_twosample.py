@@ -710,3 +710,27 @@ def test_critic_speed_target():
     t0 = time.perf_counter()
     CriticTest()(X, Y, rng=rng)
     assert time.perf_counter() - t0 < 25.0
+
+
+def test_default_arch_env(monkeypatch):
+    from synthval.twosample import PooledConvCritic
+    from synthval.twosample.nets import default_arch
+    monkeypatch.delenv("SYNTHVAL_ARCH_1D", raising=False)
+    monkeypatch.delenv("SYNTHVAL_ARCH_2D", raising=False)
+    assert default_arch(1) == "mlp" and default_arch(2) == "conv"
+    assert isinstance(build_network((20,)), MLPCritic)
+    monkeypatch.setenv("SYNTHVAL_ARCH_1D", "pooled")
+    monkeypatch.setenv("SYNTHVAL_ARCH_2D", "pooled")
+    assert isinstance(build_network((20,)), PooledConvCritic)
+    assert isinstance(build_network((3, 20)), PooledConvCritic)
+    assert isinstance(build_network((20,), "mlp"), MLPCritic)  # explicit arch wins
+    monkeypatch.setenv("SYNTHVAL_ARCH_1D", "transformer")
+    with pytest.raises(ValueError):
+        build_network((20,))
+
+
+def test_device_default_cpu(monkeypatch):
+    from synthval.twosample.nets import get_device, to_tensor
+    monkeypatch.delenv("SYNTHVAL_DEVICE", raising=False)
+    assert get_device().type == "cpu"
+    assert to_tensor(np.zeros((2, 3))).device.type == "cpu"

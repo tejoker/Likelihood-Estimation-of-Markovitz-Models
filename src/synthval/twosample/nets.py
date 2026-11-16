@@ -35,6 +35,7 @@ __all__ = [
     "torch_seed",
     "to_tensor",
     "get_device",
+    "default_arch",
 ]
 
 
@@ -195,6 +196,21 @@ class PooledConvCritic(nn.Module):
         return self.head(x.mean(dim=-1)).squeeze(-1)
 
 
+_ARCH_ENV = {1: ("SYNTHVAL_ARCH_1D", "mlp"), 2: ("SYNTHVAL_ARCH_2D", "conv")}
+
+
+def default_arch(rank: int) -> str:
+    """Architecture chosen by ``arch="auto"`` for samples of rank ``rank`` (1: ``(L,)``, 2:
+    ``(C, L)``): ``$SYNTHVAL_ARCH_1D`` (default ``"mlp"``) / ``$SYNTHVAL_ARCH_2D`` (default
+    ``"conv"``). The defaults reproduce the v1 protocol; the v2 protocol sets both to
+    ``"pooled"`` (experiments/v2.py)."""
+    var, default = _ARCH_ENV[int(rank)]
+    arch = os.environ.get(var, "") or default
+    if arch not in ("mlp", "conv", "pooled"):
+        raise ValueError(f"${var}={arch!r}: choose mlp, conv or pooled")
+    return arch
+
+
 def build_network(input_shape: tuple[int, ...], arch: Arch = "auto", *,
                   hidden: int | None = None, depth: int = 3, layer_norm: bool = False,
                   kernel_size: int = 5) -> nn.Module:
@@ -205,7 +221,9 @@ def build_network(input_shape: tuple[int, ...], arch: Arch = "auto", *,
     input_shape : tuple of int
         Shape of one sample: ``(d,)`` / ``(L,)`` or ``(C, L)``.
     arch : {"auto", "mlp", "conv", "pooled"}
-        ``"auto"``: :class:`MLPCritic` for rank-1 samples, :class:`ConvCritic` for rank-2 samples.
+        ``"auto"``: :func:`default_arch` (:class:`MLPCritic` for rank-1 samples,
+        :class:`ConvCritic` for rank-2 samples, unless ``$SYNTHVAL_ARCH_1D`` / ``$SYNTHVAL_ARCH_2D``
+        say otherwise).
         ``"conv"`` with a rank-1 sample treats it as ``(1, L)``. ``"mlp"`` flattens anything.
         ``"pooled"``: :class:`PooledConvCritic` (time-pooled CNN; rank-1 samples as ``(1, L)``).
     hidden : int, optional
@@ -223,12 +241,9 @@ def build_network(input_shape: tuple[int, ...], arch: Arch = "auto", *,
     """
     shape = tuple(int(s) for s in input_shape)
     if arch == "auto":
-        if len(shape) == 1:
-            arch = "mlp"
-        elif len(shape) == 2:
-            arch = "conv"
-        else:
+        if len(shape) not in (1, 2):
             raise ValueError(f"cannot choose an architecture for sample shape {shape}")
+        arch = default_arch(len(shape))
     if arch == "mlp":
         return MLPCritic(int(np.prod(shape)), hidden=hidden or 128, depth=depth,
                          layer_norm=layer_norm)
