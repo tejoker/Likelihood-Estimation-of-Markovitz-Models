@@ -52,7 +52,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 MODULES = {"e1": "e1_placebo", "e2": "e2_ground_truth", "e2dep": "e2_dependence",
            "e3": "e3_sp500", "e4": "e4_markowitz", "e5": "e5_robustness",
-           "e5arch": "e5_architecture", "e6": "e6_neural"}
+           "e5arch": "e5_architecture", "e6": "e6_neural",
+           "e7": "e7_tolerance"}
 
 #: v2 overrides of each script's FULL dict: the DESIGN section 4 values that the v1 run cut for
 #: compute (DESIGN change log 2026-11-15), unless noted.
@@ -65,6 +66,7 @@ OVERRIDES: dict[str, dict] = {
     "e5": {"n_seeds": 10, "power_reps_default": 200, "power_reps": 50, "split_power_reps": 50},
     "e5arch": {},
     "e6": {},  # E6 reads n_seeds and the test settings from E3's FULL (overridden above)
+    "e7": {},  # E7 reads n_seeds and the test settings from E3's FULL (overridden above)
 }
 
 

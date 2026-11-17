@@ -119,3 +119,21 @@ parts) -> E4 (all parts). Command for each:
   the boundary). GPU benchmark (RTX 5050, E3 sizes, 1000 steps): 0.79 tests/s for one batched
   process (~2.2 GB host RAM) against 0.24 for one sequential process. E1 `sim` (finished
   17:08) is not rerun although E1's library fingerprint changed with the new package.
+- 2026-11-17, amendment A1 (written after the v2 E3/E6 verdicts were known, before the
+  experiment below ran): **certified tolerance**. The v2 verdicts are BAD for GBM and
+  INCONCLUSIVE for Merton, GARCH-t, Heston and QuantGAN, because the rule's power against the
+  pre-specified deviation (volatility x 1.2) is 1.00 under D1 but 0.41 under D2. To report what
+  the data can resolve instead of a bare INCONCLUSIVE, E7 (`experiments/e7_tolerance.py`)
+  measures the rule's power for other deviation sizes with E3's own replication functions,
+  seeds and settings (only the volatility factor changes; alternative case only; 100
+  replications per factor, paired with E3's): D2 at factors 1.3, 1.5, 2.0, 1/1.2, 1/1.3, 1/1.5,
+  1/2.0 and D1 at 1/1.2, 1/1.3. Decision rule, fixed now: a relative volatility error t in
+  {0.2, 0.3, 0.5, 1.0} is *resolved* if the rule's power is at least 0.8 under D1 and D2 for
+  both 1 + t and 1/(1 + t) (D1 at upward factors >= 1.2 is E3's value at 1.2). A generator that
+  the anchored rule does not reject is reported as GOOD at the smallest resolved t ("not
+  detectably worse than the real past, within a volatility error of t"); BAD is unchanged.
+  This uses no real-data quantity beyond the anchored rule already applied; the tolerance is a
+  property of the data and the designs, the same for every non-rejected generator. The
+  pre-specified verdicts (tolerance 0.2) are reported unchanged next to it. If more real data
+  are obtained (Bloomberg export beyond 2025-06-17), the extended TEST period is analysed as a
+  new, blind confirmation sample under the protocol fixed before its first use.
