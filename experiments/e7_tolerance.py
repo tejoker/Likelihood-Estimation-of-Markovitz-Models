@@ -47,12 +47,19 @@ PARTS = ("curve",)
 TOLERANCES = (0.2, 0.3, 0.5, 1.0)
 DESIGN_FACTORS = {
     "D2": (1.3, 1.5, 2.0, 1 / 1.2, 1 / 1.3, 1 / 1.5, 1 / 2.0),
-    "D1": (1 / 1.2, 1 / 1.3),
+    "D1": (1 / 1.2, 1 / 1.3, 1 / 1.5, 1 / 2.0),
 }
+#: Grid of the first E7 run (2026-11-17 09:53-13:17), kept in the checkpoint key so its 900
+#: finished blocks are reused; D1 at 1/1.5 and 1/2.0 were added afterwards (needed to evaluate
+#: the amendment's rule at tolerances 0.5 and 1.0) and run as new cells of the same part.
+DESIGNS_KEY = {"D2": [1.3, 1.5, 2.0, 1 / 1.2, 1 / 1.3, 1 / 1.5, 1 / 2.0], "D1": [1 / 1.2, 1 / 1.3]}
 FULL = {"reps": 100, "blocks": 1}
 QUICK = {"reps": 1, "blocks": 1}
 ALPHA = 0.05
 POWER_MIN = 0.8
+#: E3's pre-specified factor, captured at import: _rep changes pl.POWER_VOL_FACTOR in the process
+#: that runs it (the main process when --workers 1), so it must not be read afterwards.
+E3_VOL_FACTOR: float = float(pl.POWER_VOL_FACTOR)
 
 
 def _rep(cell: dict, rep: int, rng: np.random.Generator) -> list[dict[str, Any]]:
@@ -86,8 +93,7 @@ def run_curve(ctx: common.ExpContext, cfg: dict) -> None:
               "_fit_path": fit, "_cfg": c}
              for d, fs in DESIGN_FACTORS.items() for f in fs]
     conf = {"part": "curve", "e3_root_seed": e3.ROOT_SEED, "n_seeds": c["n_seeds"],
-            "pipeline": pl.pipeline_config(), "designs": {k: list(v) for k, v in
-                                                          DESIGN_FACTORS.items()},
+            "pipeline": pl.pipeline_config(), "designs": DESIGNS_KEY,
             "fit": fit, "tickers": list(tickers)}
     df = common.run_cells(_rep, cells, part="curve", ctx=ctx, root_seed=e3.ROOT_SEED,
                           n_reps=cfg["reps"], config=conf, block_size=cfg["blocks"],
@@ -120,7 +126,7 @@ def build_outputs(ctx: common.ExpContext) -> pd.DataFrame | None:
     rows = []
     for d, name in (("D1", "e3_power_raw.csv"), ("D2", "e3_realvol_raw.csv")):
         e = pd.read_csv(e3dir / name)
-        for case, f in (("alternative", pl.POWER_VOL_FACTOR), ("boundary", 1.0)):
+        for case, f in (("alternative", E3_VOL_FACTOR), ("boundary", 1.0)):
             k, n = rule_power(e[e["case"] == case])
             rows.append({"design": d, "vol_factor": f, "k": k, "n": n, "source": "E3"})
     for (d, f), g in raw.groupby(["design", "vol_factor"]):
@@ -136,8 +142,8 @@ def build_outputs(ctx: common.ExpContext) -> pd.DataFrame | None:
         m = curve[(curve["design"] == d) & np.isclose(curve["vol_factor"], f)]
         if len(m):
             return float(m["power"].iloc[0])
-        if d == "D1" and f >= pl.POWER_VOL_FACTOR:  # non-decreasing in the upward factor
-            return power_at("D1", pl.POWER_VOL_FACTOR)
+        if d == "D1" and f >= E3_VOL_FACTOR:  # non-decreasing in the upward factor
+            return power_at("D1", E3_VOL_FACTOR)
         return math.nan
 
     tol = []
