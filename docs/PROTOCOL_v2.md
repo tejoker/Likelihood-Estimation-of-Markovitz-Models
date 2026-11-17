@@ -137,3 +137,9 @@ parts) -> E4 (all parts). Command for each:
   pre-specified verdicts (tolerance 0.2) are reported unchanged next to it. If more real data
   are obtained (Bloomberg export beyond 2025-06-17), the extended TEST period is analysed as a
   new, blind confirmation sample under the protocol fixed before its first use.
+- 2026-11-17 11:41: computational change only. The GPU is saturated by the batched power
+  designs (100% busy, ~49 W) while 90% of the CPU is idle, so E4 (all parts) runs on the CPU
+  (`SYNTHVAL_DEVICE=cpu`, CPU build of torch 2.15.0, `experiments/run_v2_cpu.sh`) in parallel
+  with E7/E5 on the GPU (`experiments/run_v2_gpu.sh`). Every other v2 setting is unchanged
+  (pooled critic, seeds, replications); E4's results come from one device only. Both lanes
+  run detached from the Claude Code session (`setsid nohup`).
