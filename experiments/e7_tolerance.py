@@ -44,17 +44,25 @@ logger = logging.getLogger("experiments.e7")
 
 EXP = "e7tol"
 PARTS = ("curve",)
-TOLERANCES = (0.2, 0.3, 0.5, 1.0)
+TOLERANCES = (0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5, 1.0)
 DESIGN_FACTORS = {
     "D2": (1.3, 1.5, 2.0, 1 / 1.2, 1 / 1.3, 1 / 1.5, 1 / 2.0),
-    "D1": (1 / 1.2, 1 / 1.3, 1 / 1.5, 1 / 2.0),
+    "D1": (1 / 1.2, 1 / 1.3, 1 / 1.5, 1 / 2.0, 1.1, 1 / 1.1),
 }
+# Precision extension (2026-11-17 16:45; compute is not a constraint, exactness is): finer D2 grid
+# where the power jumps (between x1.3 and x1.5), D1 at +-10%, and 400 replications on the cells
+# that decide the tolerance (``PRECISION_CELLS``); 100 elsewhere (saturated or inside the null).
+DESIGN_FACTORS["D2"] = DESIGN_FACTORS["D2"] + (1.35, 1.4, 1.45, 1 / 1.35, 1 / 1.4, 1 / 1.45)
+DESIGN_FACTORS["D1"] = DESIGN_FACTORS["D1"] + (1 / 1.35, 1 / 1.4, 1 / 1.45)
+PRECISION_CELLS = {("D2", 1.3), ("D2", 1.35), ("D2", 1.4), ("D2", 1.45), ("D2", 1.5),
+                   ("D2", 1 / 1.5), ("D1", 1.1), ("D1", 1 / 1.1)}
+PRECISION_REPS = 400
 #: Grid of the first E7 run (2026-11-17 09:53-13:17), kept in the checkpoint key so its 900
 #: finished blocks are reused; D1 at 1/1.5 and 1/2.0 were added afterwards (needed to evaluate
 #: the amendment's rule at tolerances 0.5 and 1.0) and run as new cells of the same part.
 DESIGNS_KEY = {"D2": [1.3, 1.5, 2.0, 1 / 1.2, 1 / 1.3, 1 / 1.5, 1 / 2.0], "D1": [1 / 1.2, 1 / 1.3]}
-FULL = {"reps": 100, "blocks": 1}
-QUICK = {"reps": 1, "blocks": 1}
+FULL = {"reps": 100, "precision_reps": PRECISION_REPS, "blocks": 1}
+QUICK = {"reps": 1, "precision_reps": 2, "blocks": 1}
 ALPHA = 0.05
 POWER_MIN = 0.8
 #: E3's pre-specified factor, captured at import: _rep changes pl.POWER_VOL_FACTOR in the process
@@ -95,10 +103,16 @@ def run_curve(ctx: common.ExpContext, cfg: dict) -> None:
     conf = {"part": "curve", "e3_root_seed": e3.ROOT_SEED, "n_seeds": c["n_seeds"],
             "pipeline": pl.pipeline_config(), "designs": DESIGNS_KEY,
             "fit": fit, "tickers": list(tickers)}
+    def n_reps(cell: dict) -> int:
+        precise = any(cell["design"] == d and math.isclose(cell["f"], f)
+                      for d, f in PRECISION_CELLS)
+        return int(cfg["precision_reps"] if precise else cfg["reps"])
+
     df = common.run_cells(_rep, cells, part="curve", ctx=ctx, root_seed=e3.ROOT_SEED,
-                          n_reps=cfg["reps"], config=conf, block_size=cfg["blocks"],
+                          n_reps=n_reps, config=conf, block_size=cfg["blocks"],
                           workers=ctx.workers)
-    ctx.save_csv(df, "e7_curve_raw", config={**conf, "reps": cfg["reps"]})
+    ctx.save_csv(df, "e7_curve_raw", config={**conf, "reps": cfg["reps"],
+                                             "precision_reps": cfg["precision_reps"]})
 
 
 def wilson(k: int, n: int, z: float = 1.959964) -> tuple[float, float]:
@@ -146,17 +160,33 @@ def build_outputs(ctx: common.ExpContext) -> pd.DataFrame | None:
             return power_at("D1", E3_VOL_FACTOR)
         return math.nan
 
+    # Two readings. "prereg": amendment A1 as written (both directions in D1 and D2).
+    # "directional" (post hoc, PROTOCOL_v2 change log 2026-11-17): in D2 the new sample is the real
+    # TEST period, about 20% calmer than TRAIN, so a calmer generator moves towards R_new and is
+    # inside the anchored null; only upward errors are alternatives there. D1 keeps both directions.
+    def _min(vals: list[float]) -> float:
+        return min(vals) if all(np.isfinite(vals)) else math.nan
+
     tol = []
     for t in TOLERANCES:
         p = {(d, lab): power_at(d, f) for d in ("D1", "D2")
              for lab, f in (("up", 1 + t), ("down", 1 / (1 + t)))}
-        pmin = min(p.values()) if all(np.isfinite(list(p.values()))) else math.nan
+        pre = _min(list(p.values()))
+        dirn = _min([p[("D1", "up")], p[("D1", "down")], p[("D2", "up")]])
         tol.append({"tolerance": t, **{f"{d}_{lab}": v for (d, lab), v in p.items()},
-                    "min_power": pmin, "resolved": bool(np.isfinite(pmin) and pmin >= POWER_MIN)})
+                    "min_power_prereg": pre,
+                    "resolved_prereg": bool(np.isfinite(pre) and pre >= POWER_MIN),
+                    "min_power_directional": dirn,
+                    "resolved_directional": bool(np.isfinite(dirn) and dirn >= POWER_MIN)})
     tol = pd.DataFrame(tol)
     ctx.save_csv(tol, "e7_tolerance", config={"part": "tolerance", "power_min": POWER_MIN})
-    resolved = tol[tol["resolved"]]
-    certified = float(resolved["tolerance"].min()) if len(resolved) else math.nan
+
+    def _cert(col: str) -> float:
+        r = tol[tol[col]]
+        return float(r["tolerance"].min()) if len(r) else math.nan
+
+    certified = _cert("resolved_prereg")
+    certified_dir = _cert("resolved_directional")
 
     tab = Path(ctx.tab_dir)
     tab.mkdir(parents=True, exist_ok=True)
@@ -176,9 +206,13 @@ def build_outputs(ctx: common.ExpContext) -> pd.DataFrame | None:
         lines.append(f"{lab} & " + " & ".join(cells) + r" \\")
     lines += [r"\midrule"]
     for _, r in tol.iterrows():
+        pre = "--" if not np.isfinite(r["min_power_prereg"]) else f"{r['min_power_prereg']:.2f}"
+        dr = "--" if not np.isfinite(r["min_power_directional"]) else f"{r['min_power_directional']:.2f}"
         lines.append(f"Tolerance $\\pm{100 * r['tolerance']:.0f}\\%$: min.\\ power & "
-                     f"\\multicolumn{{4}}{{l}}{{{r['min_power']:.2f}"
-                     f"{' (resolved)' if r['resolved'] else ''}}} \\\\")
+                     f"\\multicolumn{{2}}{{l}}{{as fixed (A1): {pre}"
+                     f"{' (resolved)' if r['resolved_prereg'] else ''}}} & "
+                     f"\\multicolumn{{2}}{{l}}{{directional: {dr}"
+                     f"{' (resolved)' if r['resolved_directional'] else ''}}} \\\\")
     lines += [r"\bottomrule", r"\end{tabular}"]
     (tab / "e7_tolerance.tex").write_text("\n".join(lines) + "\n")
     (tab / "e7_tolerance_note.tex").write_text(
@@ -187,10 +221,11 @@ def build_outputs(ctx: common.ExpContext) -> pd.DataFrame | None:
         r"Factor 1.2 and the boundary (1.0) are E3's runs; other factors: E7, paired with E3's "
         r"replications. A tolerance $t$ is resolved if the power is at least 0.8 under D1 and D2 "
         r"for the factors $1+t$ and $1/(1+t)$; D1 at upward factors $\ge 1.2$ is E3's value at 1.2. "
-        f"Certified tolerance: {'none in the grid' if not np.isfinite(certified) else f'$\\pm{100 * certified:.0f}\\%$'}.\n")
+        f"Certified tolerance, rule as fixed (A1): {'none in the grid' if not np.isfinite(certified) else f'$\\pm{100 * certified:.0f}\\%$'}; "
+        f"directional reading (post hoc; D2 upward only): {'none in the grid' if not np.isfinite(certified_dir) else f'$\\pm{100 * certified_dir:.0f}\\%$'}.\n")
     print(curve.to_string())
     print(tol.to_string())
-    print("certified tolerance:", certified)
+    print("certified tolerance (A1 as fixed):", certified, "| directional (post hoc):", certified_dir)
     return curve
 
 

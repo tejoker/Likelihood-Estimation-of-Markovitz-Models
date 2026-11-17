@@ -143,3 +143,24 @@ parts) -> E4 (all parts). Command for each:
   with E7/E5 on the GPU (`experiments/run_v2_gpu.sh`). Every other v2 setting is unchanged
   (pooled critic, seeds, replications); E4's results come from one device only. Both lanes
   run detached from the Claude Code session (`setsid nohup`).
+- 2026-11-17 16:40, E7 corrections and precision extension.
+  - **Bug fixed:** with one worker, E7's replications ran in the main process and left
+    `pipeline.POWER_VOL_FACTOR` at the last cell's value, so the summary labelled E3's x1.2 rows
+    with the wrong factor. Only the summary was affected; the raw results are unchanged.
+  - **Missing cells:** amendment A1's rule needs D1 at the downward factors 1/1.5 and 1/2.0 for
+    tolerances 0.5 and 1.0, which were not scheduled; they were added.
+  - **A1 mis-specified for D2 (found, not hidden):** in D2 the new sample is the real TEST
+    period, about 20% calmer than TRAIN. A generator made calmer (factor < 1) moves towards
+    R_new, so it lies inside the anchored null, and the rule correctly never rejects it at
+    factors 1/1.2 and 1/1.3 (0/100). A1 as written requires power there and therefore cannot
+    resolve any tolerance below ~0.5. Both readings are reported: A1 as fixed, and a directional
+    reading (D2 upward errors only, D1 both directions), labelled post hoc.
+  - **Precision (compute is not a constraint):**
+    - finer factors where the D2 power jumps (x1.35, x1.4, x1.45 and their inverses);
+    - D1 at x1.1, 1/1.1, 1/1.35, 1/1.4, 1/1.45;
+    - 400 replications on the cells that decide the tolerance, 100 elsewhere;
+    - tolerance grid {0.1, 0.2, 0.3, 0.35, 0.4, 0.45, 0.5, 1.0}.
+  - **E1 `sim` recomputed** under the current code, in one run, instead of the blocks carried
+    over across library fingerprints. The carried-over run stays for comparison.
+  - **Order:** `experiments/run_v2_precision.sh` runs E7, then E1 sim, then the E5 grid power
+    designs (resumed from checkpoints), then every table.
