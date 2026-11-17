@@ -164,3 +164,25 @@ parts) -> E4 (all parts). Command for each:
     over across library fingerprints. The carried-over run stays for comparison.
   - **Order:** `experiments/run_v2_precision.sh` runs E7, then E1 sim, then the E5 grid power
     designs (resumed from checkpoints), then every table.
+- 2026-11-17 ~17:00, **amendment A2 (50 synthetic seeds), fixed before any 50-seed run.**
+  - **Why:** the verdict combines the anchored p-values of the synthetic seeds as
+    min(1, 2 x median), and with 10 seeds it still depends on synthetic randomness. Merton's
+    anchored statistic ranges from -0.34 to 0.83 across seeds; Merton was BAD with 5 seeds and
+    INCONCLUSIVE with 10.
+  - **Change:** the number of synthetic seeds of E3, E6 and E7 goes from 10 to 50
+    (`SYNTHVAL_N_SEEDS=50`). Seeds 0-9 are those of the 10-seed run. The rule is re-estimated
+    with the same 50 seeds:
+    - E3 power designs D1/D2, 200 replications;
+    - E7 tolerance cells D2 x1.3, 1.35, 1.4, 1.45, 1.5, 2.0 and D1 x1.1, 1/1.1, 200 replications
+      each (`SYNTHVAL_E7_GRID=s50`).
+  - **Tolerance:** the directional reading (D2 upward errors, D1 both directions). In D1 the
+    power at larger deviations is bounded below by the nearest smaller measured deviation in
+    the same direction.
+  - **Unchanged:** everything else, including the decision rule and the models. E3's fitted
+    models and the trained QuantGAN are copied, not refitted, so both seed counts use identical
+    models (QuantGAN `fitted.pkl` sha256 81b57c23a661...).
+  - **Outputs:** `results_v2_s50/`. The 10-seed results in `results_v2/` stay as they are, and
+    both are reported.
+  - **E5:** stays at 10 seeds (robustness grid).
+  - **Order:** after the running 10-seed E7, the 50-seed E3 (fit from the copies, power
+    designs, pooled), E6 and E7 run; then E1 sim and the E5 grid as planned.

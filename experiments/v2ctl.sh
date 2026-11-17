@@ -15,7 +15,7 @@ descendants() { local c; for c in $(pgrep -P "$1"); do echo "$c"; descendants "$
 # Roots: the lane script itself and the experiment processes, matched on their argv[0] (anchored),
 # never on a shell whose command text merely mentions them.
 roots() {
-  pgrep -f '^bash experiments/run_v2(_rest|_gpu|_cpu|_precision)?\.sh' || true
+  pgrep -f '^bash experiments/run_v2(_rest|_gpu|_cpu|_precision|_s50)?\.sh' || true
   pgrep -f '^uv run (--[a-z]+ ?[^ ]* )*python experiments/v2\.py ' || true
   pgrep -f '^[^ ]*/python[0-9.]* experiments/v2\.py ' || true
 }

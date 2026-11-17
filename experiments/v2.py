@@ -99,6 +99,11 @@ def main() -> None:
                 raise SystemExit(f"v2 override {k!r} is not a key of {modname}.FULL")
         m.FULL.update(OVERRIDES[name])
         applied[name] = OVERRIDES[name]
+    ns = os.environ.get("SYNTHVAL_N_SEEDS")
+    if ns and "e3_sp500" in sys.modules:  # amendment A2: synthetic seeds of E3/E6/E7
+        sys.modules["e3_sp500"].FULL["n_seeds"] = int(ns)
+        applied.setdefault("e3", {})
+        applied["e3"] = {**applied["e3"], "n_seeds": int(ns)}
     from synthval import config
     from synthval.pipeline import runtime_config
     out = Path(config.RESULTS_DIR)

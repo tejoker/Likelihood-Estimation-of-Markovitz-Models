@@ -26,6 +26,7 @@ from __future__ import annotations
 import glob
 import logging
 import math
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -57,6 +58,20 @@ DESIGN_FACTORS["D1"] = DESIGN_FACTORS["D1"] + (1 / 1.35, 1 / 1.4, 1 / 1.45)
 PRECISION_CELLS = {("D2", 1.3), ("D2", 1.35), ("D2", 1.4), ("D2", 1.45), ("D2", 1.5),
                    ("D2", 1 / 1.5), ("D1", 1.1), ("D1", 1 / 1.1)}
 PRECISION_REPS = 400
+# Amendment A2 (2026-11-17, fixed before any 50-seed run): with 50 synthetic seeds per decision the
+# rule is evaluated on the cells that decide the directional tolerance only, 200 replications each:
+# D2 upward x1.3..x2.0 (x1.2 and the boundary come from E3's 50-seed power designs) and D1 at
+# +-10%; D1 power at larger deviations is bounded below by its value at the nearest smaller
+# deviation in the same direction (power is non-decreasing in |log factor| in D1, where both
+# directions are alternatives; at 10 seeds it is 1.00 at every factor measured).
+if os.environ.get("SYNTHVAL_E7_GRID") == "s50":
+    DESIGN_FACTORS = {"D2": (1.3, 1.35, 1.4, 1.45, 1.5, 2.0), "D1": (1.1, 1 / 1.1)}
+    DESIGNS_KEY = {k: list(v) for k, v in DESIGN_FACTORS.items()}
+    PRECISION_CELLS = {(d, f) for d, fs in DESIGN_FACTORS.items() for f in fs}
+    PRECISION_REPS = 200
+    D1_MONOTONE_FILL = True
+else:
+    D1_MONOTONE_FILL = False
 #: Grid of the first E7 run (2026-11-17 09:53-13:17), kept in the checkpoint key so its 900
 #: finished blocks are reused; D1 at 1/1.5 and 1/2.0 were added afterwards (needed to evaluate
 #: the amendment's rule at tolerances 0.5 and 1.0) and run as new cells of the same part.
@@ -158,6 +173,12 @@ def build_outputs(ctx: common.ExpContext) -> pd.DataFrame | None:
             return float(m["power"].iloc[0])
         if d == "D1" and f >= E3_VOL_FACTOR:  # non-decreasing in the upward factor
             return power_at("D1", E3_VOL_FACTOR)
+        if d == "D1" and D1_MONOTONE_FILL:  # A2: nearest smaller measured deviation, same direction
+            m = curve[(curve["design"] == "D1") & (curve["vol_factor"] != 1.0)
+                      & ((curve["vol_factor"] > 1) == (f > 1))
+                      & (np.abs(np.log(curve["vol_factor"])) <= abs(math.log(f)) + 1e-12)]
+            if len(m):
+                return float(m.loc[np.abs(np.log(m["vol_factor"])).idxmax(), "power"])
         return math.nan
 
     # Two readings. "prereg": amendment A1 as written (both directions in D1 and D2).
