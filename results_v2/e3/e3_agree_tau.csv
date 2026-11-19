@@ -1,0 +1,5 @@
+scope,critic_statistic,test,tau,n,rank_critic,rank_loglik,tau_ci_lo,tau_ci_hi,ci_note,share_tau_1,share_tau_m1
+pooled,seed 0,critic,1.0,1,GARCHt>Merton>GBM,GARCHt>Merton>GBM,,,,,
+pooled,median over seeds,critic,1.0,1,GARCHt>Merton>GBM,GARCHt>Merton>GBM,,,,,
+per ticker (L=5),per-ticker,critic,0.6066666666666667,100,,,0.49333333333333335,0.7133333333333333,ticker bootstrap; ignores cross-sectional dependence,0.58,0.04
+per ticker (L=5),per-ticker,mmd,0.6266666666666666,100,,,0.52,0.7334999999999992,ticker bootstrap; ignores cross-sectional dependence,0.63,0.04

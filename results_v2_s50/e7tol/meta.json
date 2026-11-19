@@ -1,0 +1,91 @@
+{
+  "experiment": "e7tol",
+  "run_id": "20261118T194129-152352",
+  "started": "2026-11-18T19:41:29",
+  "updated": "2026-11-18T19:41:30",
+  "elapsed_s": 0.845,
+  "git": {
+    "commit": "bb6b2e4b6e3eea1b23d2aa88c9a0d1770ee379c6",
+    "dirty": false,
+    "dirty_paths": [
+      "src",
+      "experiments"
+    ],
+    "n_dirty_files": 0,
+    "dirty_files": []
+  },
+  "code": {
+    "sha256": "6c41eff4b05b4cc673ed0a0ebe817e3eb2b863c0d018a72836fd99140987d931",
+    "n_files": 27,
+    "dir": "src/synthval"
+  },
+  "script": {
+    "path": "experiments/v2.py",
+    "sha256": "e51e3857f5cd774dea34a82af6ce7843a1ce184ee9990dc62ba60dca0818bed6"
+  },
+  "data": {
+    "path": "data/sp500_price_volume.csv",
+    "bytes": 13345909,
+    "sha256": "ddfd0d23dc274a58f8089e53b3872754005033447d77eb2650a0795382f832dc"
+  },
+  "packages": {
+    "python": "3.12.16",
+    "numpy": "2.5.5",
+    "pandas": "3.1.1",
+    "scipy": "1.18.1",
+    "statsmodels": "0.15.0",
+    "matplotlib": "3.11.2",
+    "torch": "2.15.0+cu132",
+    "arch": "9.0.0",
+    "scikit-learn": "1.9.1"
+  },
+  "platform": {
+    "system": "Linux",
+    "release": "7.0.0-43-generic",
+    "machine": "x86_64",
+    "cpu_count": 16
+  },
+  "workers": 4,
+  "argv": [
+    "experiments/v2.py",
+    "e7",
+    "--workers",
+    "1"
+  ],
+  "config": {
+    "quick": false,
+    "parts": [
+      "curve"
+    ],
+    "cfg": {
+      "reps": 100,
+      "precision_reps": 200,
+      "blocks": 1
+    },
+    "designs": {
+      "D2": [
+        1.3,
+        1.35,
+        1.4,
+        1.45,
+        1.5,
+        2.0
+      ],
+      "D1": [
+        1.1,
+        0.9090909090909091
+      ]
+    },
+    "tolerances": [
+      0.1,
+      0.2,
+      0.3,
+      0.35,
+      0.4,
+      0.45,
+      0.5,
+      1.0
+    ],
+    "power_min": 0.8
+  }
+}

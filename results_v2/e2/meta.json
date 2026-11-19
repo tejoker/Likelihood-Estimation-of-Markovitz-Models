@@ -1,0 +1,602 @@
+{
+  "experiment": "e2",
+  "run_id": "20261117T001413-20235",
+  "started": "2026-11-17T00:14:13",
+  "updated": "2026-11-17T00:26:30",
+  "elapsed_s": 736.72,
+  "git": {
+    "commit": "671655b59dff41b94084bac63539747eb225a4ee",
+    "dirty": false,
+    "dirty_paths": [
+      "src",
+      "experiments"
+    ],
+    "n_dirty_files": 0,
+    "dirty_files": []
+  },
+  "code": {
+    "sha256": "6c41eff4b05b4cc673ed0a0ebe817e3eb2b863c0d018a72836fd99140987d931",
+    "n_files": 27,
+    "dir": "src/synthval"
+  },
+  "script": {
+    "path": "experiments/v2.py",
+    "sha256": "58f964581a17d12fc7c25f3fed8ca90e778058b6099f503bfb8add83b566c943"
+  },
+  "data": {
+    "path": "data/sp500_price_volume.csv",
+    "bytes": 13345909,
+    "sha256": "ddfd0d23dc274a58f8089e53b3872754005033447d77eb2650a0795382f832dc"
+  },
+  "packages": {
+    "python": "3.12.16",
+    "numpy": "2.5.5",
+    "pandas": "3.1.1",
+    "scipy": "1.18.1",
+    "statsmodels": "0.15.0",
+    "matplotlib": "3.11.2",
+    "torch": "2.15.0+cu132",
+    "arch": "9.0.0",
+    "scikit-learn": "1.9.1"
+  },
+  "platform": {
+    "system": "Linux",
+    "release": "7.0.0-43-generic",
+    "machine": "x86_64",
+    "cpu_count": 16
+  },
+  "workers": 4,
+  "argv": [
+    "experiments/v2.py",
+    "e2",
+    "--part",
+    "f,g",
+    "--workers",
+    "5"
+  ],
+  "config": {
+    "quick": false,
+    "parts": [
+      "f",
+      "g"
+    ],
+    "plots_only": false,
+    "cfg": {
+      "n_list": [
+        500,
+        2000
+      ],
+      "reps_h0": 200,
+      "reps_h1": 100,
+      "tests": {},
+      "oracle_B": 2000,
+      "oracle_K": 512,
+      "oracle_chunk": 20,
+      "e_n_list": [
+        500,
+        2000
+      ],
+      "e_reps": 200,
+      "e_tests": {},
+      "e_n_boot": 500,
+      "f_reps": 20,
+      "f_n_train": 2000,
+      "f_n_fresh": 2000,
+      "f_tests": {},
+      "f_K": 2048,
+      "f_variants": {
+        "default": {},
+        "fixed": {
+          "early_stopping": false
+        },
+        "long_lowlr": {
+          "early_stopping": false,
+          "n_steps": 3000,
+          "lr": 0.0001
+        }
+      },
+      "g_n": 500,
+      "g_reps": 200,
+      "g_tests": {},
+      "g_time_blocks": 10,
+      "blocks": {
+        "main": 10,
+        "e": 2,
+        "f": 1,
+        "g": 5
+      }
+    },
+    "oracle_mc_init": true
+  },
+  "files": {
+    "e2_f_raw.csv": {
+      "kind": "csv",
+      "rows": 160,
+      "cols": 27,
+      "written": "2026-11-17T00:17:07",
+      "config": {
+        "part": "f",
+        "seed": 20251115,
+        "L": 20,
+        "burn": 250,
+        "comparisons": {
+          "gbm_merton": {
+            "P": {
+              "kind": "merton"
+            },
+            "Q": {
+              "kind": "gbm",
+              "vol": 0.02
+            }
+          },
+          "garch98_garch90": {
+            "P": {
+              "kind": "garch",
+              "pers": 0.98
+            },
+            "Q": {
+              "kind": "garch",
+              "pers": 0.9
+            }
+          }
+        },
+        "n_train": 2000,
+        "n_fresh": 2000,
+        "K": 2048,
+        "lrcritic": {
+          "default": {
+            "n_steps": 1000,
+            "batch_size": 128,
+            "lr": 0.001,
+            "weight_decay": 0.0001,
+            "arch": "auto",
+            "hidden": null,
+            "depth": 3,
+            "layer_norm": false,
+            "train_frac": 0.5,
+            "n_perm": 1000,
+            "early_stopping": true,
+            "val_frac": 0.2,
+            "eval_every": 50,
+            "patience": 5,
+            "min_steps": 0,
+            "curve_points": 100,
+            "hac_lags": null,
+            "inference": "permutation",
+            "tie_break": "conservative",
+            "time_blocks": null,
+            "statistic": "logit",
+            "name": "lrcritic",
+            "stat_offset": 0.0,
+            "stat_scale": 1.0
+          },
+          "fixed": {
+            "n_steps": 1000,
+            "batch_size": 128,
+            "lr": 0.001,
+            "weight_decay": 0.0001,
+            "arch": "auto",
+            "hidden": null,
+            "depth": 3,
+            "layer_norm": false,
+            "train_frac": 0.5,
+            "n_perm": 1000,
+            "early_stopping": false,
+            "val_frac": 0.2,
+            "eval_every": 50,
+            "patience": 5,
+            "min_steps": 0,
+            "curve_points": 100,
+            "hac_lags": null,
+            "inference": "permutation",
+            "tie_break": "conservative",
+            "time_blocks": null,
+            "statistic": "logit",
+            "name": "lrcritic",
+            "stat_offset": 0.0,
+            "stat_scale": 1.0
+          },
+          "long_lowlr": {
+            "n_steps": 3000,
+            "batch_size": 128,
+            "lr": 0.0001,
+            "weight_decay": 0.0001,
+            "arch": "auto",
+            "hidden": null,
+            "depth": 3,
+            "layer_norm": false,
+            "train_frac": 0.5,
+            "n_perm": 1000,
+            "early_stopping": false,
+            "val_frac": 0.2,
+            "eval_every": 50,
+            "patience": 5,
+            "min_steps": 0,
+            "curve_points": 100,
+            "hac_lags": null,
+            "inference": "permutation",
+            "tie_break": "conservative",
+            "time_blocks": null,
+            "statistic": "logit",
+            "name": "lrcritic",
+            "stat_offset": 0.0,
+            "stat_scale": 1.0
+          }
+        },
+        "critic": {
+          "n_steps": 1000,
+          "batch_size": 128,
+          "lr": 0.001,
+          "weight_decay": 0.0,
+          "arch": "auto",
+          "hidden": null,
+          "depth": 3,
+          "layer_norm": false,
+          "train_frac": 0.5,
+          "n_perm": 1000,
+          "early_stopping": false,
+          "val_frac": 0.2,
+          "eval_every": 50,
+          "patience": 5,
+          "min_steps": 0,
+          "curve_points": 100,
+          "hac_lags": null,
+          "inference": "permutation",
+          "tie_break": "conservative",
+          "time_blocks": null,
+          "gp_lambda": 10.0
+        },
+        "mc_init": true,
+        "code_models": "4a126fd58c171a4e",
+        "code_tests_f": "0021baaf3ed1877c",
+        "reps": 20
+      }
+    },
+    "e2_llr_scatter.csv": {
+      "kind": "csv",
+      "rows": 4000,
+      "cols": 7,
+      "written": "2026-11-17T00:17:07",
+      "config": {
+        "part": "f",
+        "seed": 20251115,
+        "L": 20,
+        "burn": 250,
+        "comparisons": {
+          "gbm_merton": {
+            "P": {
+              "kind": "merton"
+            },
+            "Q": {
+              "kind": "gbm",
+              "vol": 0.02
+            }
+          },
+          "garch98_garch90": {
+            "P": {
+              "kind": "garch",
+              "pers": 0.98
+            },
+            "Q": {
+              "kind": "garch",
+              "pers": 0.9
+            }
+          }
+        },
+        "n_train": 2000,
+        "n_fresh": 2000,
+        "K": 2048,
+        "lrcritic": {
+          "default": {
+            "n_steps": 1000,
+            "batch_size": 128,
+            "lr": 0.001,
+            "weight_decay": 0.0001,
+            "arch": "auto",
+            "hidden": null,
+            "depth": 3,
+            "layer_norm": false,
+            "train_frac": 0.5,
+            "n_perm": 1000,
+            "early_stopping": true,
+            "val_frac": 0.2,
+            "eval_every": 50,
+            "patience": 5,
+            "min_steps": 0,
+            "curve_points": 100,
+            "hac_lags": null,
+            "inference": "permutation",
+            "tie_break": "conservative",
+            "time_blocks": null,
+            "statistic": "logit",
+            "name": "lrcritic",
+            "stat_offset": 0.0,
+            "stat_scale": 1.0
+          },
+          "fixed": {
+            "n_steps": 1000,
+            "batch_size": 128,
+            "lr": 0.001,
+            "weight_decay": 0.0001,
+            "arch": "auto",
+            "hidden": null,
+            "depth": 3,
+            "layer_norm": false,
+            "train_frac": 0.5,
+            "n_perm": 1000,
+            "early_stopping": false,
+            "val_frac": 0.2,
+            "eval_every": 50,
+            "patience": 5,
+            "min_steps": 0,
+            "curve_points": 100,
+            "hac_lags": null,
+            "inference": "permutation",
+            "tie_break": "conservative",
+            "time_blocks": null,
+            "statistic": "logit",
+            "name": "lrcritic",
+            "stat_offset": 0.0,
+            "stat_scale": 1.0
+          },
+          "long_lowlr": {
+            "n_steps": 3000,
+            "batch_size": 128,
+            "lr": 0.0001,
+            "weight_decay": 0.0001,
+            "arch": "auto",
+            "hidden": null,
+            "depth": 3,
+            "layer_norm": false,
+            "train_frac": 0.5,
+            "n_perm": 1000,
+            "early_stopping": false,
+            "val_frac": 0.2,
+            "eval_every": 50,
+            "patience": 5,
+            "min_steps": 0,
+            "curve_points": 100,
+            "hac_lags": null,
+            "inference": "permutation",
+            "tie_break": "conservative",
+            "time_blocks": null,
+            "statistic": "logit",
+            "name": "lrcritic",
+            "stat_offset": 0.0,
+            "stat_scale": 1.0
+          }
+        },
+        "critic": {
+          "n_steps": 1000,
+          "batch_size": 128,
+          "lr": 0.001,
+          "weight_decay": 0.0,
+          "arch": "auto",
+          "hidden": null,
+          "depth": 3,
+          "layer_norm": false,
+          "train_frac": 0.5,
+          "n_perm": 1000,
+          "early_stopping": false,
+          "val_frac": 0.2,
+          "eval_every": 50,
+          "patience": 5,
+          "min_steps": 0,
+          "curve_points": 100,
+          "hac_lags": null,
+          "inference": "permutation",
+          "tie_break": "conservative",
+          "time_blocks": null,
+          "gp_lambda": 10.0
+        },
+        "mc_init": true,
+        "code_models": "4a126fd58c171a4e",
+        "code_tests_f": "0021baaf3ed1877c",
+        "reps": 20
+      }
+    },
+    "e2_g_raw.csv": {
+      "kind": "csv",
+      "rows": 2000,
+      "cols": 19,
+      "written": "2026-11-17T00:26:29",
+      "config": {
+        "part": "g",
+        "seed": 20251115,
+        "L": 20,
+        "burn": 250,
+        "spec": {
+          "kind": "garch",
+          "pers": 0.98
+        },
+        "time_blocks": 10,
+        "tests": [
+          [
+            "critic",
+            "permutation",
+            {
+              "n_steps": 1000,
+              "batch_size": 128,
+              "lr": 0.001,
+              "weight_decay": 0.0,
+              "arch": "auto",
+              "hidden": null,
+              "depth": 3,
+              "layer_norm": false,
+              "train_frac": 0.5,
+              "n_perm": 1000,
+              "early_stopping": false,
+              "val_frac": 0.2,
+              "eval_every": 50,
+              "patience": 5,
+              "min_steps": 0,
+              "curve_points": 100,
+              "hac_lags": null,
+              "inference": "permutation",
+              "tie_break": "conservative",
+              "time_blocks": null,
+              "gp_lambda": 10.0
+            }
+          ],
+          [
+            "critic",
+            "hac",
+            {
+              "n_steps": 1000,
+              "batch_size": 128,
+              "lr": 0.001,
+              "weight_decay": 0.0,
+              "arch": "auto",
+              "hidden": null,
+              "depth": 3,
+              "layer_norm": false,
+              "train_frac": 0.5,
+              "n_perm": 1000,
+              "early_stopping": false,
+              "val_frac": 0.2,
+              "eval_every": 50,
+              "patience": 5,
+              "min_steps": 0,
+              "curve_points": 100,
+              "hac_lags": null,
+              "inference": "hac",
+              "tie_break": "conservative",
+              "time_blocks": 10,
+              "gp_lambda": 10.0
+            }
+          ],
+          [
+            "lrcritic",
+            "permutation",
+            {
+              "n_steps": 1000,
+              "batch_size": 128,
+              "lr": 0.001,
+              "weight_decay": 0.0001,
+              "arch": "auto",
+              "hidden": null,
+              "depth": 3,
+              "layer_norm": false,
+              "train_frac": 0.5,
+              "n_perm": 1000,
+              "early_stopping": true,
+              "val_frac": 0.2,
+              "eval_every": 50,
+              "patience": 5,
+              "min_steps": 0,
+              "curve_points": 100,
+              "hac_lags": null,
+              "inference": "permutation",
+              "tie_break": "conservative",
+              "time_blocks": null,
+              "statistic": "logit",
+              "name": "lrcritic",
+              "stat_offset": 0.0,
+              "stat_scale": 1.0
+            }
+          ],
+          [
+            "lrcritic",
+            "hac",
+            {
+              "n_steps": 1000,
+              "batch_size": 128,
+              "lr": 0.001,
+              "weight_decay": 0.0001,
+              "arch": "auto",
+              "hidden": null,
+              "depth": 3,
+              "layer_norm": false,
+              "train_frac": 0.5,
+              "n_perm": 1000,
+              "early_stopping": true,
+              "val_frac": 0.2,
+              "eval_every": 50,
+              "patience": 5,
+              "min_steps": 0,
+              "curve_points": 100,
+              "hac_lags": null,
+              "inference": "hac",
+              "tie_break": "conservative",
+              "time_blocks": 10,
+              "statistic": "logit",
+              "name": "lrcritic",
+              "stat_offset": 0.0,
+              "stat_scale": 1.0
+            }
+          ],
+          [
+            "mmd",
+            "permutation",
+            {
+              "n_perm": 500,
+              "max_n": 3000,
+              "multi_bandwidth": false,
+              "bandwidth": null,
+              "standardize": false,
+              "perm_block": 100,
+              "inference": "permutation",
+              "wild_block": null
+            }
+          ],
+          [
+            "mmd",
+            "wild",
+            {
+              "n_perm": 500,
+              "max_n": 3000,
+              "multi_bandwidth": false,
+              "bandwidth": null,
+              "standardize": false,
+              "perm_block": 100,
+              "inference": "wild",
+              "wild_block": null
+            }
+          ],
+          [
+            "sigmmd",
+            "permutation",
+            {
+              "depth": 4,
+              "time_aug": true,
+              "lead_lag": false,
+              "standardize": true
+            }
+          ],
+          [
+            "sigmmd",
+            "wild",
+            {
+              "depth": 4,
+              "time_aug": true,
+              "lead_lag": false,
+              "standardize": true
+            }
+          ]
+        ],
+        "code_models": "4a126fd58c171a4e",
+        "code_tests": "90aaa20ba99cf74d",
+        "n": 500,
+        "reps": 200
+      }
+    },
+    "e2_llr.csv": {
+      "kind": "csv",
+      "rows": 10,
+      "cols": 17,
+      "written": "2026-11-17T00:26:29"
+    },
+    "e2_dependent.csv": {
+      "kind": "csv",
+      "rows": 10,
+      "cols": 14,
+      "written": "2026-11-17T00:26:30"
+    }
+  },
+  "timing": {
+    "f_s": 172.88072314199962,
+    "g_s": 562.1279992750024,
+    "wall_compute_s": 735.1227490480014,
+    "wall_outputs_s": 0.7677482489998511
+  }
+}

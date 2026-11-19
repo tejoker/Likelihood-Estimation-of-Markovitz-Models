@@ -1,0 +1,9 @@
+tolerance,D1_up,D1_down,D2_up,D2_down,min_power_prereg,resolved_prereg,min_power_directional,resolved_directional
+0.1,0.965,0.985,,,,False,,False
+0.2,1.0,1.0,0.405,0.0,0.0,False,0.405,False
+0.3,1.0,1.0,0.415,0.0,0.0,False,0.415,False
+0.35,1.0,1.0,0.6125,0.02,0.02,False,0.6125,False
+0.4,1.0,1.0,0.92,0.13,0.13,False,0.92,True
+0.45,1.0,1.0,1.0,0.45,0.45,False,1.0,True
+0.5,1.0,1.0,1.0,0.79,0.79,False,1.0,True
+1.0,1.0,1.0,1.0,1.0,1.0,True,1.0,True

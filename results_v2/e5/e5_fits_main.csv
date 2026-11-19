@@ -1,0 +1,6 @@
+split,model,fit_file,n_tickers,n_any_at_bound,fit_seconds_median,fit_seconds_total,at_bound_counts
+main,GBM,results_v2/e3/checkpoints/fit_GBM/9560febffb98/fitted.pkl,100,0,1.6376499843318015e-05,0.0017951279660337605,
+main,Merton,results_v2/e3/checkpoints/fit_Merton/797e673e2ec8/fitted.pkl,100,3,0.10237915700054145,10.335235164988262,lam:3
+main,GARCHt,results_v2/e3/checkpoints/fit_GARCHt/3f9a28f4e794/fitted.pkl,100,1,0.014298818499810295,1.4449728919862537,persistence:1
+main,Heston,results_v2/e3/checkpoints/fit_Heston/2cf175e43c04/fitted.pkl,100,33,8.731170608001776,890.3193949650195,c:11;kappa:5;rho:20
+main,Bootstrap,results_v2/e3/checkpoints/fit_Bootstrap/0ee7019c7d20/fitted.pkl,100,0,0.00032407199978479184,0.032060942005045945,

@@ -1,0 +1,11 @@
+comparison,score,variant,Comparison,Score,reps,Spearman,Pearson,Cal. slope,RMSE,Accuracy,Steps,spearman_median,pearson_median,cal_slope_median,best_step_median,exact_type
+gbm_merton,lrcritic,default,GBM vs Merton,"LR-critic: early stopping (test default; max 1000 steps, lr $10^{-3}$)",20,"0.833 [0.794, 0.887]",0.858,0.456,1.019,0.600,400 (selected),0.8334328138582034,0.858441859517987,0.45627685639317495,400.0,exact
+gbm_merton,lrcritic,fixed,GBM vs Merton,"LR-critic: 1000 steps, lr $10^{-3}$, no early stopping",20,"0.818 [0.726, 0.849]",0.907,0.714,0.754,0.606,1000,0.8176226456556615,0.9065010943964187,0.7141117926724924,,exact
+gbm_merton,lrcritic,long_lowlr,GBM vs Merton,"LR-critic: 3000 steps, lr $10^{-4}$, no early stopping",20,"0.847 [0.822, 0.902]",0.880,0.521,0.959,0.610,3000,0.8470560287640072,0.8803568811577358,0.5212509215510004,,exact
+gbm_merton,critic,default,GBM vs Merton,W-critic: 1000 steps (test default),20,"0.840 [0.725, 0.902]",0.668,0.283,--,--,1000,0.8401755472938868,0.6678543531875052,0.28317733698117764,,exact
+gbm_merton,oracle,,GBM vs Merton,exact $\log p/q$ (oracle),20,1,1,1,0,0.624,--,,,,,exact
+garch98_garch90,lrcritic,default,GARCH 0.98 vs 0.90,"LR-critic: early stopping (test default; max 1000 steps, lr $10^{-3}$)",20,"0.804 [0.756, 0.851]",0.904,0.800,0.316,0.608,300 (selected),0.8041223550305887,0.9042496114944178,0.8003009576957594,300.0,mc_integrated_K2048
+garch98_garch90,lrcritic,fixed,GARCH 0.98 vs 0.90,"LR-critic: 1000 steps, lr $10^{-3}$, no early stopping",20,"0.763 [0.669, 0.831]",0.871,0.847,0.371,0.600,1000,0.7625972776493194,0.8708066727743655,0.8474210472851738,,mc_integrated_K2048
+garch98_garch90,lrcritic,long_lowlr,GARCH 0.98 vs 0.90,"LR-critic: 3000 steps, lr $10^{-4}$, no early stopping",20,"0.799 [0.760, 0.840]",0.898,0.859,0.319,0.605,3000,0.7991614195403548,0.8980603355253324,0.8588455676018047,,mc_integrated_K2048
+garch98_garch90,critic,default,GARCH 0.98 vs 0.90,W-critic: 1000 steps (test default),20,"0.620 [0.562, 0.818]",0.340,0.718,--,--,1000,0.6204257888393274,0.33957178956994083,0.7184321683548089,,mc_integrated_K2048
+garch98_garch90,oracle,,GARCH 0.98 vs 0.90,exact $\log p/q$ (oracle),20,1,1,1,0,0.619,--,,,,,mc_integrated_K2048

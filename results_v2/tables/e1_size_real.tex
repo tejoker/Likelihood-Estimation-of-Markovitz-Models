@@ -1,0 +1,47 @@
+\begin{tabular}{lllrrr}
+\toprule
+Placebo & Test & $p$-value & $\alpha=0.01$ & $\alpha=0.05$ & $\alpha=0.1$ \\
+\midrule
+TEST halves & W-critic & HAC$^{\star}$ & 0.010 & 0.050 & 0.080 \\
+ &  & HAC, fixed-$b$ (cons.) & 0.010 & 0.010 & 0.060 \\
+ &  & HAC, fixed-$b$ (eq.\ var.) & 0.010 & 0.020 & 0.060 \\
+ &  & permutation & 0.260 & 0.490 & 0.550 \\
+ & LR-critic & HAC$^{\star}$ & 0.000 & 0.030 & 0.070 \\
+ &  & HAC, fixed-$b$ (cons.) & 0.000 & 0.010 & 0.040 \\
+ &  & HAC, fixed-$b$ (eq.\ var.) & 0.000 & 0.020 & 0.040 \\
+ &  & permutation & 0.230 & 0.360 & 0.440 \\
+ & C2ST & HAC$^{\star}$ & 0.010 & 0.050 & 0.060 \\
+ &  & HAC, fixed-$b$ (cons.) & 0.000 & 0.010 & 0.040 \\
+ &  & HAC, fixed-$b$ (eq.\ var.) & 0.000 & 0.020 & 0.050 \\
+ &  & permutation & 0.150 & 0.270 & 0.370 \\
+ & MMD & wild bootstrap$^{\star}$ & 0.140 & 0.330 & 0.480 \\
+ &  & permutation & 0.120 & 0.260 & 0.330 \\
+ & Sig-MMD & wild bootstrap$^{\star}$ & 0.180 & 0.380 & 0.490 \\
+ &  & permutation & 0.110 & 0.270 & 0.320 \\
+ & KS & asymptotic i.i.d. (invalid) & 0.340 & 0.460 & 0.550 \\
+TRAIN halves & W-critic & HAC$^{\star}$ & 0.000 & 0.000 & 0.000 \\
+ &  & HAC, fixed-$b$ (cons.) & 0.000 & 0.000 & 0.000 \\
+ &  & HAC, fixed-$b$ (eq.\ var.) & 0.000 & 0.000 & 0.000 \\
+ &  & permutation & 0.020 & 0.060 & 0.110 \\
+ & LR-critic & HAC$^{\star}$ & 0.000 & 0.000 & 0.000 \\
+ &  & HAC, fixed-$b$ (cons.) & 0.000 & 0.000 & 0.000 \\
+ &  & HAC, fixed-$b$ (eq.\ var.) & 0.000 & 0.000 & 0.000 \\
+ &  & permutation & 0.020 & 0.080 & 0.110 \\
+ & C2ST & HAC$^{\star}$ & 0.000 & 0.000 & 0.000 \\
+ &  & HAC, fixed-$b$ (cons.) & 0.000 & 0.000 & 0.000 \\
+ &  & HAC, fixed-$b$ (eq.\ var.) & 0.000 & 0.000 & 0.000 \\
+ &  & permutation & 0.090 & 0.150 & 0.240 \\
+ & MMD & wild bootstrap$^{\star}$ & 0.010 & 0.010 & 0.080 \\
+ &  & permutation & 0.010 & 0.010 & 0.010 \\
+ & Sig-MMD & wild bootstrap$^{\star}$ & 0.030 & 0.170 & 0.230 \\
+ &  & permutation & 0.000 & 0.040 & 0.100 \\
+ & KS & asymptotic i.i.d. (invalid) & 0.120 & 0.230 & 0.350 \\
+ & Anchored relative & HAC$^{\star}$ & 0.000 & 0.000 & 0.000 \\
+ &  & HAC, fixed-$b$ (cons.) & 0.000 & 0.000 & 0.000 \\
+ &  & HAC, fixed-$b$ (eq.\ var.) & 0.000 & 0.000 & 0.000 \\
+ &  & permutation & 0.020 & 0.070 & 0.130 \\
+ &  & stud. permutation & 0.020 & 0.080 & 0.130 \\
+ & Two-critic relative & HAC$^{\star}$ & 0.000 & 0.000 & 0.020 \\
+ &  & paired bootstrap & 0.210 & 0.260 & 0.360 \\
+\bottomrule
+\end{tabular}

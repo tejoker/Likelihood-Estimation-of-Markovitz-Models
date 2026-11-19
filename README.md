@@ -29,6 +29,15 @@ protocol, the experiments and a change log of every decision taken after review.
 statistical theory is in [`docs/theory.md`](docs/theory.md) and the literature map in
 [`docs/literature.md`](docs/literature.md).
 
+## Status
+
+- **v1 paper:** `paper/main.pdf`, git tag `paper-v1`.
+- **v2** (GPU, time-pooled critic, full replication counts, QuantGAN): protocol in
+  [`docs/PROTOCOL_v2.md`](docs/PROTOCOL_v2.md).
+- **First v2 results:** [`docs/STATUS_v2.md`](docs/STATUS_v2.md). Results are in `results_v2/`
+  (10 seeds) and `results_v2_s50/` (50 seeds).
+- **Remaining work** (data, experiments, theory, paper): [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
 ## Install
 
 You need [uv](https://docs.astral.sh/uv/) (tested with uv 0.13.7) on Linux x86-64. uv installs

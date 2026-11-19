@@ -1,0 +1,16 @@
+\begin{tabular}{llrrrrrrrr}
+\toprule
+Model & Test & $p$-value & Tickers & Rej.\ 5\%, cal. [95\% CI] & BH (cal.) & BY (cal.) & Storey $\hat\pi_0$ (cal.) & Rej.\ 5\%, nominal$^{\dagger}$ & Median nominal $p$ \\
+\midrule
+GBM & W-critic & HAC & 100 & 0.70 [0.60, 0.78] & 62 & 43 & 0.06 & 81 & $<$0.001 \\
+ & MMD & wild & 100 & 0.61 [0.51, 0.70] & 0 & 0 & 0.14 & 80 & 0.002 \\
+Merton & W-critic & HAC & 100 & 0.33 [0.25, 0.43] & 8 & 0 & 0.42 & 48 & 0.066 \\
+ & MMD & wild & 100 & 0.36 [0.27, 0.46] & 0 & 0 & 0.42 & 64 & 0.014 \\
+GARCH-t & W-critic & HAC & 100 & 0.19 [0.13, 0.28] & 0 & 0 & 0.54 & 27 & 0.162 \\
+ & MMD & wild & 100 & 0.15 [0.09, 0.23] & 0 & 0 & 0.52 & 34 & 0.130 \\
+Heston & W-critic & HAC & 100 & 0.21 [0.14, 0.30] & 4 & 0 & 0.54 & 36 & 0.113 \\
+ & MMD & wild & 100 & 0.22 [0.15, 0.31] & 0 & 0 & 0.56 & 45 & 0.079 \\
+Stat. bootstrap & W-critic & HAC & 100 & 0.12 [0.07, 0.20] & 0 & 0 & 0.70 & 23 & 0.247 \\
+ & MMD & wild & 100 & 0.16 [0.10, 0.24] & 0 & 0 & 0.74 & 37 & 0.147 \\
+\bottomrule
+\end{tabular}

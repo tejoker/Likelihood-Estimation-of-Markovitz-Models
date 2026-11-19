@@ -1,0 +1,41 @@
+\begin{tabular}{llrrr}
+\toprule
+Model & Parameter & Median & IQR & At bound \\
+\midrule
+GBM & $\mu\times 10^4$ & 2.17 & [0.73, 4.17] & 0 \\
+ & $\sigma\times 100$ & 2.11 & [1.85, 2.51] & 0 \\
+ & Optimiser success (share) & 1.00 & -- &  \\
+ & Fit time (s) & 0.00 & [0.00, 0.00] &  \\
+ & Tickers with a parameter at a bound & 0 &  & of 100 \\
+Merton & $\mu\times 10^4$ & 8.64 & [5.09, 11.36] & 0 \\
+ & $\sigma\times 100$ & 1.38 & [1.18, 1.60] & 0 \\
+ & $\lambda$ & 0.152 & [0.108, 0.237] & 3 \\
+ & $\mu_J\times 100$ & $-$0.36 & [$-$0.52, $-$0.23] & 0 \\
+ & $\sigma_J\times 100$ & 3.73 & [3.18, 4.86] & 0 \\
+ & Optimiser success (share) & 1.00 & -- &  \\
+ & Fit time (s) & 0.10 & [0.10, 0.11] &  \\
+ & Tickers with a parameter at a bound & 3 &  & of 100 \\
+GARCH-t & $\mu\times 10^4$ & 7.78 & [5.38, 9.99] & 0 \\
+ & $\alpha$ & 0.117 & [0.095, 0.148] & 0 \\
+ & $\beta$ & 0.845 & [0.788, 0.874] & 0 \\
+ & $\alpha+\beta$ & 0.965 & [0.940, 0.976] & 1 \\
+ & $\nu$ & 4.88 & [4.43, 5.76] & 0 \\
+ & $\omega\times 10^6$ & 16.69 & [12.55, 28.09] & 0 \\
+ & Optimiser success (share) & 1.00 & -- &  \\
+ & Fit time (s) & 0.01 & [0.01, 0.02] &  \\
+ & Tickers with a parameter at a bound & 1 &  & of 100 \\
+Heston & $\kappa$ & 0.061 & [0.038, 0.098] & 5 \\
+ & $\sqrt{\theta}\times 100$ & 2.13 & [1.87, 2.54] & 0 \\
+ & $\xi\times 100$ & 0.78 & [0.58, 0.98] & 0 \\
+ & $\rho$ & $-$0.47 & [$-$0.81, $-$0.19] & 20 \\
+ & $c=\xi/\sqrt{2\kappa\theta}$ (CV of $v$) & 1.05 & [0.93, 1.12] & 11 \\
+ & Feller condition holds (share) & 0.43 & -- &  \\
+ & Optimiser success (share) & 1.00 & -- &  \\
+ & Fit time (s) & 8.73 & [7.46, 10.41] &  \\
+ & Tickers with a parameter at a bound & 33 &  & of 100 \\
+Stat. bootstrap & Mean block length & 52.3 & [43.9, 55.7] & 0 \\
+ & Block-rule fallback (tickers) & 0 & -- &  \\
+ & Fit time (s) & 0.00 & [0.00, 0.00] &  \\
+ & Tickers with a parameter at a bound & 0 &  & of 100 \\
+\bottomrule
+\end{tabular}

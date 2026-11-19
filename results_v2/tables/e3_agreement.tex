@@ -1,0 +1,18 @@
+\begin{tabular}{lrrr}
+\toprule
+Measure & Model / test & Value & Detail \\
+\midrule
+Kendall $\tau$, pooled (critic seed 0) & 3 likelihood models & 1.00 & critic: GARCH-t $>$ Merton $>$ GBM; log-score: GARCH-t $>$ Merton $>$ GBM \\
+Kendall $\tau$, pooled (critic median over seeds) & 3 likelihood models & 1.00 & critic: GARCH-t $>$ Merton $>$ GBM; log-score: GARCH-t $>$ Merton $>$ GBM \\
+Kendall $\tau$, per ticker (mean; descriptive) & W-critic, $L=5$ & 0.61 & $\tau=1$: 0.58, $\tau=-1$: 0.04 (random rankings: 0.17 each); 100 tickers \\
+Kendall $\tau$, per ticker (mean; descriptive) & MMD, $L=5$ & 0.63 & $\tau=1$: 0.63, $\tau=-1$: 0.04 (random rankings: 0.17 each); 100 tickers \\
+Cohen $\kappa$ vs Berkowitz (BH; 5\%), cal. $p$ & GBM, W-critic & 0.34; 0.33 & both 62, test only 0, Berkowitz only 27, neither 11 \\
+Cohen $\kappa$ vs Berkowitz (BH; 5\%), cal. $p$ & Merton, W-critic & 0.04; 0.17 & both 8, test only 0, Berkowitz only 72, neither 20 \\
+Cohen $\kappa$ vs Berkowitz (BH; 5\%), cal. $p$ & GARCH-t, W-critic & 0.00; 0.24 & both 0, test only 0, Berkowitz only 16, neither 84 \\
+Cohen $\kappa$ vs Berkowitz (BH; 5\%), cal. $p$ & 3 models, within-model chance agreement, W-critic & 0.13; 0.23 & both 70, test only 0, Berkowitz only 115, neither 115 \\
+Cohen $\kappa$ vs Berkowitz (BH; 5\%), cal. $p$ & GBM, MMD & 0.00; 0.32 & both 0, test only 0, Berkowitz only 89, neither 11 \\
+Cohen $\kappa$ vs Berkowitz (BH; 5\%), cal. $p$ & Merton, MMD & 0.00; 0.23 & both 0, test only 0, Berkowitz only 80, neither 20 \\
+Cohen $\kappa$ vs Berkowitz (BH; 5\%), cal. $p$ & GARCH-t, MMD & 0.00; 0.27 & both 0, test only 0, Berkowitz only 16, neither 84 \\
+Cohen $\kappa$ vs Berkowitz (BH; 5\%), cal. $p$ & 3 models, within-model chance agreement, MMD & 0.00; 0.27 & both 0, test only 0, Berkowitz only 185, neither 115 \\
+\bottomrule
+\end{tabular}

@@ -1,0 +1,21 @@
+test,model,rule,pvalue_basis,n,kappa,agreement,both_reject,only_test,only_berkowitz,neither
+critic,GBM,bh,calibrated,100,0.33562992125984265,0.73,62,0,27,11
+critic,Merton,bh,calibrated,100,0.04255319148936178,0.28,8,0,72,20
+critic,GARCHt,bh,calibrated,100,0.0,0.84,0,0,16,84
+critic,stratified,bh,calibrated,300,0.12773058252427194,0.6166666666666667,70,0,115,115
+critic,pooled (model effects),bh,calibrated,300,0.3181818181818183,0.6166666666666667,70,0,115,115
+critic,GBM,raw,calibrated,100,0.3313953488372093,0.77,68,2,21,9
+critic,Merton,raw,calibrated,100,0.1740997687479353,0.5,32,1,49,18
+critic,GARCHt,raw,calibrated,100,0.23973644196654842,0.7,11,8,22,59
+critic,stratified,raw,calibrated,300,0.2336309523809524,0.6566666666666666,111,11,92,86
+critic,pooled (model effects),raw,calibrated,300,0.35582054703135413,0.6566666666666666,111,11,92,86
+mmd,GBM,bh,calibrated,100,1.559302000878029e-17,0.11,0,0,89,11
+mmd,Merton,bh,calibrated,100,6.938893903907228e-17,0.2,0,0,80,20
+mmd,GARCHt,bh,calibrated,100,0.0,0.84,0,0,16,84
+mmd,stratified,bh,calibrated,300,3.750753461571475e-17,0.38333333333333336,0,0,185,115
+mmd,pooled (model effects),bh,calibrated,300,9.001808307771539e-17,0.38333333333333336,0,0,185,115
+mmd,GBM,raw,calibrated,100,0.32399806856590996,0.72,61,0,28,11
+mmd,Merton,raw,calibrated,100,0.2331288343558283,0.55,36,0,45,19
+mmd,GARCHt,raw,calibrated,100,0.26509186351706054,0.72,10,5,23,62
+mmd,stratified,raw,calibrated,300,0.26917510853835025,0.6633333333333333,107,5,96,92
+mmd,pooled (model effects),raw,calibrated,300,0.38198580403035,0.6633333333333333,107,5,96,92

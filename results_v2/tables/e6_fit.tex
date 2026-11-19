@@ -1,0 +1,27 @@
+\begin{tabular}{lr}
+\toprule
+Quantity & QuantGAN \\
+\midrule
+Device & cuda \\
+Loss & wgan-gp \\
+Receptive field (days) & 127 \\
+Generator weights & 161775 \\
+Discriminator weights & 161455 \\
+Tickers (pooled) & 100 \\
+Training windows & 113200 \\
+Generator steps & 10000 \\
+Critic steps per generator step & 5 \\
+Batch size & 64 \\
+Training time (min) & 37.4 \\
+Lambert W $\delta$ & 0.208 \\
+Lambert W $\sigma$ & 0.664 \\
+Critic $\hat W$, last 10\% of steps & 0.839 \\
+Penalty, last 10\% of steps & 0.015 \\
+TRAIN check: Std.\ dev., real / sim. & 1.000 / 1.152 \\
+TRAIN check: Excess kurtosis, real / sim. & 12.93 / 3206.60 \\
+TRAIN check: ACF $|z|$, lag 1 (median), real / sim. & 0.277 / 0.180 \\
+TRAIN check: ACF $|z|$, lag 20 (median), real / sim. & 0.118 / 0.078 \\
+TRAIN check: $\max |z|$, real / sim. & 18.1 / 138.2 \\
+TRAIN check: Finite share, real / sim. & 1.000 / 1.000 \\
+\bottomrule
+\end{tabular}

@@ -1,0 +1,23 @@
+\begin{tabular}{llrrrrrrr}
+\toprule
+Test & $p$-value & Statistic & Units & $z_{\mathrm{HAC}}$ & Median $p$ & $2\times$median $p$ & Share $p\le 0.05$ & Stationary placebo, $\alpha=0.05$ \\
+\midrule
+W-critic & HAC$^{\star}$ & 0.100 & critic mean diff. & 0.421 & 0.343 & 0.687 & 0.100 & 0.115 [0.078, 0.167] \\
+ & HAC, fixed-$b$ (cons.) & 0.100 & critic mean diff. & 0.421 & 0.375 & 0.749 & 0.000 & 0.055 [0.031, 0.096] \\
+ & HAC, fixed-$b$ (eq.\ var.) & 0.100 & critic mean diff. & 0.421 & 0.357 & 0.713 & 0.000 & 0.095 [0.062, 0.144] \\
+ & permutation & 0.100 & critic mean diff. & -- & 0.056 & 0.113 & 0.500 & 0.500 [0.431, 0.569] \\
+LR-critic & HAC$^{\star}$ & 0.048 & mean logit diff. & 0.240 & 0.405 & 0.811 & 0.000 & 0.100 [0.066, 0.149] \\
+ & HAC, fixed-$b$ (cons.) & 0.048 & mean logit diff. & 0.240 & 0.423 & 0.847 & 0.000 & 0.030 [0.014, 0.064] \\
+ & HAC, fixed-$b$ (eq.\ var.) & 0.048 & mean logit diff. & 0.240 & 0.413 & 0.825 & 0.000 & 0.055 [0.031, 0.096] \\
+ & permutation & 0.048 & mean logit diff. & -- & 0.175 & 0.350 & 0.400 & 0.420 [0.354, 0.489] \\
+C2ST & HAC$^{\star}$ & 0.511 & eval.\ accuracy & 0.291 & 0.386 & 0.771 & 0.000 & 0.105 [0.070, 0.155] \\
+ & HAC, fixed-$b$ (cons.) & 0.511 & eval.\ accuracy & 0.291 & 0.401 & 0.803 & 0.000 & 0.035 [0.017, 0.070] \\
+ & HAC, fixed-$b$ (eq.\ var.) & 0.511 & eval.\ accuracy & 0.291 & 0.396 & 0.791 & 0.000 & 0.050 [0.027, 0.090] \\
+ & permutation & 0.511 & eval.\ accuracy & -- & 0.109 & 0.217 & 0.500 & 0.375 [0.311, 0.444] \\
+MMD & wild bootstrap$^{\star}$ & 0.006 & $\mathrm{MMD}^2_u$ & -- & 0.202 & 0.403 & 0.000 & 0.105 [0.070, 0.155] \\
+ & permutation & 0.006 & $\mathrm{MMD}^2_u$ & -- & 0.002 & 0.004 & 1.000 & 1.000 [0.981, 1.000] \\
+Sig-MMD & wild bootstrap$^{\star}$ & 0.002 & sig-$\mathrm{MMD}^2_u$ & -- & 0.687 & 1.000 & 0.000 & 0.130 [0.090, 0.184] \\
+ & permutation & 0.002 & sig-$\mathrm{MMD}^2_u$ & -- & 0.002 & 0.004 & 1.000 & 1.000 [0.981, 1.000] \\
+KS & asymptotic i.i.d. (invalid) & 0.032 & KS $D$ & -- & 0.000 & 0.000 & 1.000 & 0.980 [0.950, 0.992] \\
+\bottomrule
+\end{tabular}

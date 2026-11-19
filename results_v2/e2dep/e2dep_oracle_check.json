@@ -1,0 +1,9 @@
+{
+  "max_abs_err_window": 1.687112671788782e-10,
+  "max_abs_err_with_tail": 0.003218569506266533,
+  "median_abs_err_window": 3.139888349323883e-11,
+  "Km": 2048,
+  "G": 1000,
+  "n_windows": 2000,
+  "seconds_tabulated_2000_windows": 0.9617973310014349
+}

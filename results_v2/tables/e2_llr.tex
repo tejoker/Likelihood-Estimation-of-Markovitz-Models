@@ -1,0 +1,16 @@
+\begin{tabular}{llrrrrrr}
+\toprule
+Comparison & Score & Spearman & Pearson & Cal. slope & RMSE & Accuracy & Steps \\
+\midrule
+GBM vs Merton & LR-critic: early stopping (test default; max 1000 steps, lr $10^{-3}$) & 0.833 [0.794, 0.887] & 0.858 & 0.456 & 1.019 & 0.600 & 400 (selected) \\
+ & LR-critic: 1000 steps, lr $10^{-3}$, no early stopping & 0.818 [0.726, 0.849] & 0.907 & 0.714 & 0.754 & 0.606 & 1000 \\
+ & LR-critic: 3000 steps, lr $10^{-4}$, no early stopping & 0.847 [0.822, 0.902] & 0.880 & 0.521 & 0.959 & 0.610 & 3000 \\
+ & W-critic: 1000 steps (test default) & 0.840 [0.725, 0.902] & 0.668 & 0.283 & -- & -- & 1000 \\
+ & exact $\log p/q$ (oracle) & 1 & 1 & 1 & 0 & 0.624 & -- \\
+GARCH 0.98 vs 0.90 & LR-critic: early stopping (test default; max 1000 steps, lr $10^{-3}$) & 0.804 [0.756, 0.851] & 0.904 & 0.800 & 0.316 & 0.608 & 300 (selected) \\
+ & LR-critic: 1000 steps, lr $10^{-3}$, no early stopping & 0.763 [0.669, 0.831] & 0.871 & 0.847 & 0.371 & 0.600 & 1000 \\
+ & LR-critic: 3000 steps, lr $10^{-4}$, no early stopping & 0.799 [0.760, 0.840] & 0.898 & 0.859 & 0.319 & 0.605 & 3000 \\
+ & W-critic: 1000 steps (test default) & 0.620 [0.562, 0.818] & 0.340 & 0.718 & -- & -- & 1000 \\
+ & exact $\log p/q$ (oracle) & 1 & 1 & 1 & 0 & 0.619 & -- \\
+\bottomrule
+\end{tabular}

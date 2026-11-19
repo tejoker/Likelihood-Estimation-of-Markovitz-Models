@@ -1,0 +1,323 @@
+{
+  "experiment": "e5",
+  "run_id": "20261117T132827-49095",
+  "started": "2026-11-17T13:28:27",
+  "updated": "2026-11-17T13:28:28",
+  "elapsed_s": 0.919,
+  "git": {
+    "commit": "c9ad753910f66e075b55011ee6ee0f5d6193c052",
+    "dirty": false,
+    "dirty_paths": [
+      "src",
+      "experiments"
+    ],
+    "n_dirty_files": 0,
+    "dirty_files": []
+  },
+  "code": {
+    "sha256": "6c41eff4b05b4cc673ed0a0ebe817e3eb2b863c0d018a72836fd99140987d931",
+    "n_files": 27,
+    "dir": "src/synthval"
+  },
+  "script": {
+    "path": "experiments/v2.py",
+    "sha256": "7df049c9a9cde32f3a18ca51e451ae504ab81a11e8945f7af1a3ebd349dd860c"
+  },
+  "data": {
+    "path": "data/sp500_price_volume.csv",
+    "bytes": 13345909,
+    "sha256": "ddfd0d23dc274a58f8089e53b3872754005033447d77eb2650a0795382f832dc"
+  },
+  "packages": {
+    "python": "3.12.16",
+    "numpy": "2.5.5",
+    "pandas": "3.1.1",
+    "scipy": "1.18.1",
+    "statsmodels": "0.15.0",
+    "matplotlib": "3.11.2",
+    "torch": "2.15.0+cu132",
+    "arch": "9.0.0",
+    "scikit-learn": "1.9.1"
+  },
+  "platform": {
+    "system": "Linux",
+    "release": "7.0.0-43-generic",
+    "machine": "x86_64",
+    "cpu_count": 16
+  },
+  "workers": 4,
+  "argv": [
+    "experiments/v2.py",
+    "e5",
+    "--part",
+    "gridpower,gridrealvol",
+    "--workers",
+    "1"
+  ],
+  "config": {
+    "quick": false,
+    "parts": [
+      "gridpower",
+      "gridrealvol"
+    ],
+    "plots_only": false,
+    "configs": [
+      "default",
+      "L5",
+      "L10",
+      "L60",
+      "cap_small",
+      "cap_large",
+      "steps500",
+      "steps3000",
+      "lr1e-4",
+      "gp1",
+      "tb4",
+      "tf0.3",
+      "tf0.7",
+      "hacNW"
+    ],
+    "cfg": {
+      "n_tickers": null,
+      "n_seeds": 10,
+      "critic_base": {},
+      "steps_scale": 1.0,
+      "power_reps": 50,
+      "power_reps_default": 200,
+      "size_reps": 200,
+      "size_designs": [
+        "garch",
+        "factor"
+      ],
+      "factor_burn_in": 1000,
+      "split_power_reps": 50,
+      "split_test_kw": {},
+      "n_boot": 500,
+      "model_kw_override": {},
+      "sim_n": 500,
+      "sim_reps": 50,
+      "sim_base": {},
+      "n_perm_small": 200,
+      "blocks": {
+        "grid": 1,
+        "gridsize": 10,
+        "power": 1,
+        "split": 1,
+        "simpower": 10
+      }
+    },
+    "grid": [
+      {
+        "config": "default",
+        "factor": "Default",
+        "setting": "--",
+        "L": 20,
+        "kw": {}
+      },
+      {
+        "config": "L5",
+        "factor": "Window length $L$",
+        "setting": "5",
+        "L": 5,
+        "kw": {}
+      },
+      {
+        "config": "L10",
+        "factor": "Window length $L$",
+        "setting": "10",
+        "L": 10,
+        "kw": {}
+      },
+      {
+        "config": "L60",
+        "factor": "Window length $L$",
+        "setting": "60",
+        "L": 60,
+        "kw": {}
+      },
+      {
+        "config": "cap_small",
+        "factor": "Width$\\times$depth",
+        "setting": "$32\\times2$",
+        "L": 20,
+        "kw": {
+          "hidden": 32,
+          "depth": 2
+        }
+      },
+      {
+        "config": "cap_large",
+        "factor": "Width$\\times$depth",
+        "setting": "$256\\times4$",
+        "L": 20,
+        "kw": {
+          "hidden": 256,
+          "depth": 4
+        }
+      },
+      {
+        "config": "steps500",
+        "factor": "Critic steps",
+        "setting": "500",
+        "L": 20,
+        "kw": {
+          "n_steps": 500
+        }
+      },
+      {
+        "config": "steps3000",
+        "factor": "Critic steps",
+        "setting": "3000",
+        "L": 20,
+        "kw": {
+          "n_steps": 3000
+        }
+      },
+      {
+        "config": "lr1e-4",
+        "factor": "Learning rate",
+        "setting": "$10^{-4}$",
+        "L": 20,
+        "kw": {
+          "lr": 0.0001
+        }
+      },
+      {
+        "config": "gp1",
+        "factor": "GP weight $\\lambda$",
+        "setting": "1",
+        "L": 20,
+        "kw": {
+          "gp_lambda": 1.0
+        }
+      },
+      {
+        "config": "tb4",
+        "factor": "Time blocks",
+        "setting": "4",
+        "L": 20,
+        "kw": {
+          "time_blocks": 4
+        }
+      },
+      {
+        "config": "tf0.3",
+        "factor": "Train fraction",
+        "setting": "0.3",
+        "L": 20,
+        "kw": {
+          "train_frac": 0.3
+        }
+      },
+      {
+        "config": "tf0.7",
+        "factor": "Train fraction",
+        "setting": "0.7",
+        "L": 20,
+        "kw": {
+          "train_frac": 0.7
+        }
+      },
+      {
+        "config": "hacNW",
+        "factor": "HAC lag rule",
+        "setting": "Newey-West",
+        "L": 20,
+        "kw": {
+          "hac_lags": "nw"
+        }
+      }
+    ],
+    "models": [
+      "GBM",
+      "Merton",
+      "GARCHt",
+      "Heston",
+      "Bootstrap"
+    ],
+    "model_kw": {
+      "GBM": {},
+      "Merton": {},
+      "GARCHt": {
+        "variance_targeting": true,
+        "persist_max": 0.995
+      },
+      "Heston": {},
+      "Bootstrap": {}
+    },
+    "alt_split": [
+      [
+        "2018-01-02",
+        "2021-12-31"
+      ],
+      [
+        "2022-01-03",
+        "2025-06-17"
+      ]
+    ],
+    "pipeline": {
+      "WINDOW_L": 20,
+      "ALPHA": 0.05,
+      "TIME_BLOCKS": 10,
+      "N_PERM": 1000,
+      "N_PERM_KERNEL": 500,
+      "KERNEL_MAX_N": 3000,
+      "N_BOOT": 500,
+      "BURN_IN": 250,
+      "CRITIC_KW": {
+        "n_steps": 1000,
+        "batch_size": 128,
+        "lr": 0.001,
+        "betas": [
+          0.5,
+          0.9
+        ],
+        "gp_lambda": 10.0,
+        "n_perm": 1000
+      },
+      "ABSOLUTE_TESTS": [
+        "critic",
+        "lrcritic",
+        "c2st",
+        "mmd",
+        "sigmmd",
+        "ks"
+      ],
+      "RELATIVE_METHODS": [
+        "anchored",
+        "two_critic"
+      ],
+      "POWER_MODEL": "GARCHt",
+      "POWER_VOL_FACTOR": 1.2,
+      "POWER_N_REPS": 50,
+      "POWER_MIN": 0.8,
+      "TRAIN": [
+        "2018-01-02",
+        "2022-12-30"
+      ],
+      "TEST": [
+        "2023-01-03",
+        "2025-06-17"
+      ],
+      "N_PANEL": 100,
+      "PANEL_SEED": 20251114,
+      "DEVICE": "cuda",
+      "ARCH_1D": "pooled",
+      "ARCH_2D": "pooled",
+      "TORCH": "2.15.0+cu132"
+    },
+    "root_seed": 20251117,
+    "e3_root_seed": 20251116,
+    "code": "e733cb639cb8684e",
+    "e3_alignment": {
+      "n_seeds": true,
+      "power_reps_default": true,
+      "n_boot": true,
+      "default critic settings": true,
+      "designs": true
+    },
+    "rel_invalid": {
+      "Bootstrap": "G copies R_past windows seen by the critic as pool negatives (train/eval leakage)"
+    }
+  }
+}
