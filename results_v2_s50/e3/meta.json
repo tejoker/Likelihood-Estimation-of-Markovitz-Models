@@ -1,11 +1,11 @@
 {
   "experiment": "e3",
-  "run_id": "20261118T190945-150919",
-  "started": "2026-11-18T19:09:45",
-  "updated": "2026-11-18T19:39:18",
-  "elapsed_s": 1772.627,
+  "run_id": "20261119T230042-241094",
+  "started": "2026-11-19T23:00:42",
+  "updated": "2026-11-19T23:00:44",
+  "elapsed_s": 1.793,
   "git": {
-    "commit": "bb6b2e4b6e3eea1b23d2aa88c9a0d1770ee379c6",
+    "commit": "22083719d494cf1150963b9a4451e17a64636efb",
     "dirty": false,
     "dirty_paths": [
       "src",
@@ -49,17 +49,24 @@
   "argv": [
     "experiments/v2.py",
     "e3",
-    "--part",
-    "pooled",
-    "--workers",
-    "5"
+    "--plots-only"
   ],
   "config": {
     "quick": false,
     "parts": [
-      "pooled"
+      "fit",
+      "power",
+      "realvol",
+      "pooled",
+      "perticker",
+      "perticker_null",
+      "witness",
+      "stylized",
+      "likelihood",
+      "agree",
+      "verdict"
     ],
-    "plots_only": false,
+    "plots_only": true,
     "cfg": {
       "n_tickers": null,
       "n_seeds": 50,
@@ -258,205 +265,11 @@
     }
   },
   "files": {
-    "e3_pooled_raw.csv": {
-      "kind": "csv",
-      "rows": 2000,
-      "cols": 41,
-      "written": "2026-11-18T19:39:17",
-      "config": {
-        "part": "pooled",
-        "tickers": [
-          "ADI",
-          "ADSK",
-          "AIZ",
-          "AJG",
-          "AKAM",
-          "ALL",
-          "APTV",
-          "AVGO",
-          "BA",
-          "BALL",
-          "BLK",
-          "CBOE",
-          "CCI",
-          "CF",
-          "CHD",
-          "CL",
-          "CMCSA",
-          "CME",
-          "CMG",
-          "CMS",
-          "COR",
-          "CPB",
-          "CPRT",
-          "CSCO",
-          "CTRA",
-          "DAL",
-          "DG",
-          "DLTR",
-          "EA",
-          "EMN",
-          "EMR",
-          "ETN",
-          "EVRG",
-          "FFIV",
-          "FICO",
-          "FITB",
-          "GD",
-          "GOOG",
-          "GS",
-          "HAL",
-          "HIG",
-          "HRL",
-          "HST",
-          "ICE",
-          "INCY",
-          "INTC",
-          "IP",
-          "IVZ",
-          "JKHY",
-          "KEY",
-          "KIM",
-          "L",
-          "LH",
-          "LKQ",
-          "LMT",
-          "MAA",
-          "MAR",
-          "MKC",
-          "MLM",
-          "MNST",
-          "MTB",
-          "NDAQ",
-          "NEM",
-          "NRG",
-          "NVDA",
-          "OMC",
-          "ON",
-          "ORCL",
-          "ORLY",
-          "PANW",
-          "PCAR",
-          "PG",
-          "PODD",
-          "PRU",
-          "PTC",
-          "RCL",
-          "RF",
-          "RJF",
-          "RL",
-          "ROK",
-          "ROST",
-          "RTX",
-          "SCHW",
-          "SJM",
-          "SNA",
-          "SPG",
-          "SPGI",
-          "SWKS",
-          "TAP",
-          "TDG",
-          "TMUS",
-          "TRGP",
-          "VICI",
-          "VRTX",
-          "WAB",
-          "WFC",
-          "WSM",
-          "XOM",
-          "XYL",
-          "YUM"
-        ],
-        "fit_hash": {
-          "GBM": "9560febffb98:643aa816d474",
-          "Merton": "797e673e2ec8:8db510dba073",
-          "GARCHt": "3f9a28f4e794:867ee8df6e2a",
-          "Heston": "2cf175e43c04:4d6e9837a515",
-          "Bootstrap": "0ee7019c7d20:fe99d45bde01"
-        },
-        "tests": [
-          "critic",
-          "lrcritic",
-          "c2st",
-          "mmd",
-          "sigmmd",
-          "ks"
-        ],
-        "methods": [
-          "anchored",
-          "two_critic"
-        ],
-        "test_kw": {},
-        "base_kw": {},
-        "n_boot": 500,
-        "protocol": "dependent",
-        "root_seed": 20251116,
-        "pipeline": {
-          "WINDOW_L": 20,
-          "ALPHA": 0.05,
-          "TIME_BLOCKS": 10,
-          "N_PERM": 1000,
-          "N_PERM_KERNEL": 500,
-          "KERNEL_MAX_N": 3000,
-          "N_BOOT": 500,
-          "BURN_IN": 250,
-          "CRITIC_KW": {
-            "n_steps": 1000,
-            "batch_size": 128,
-            "lr": 0.001,
-            "betas": [
-              0.5,
-              0.9
-            ],
-            "gp_lambda": 10.0,
-            "n_perm": 1000
-          },
-          "ABSOLUTE_TESTS": [
-            "critic",
-            "lrcritic",
-            "c2st",
-            "mmd",
-            "sigmmd",
-            "ks"
-          ],
-          "RELATIVE_METHODS": [
-            "anchored",
-            "two_critic"
-          ],
-          "POWER_MODEL": "GARCHt",
-          "POWER_VOL_FACTOR": 1.2,
-          "POWER_N_REPS": 50,
-          "POWER_MIN": 0.8,
-          "TRAIN": [
-            "2018-01-02",
-            "2022-12-30"
-          ],
-          "TEST": [
-            "2023-01-03",
-            "2025-06-17"
-          ],
-          "N_PANEL": 100,
-          "PANEL_SEED": 20251114,
-          "DEVICE": "cuda",
-          "ARCH_1D": "pooled",
-          "ARCH_2D": "pooled",
-          "TORCH": "2.15.0+cu132"
-        },
-        "train_steps": true,
-        "n_seeds": 50
-      }
-    },
-    "e3_pooled_summary.csv": {
-      "kind": "csv",
-      "rows": 40,
-      "cols": 25,
-      "written": "2026-11-18T19:39:17"
-    },
     "e3_verdicts.csv": {
       "kind": "csv",
       "rows": 5,
       "cols": 57,
-      "written": "2026-11-18T19:39:17",
+      "written": "2026-11-19T23:00:43",
       "config": {
         "part": "verdict",
         "alpha": 0.05,
@@ -475,19 +288,24 @@
       "kind": "csv",
       "rows": 35,
       "cols": 5,
-      "written": "2026-11-18T19:39:17"
+      "written": "2026-11-19T23:00:43"
     },
     "e3_heston_moments_summary.csv": {
       "kind": "csv",
       "rows": 8,
       "cols": 7,
-      "written": "2026-11-18T19:39:17"
+      "written": "2026-11-19T23:00:43"
+    },
+    "e3_pooled_summary.csv": {
+      "kind": "csv",
+      "rows": 40,
+      "cols": 25,
+      "written": "2026-11-19T23:00:43"
     }
   },
   "timing": {
-    "pooled_wall_s": 1770.8895287020132,
-    "verdict_wall_s": 0.02667245498741977,
-    "wall_compute_s": 1770.9448914290115,
-    "wall_outputs_s": 0.7401149659999646
+    "verdict_wall_s": 0.026975154993124306,
+    "wall_compute_s": 0.0452783289947547,
+    "wall_outputs_s": 0.7349097790429369
   }
 }

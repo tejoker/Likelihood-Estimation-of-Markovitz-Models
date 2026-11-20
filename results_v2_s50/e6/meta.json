@@ -1,11 +1,11 @@
 {
   "experiment": "e6",
-  "run_id": "20261118T193919-152176",
-  "started": "2026-11-18T19:39:19",
-  "updated": "2026-11-18T19:41:28",
-  "elapsed_s": 128.579,
+  "run_id": "20261119T230045-241142",
+  "started": "2026-11-19T23:00:45",
+  "updated": "2026-11-19T23:00:47",
+  "elapsed_s": 1.463,
   "git": {
-    "commit": "bb6b2e4b6e3eea1b23d2aa88c9a0d1770ee379c6",
+    "commit": "22083719d494cf1150963b9a4451e17a64636efb",
     "dirty": false,
     "dirty_paths": [
       "src",
@@ -49,17 +49,17 @@
   "argv": [
     "experiments/v2.py",
     "e6",
-    "--part",
-    "pooled",
-    "--workers",
-    "5"
+    "--plots-only"
   ],
   "config": {
     "quick": false,
     "parts": [
-      "pooled"
+      "fit",
+      "pooled",
+      "stylized",
+      "verdict"
     ],
-    "plots_only": false,
+    "plots_only": true,
     "cfg": {
       "n_tickers": null,
       "n_seeds": 50,
@@ -242,189 +242,11 @@
     }
   },
   "files": {
-    "e6_pooled_raw.csv": {
-      "kind": "csv",
-      "rows": 100,
-      "cols": 41,
-      "written": "2026-11-18T19:41:27",
-      "config": {
-        "part": "pooled",
-        "tickers": [
-          "ADI",
-          "ADSK",
-          "AIZ",
-          "AJG",
-          "AKAM",
-          "ALL",
-          "APTV",
-          "AVGO",
-          "BA",
-          "BALL",
-          "BLK",
-          "CBOE",
-          "CCI",
-          "CF",
-          "CHD",
-          "CL",
-          "CMCSA",
-          "CME",
-          "CMG",
-          "CMS",
-          "COR",
-          "CPB",
-          "CPRT",
-          "CSCO",
-          "CTRA",
-          "DAL",
-          "DG",
-          "DLTR",
-          "EA",
-          "EMN",
-          "EMR",
-          "ETN",
-          "EVRG",
-          "FFIV",
-          "FICO",
-          "FITB",
-          "GD",
-          "GOOG",
-          "GS",
-          "HAL",
-          "HIG",
-          "HRL",
-          "HST",
-          "ICE",
-          "INCY",
-          "INTC",
-          "IP",
-          "IVZ",
-          "JKHY",
-          "KEY",
-          "KIM",
-          "L",
-          "LH",
-          "LKQ",
-          "LMT",
-          "MAA",
-          "MAR",
-          "MKC",
-          "MLM",
-          "MNST",
-          "MTB",
-          "NDAQ",
-          "NEM",
-          "NRG",
-          "NVDA",
-          "OMC",
-          "ON",
-          "ORCL",
-          "ORLY",
-          "PANW",
-          "PCAR",
-          "PG",
-          "PODD",
-          "PRU",
-          "PTC",
-          "RCL",
-          "RF",
-          "RJF",
-          "RL",
-          "ROK",
-          "ROST",
-          "RTX",
-          "SCHW",
-          "SJM",
-          "SNA",
-          "SPG",
-          "SPGI",
-          "SWKS",
-          "TAP",
-          "TDG",
-          "TMUS",
-          "TRGP",
-          "VICI",
-          "VRTX",
-          "WAB",
-          "WFC",
-          "WSM",
-          "XOM",
-          "XYL",
-          "YUM"
-        ],
-        "fit_hash": {
-          "QuantGAN": "c8cc25a8cb03:99f07cfe62c0"
-        },
-        "tests": [
-          "critic"
-        ],
-        "methods": [
-          "anchored"
-        ],
-        "test_kw": {},
-        "base_kw": {},
-        "n_boot": 500,
-        "protocol": "dependent",
-        "synthetic_root_seed": 20251116,
-        "pipeline": {
-          "WINDOW_L": 20,
-          "ALPHA": 0.05,
-          "TIME_BLOCKS": 10,
-          "N_PERM": 1000,
-          "N_PERM_KERNEL": 500,
-          "KERNEL_MAX_N": 3000,
-          "N_BOOT": 500,
-          "BURN_IN": 250,
-          "CRITIC_KW": {
-            "n_steps": 1000,
-            "batch_size": 128,
-            "lr": 0.001,
-            "betas": [
-              0.5,
-              0.9
-            ],
-            "gp_lambda": 10.0,
-            "n_perm": 1000
-          },
-          "ABSOLUTE_TESTS": [
-            "critic",
-            "lrcritic",
-            "c2st",
-            "mmd",
-            "sigmmd",
-            "ks"
-          ],
-          "RELATIVE_METHODS": [
-            "anchored",
-            "two_critic"
-          ],
-          "POWER_MODEL": "GARCHt",
-          "POWER_VOL_FACTOR": 1.2,
-          "POWER_N_REPS": 50,
-          "POWER_MIN": 0.8,
-          "TRAIN": [
-            "2018-01-02",
-            "2022-12-30"
-          ],
-          "TEST": [
-            "2023-01-03",
-            "2025-06-17"
-          ],
-          "N_PANEL": 100,
-          "PANEL_SEED": 20251114,
-          "DEVICE": "cuda",
-          "ARCH_1D": "pooled",
-          "ARCH_2D": "pooled",
-          "TORCH": "2.15.0+cu132"
-        },
-        "train_steps": true,
-        "n_seeds": 50
-      }
-    },
     "e6_power_designs.csv": {
       "kind": "csv",
       "rows": 4,
       "cols": 31,
-      "written": "2026-11-18T19:41:27",
+      "written": "2026-11-19T23:00:46",
       "config": {
         "part": "verdict",
         "e3_dir": "/home/nicolas/dev/Likelihood-Estimation-of-Markovitz-Models/results_v2_s50/e3"
@@ -434,7 +256,7 @@
       "kind": "csv",
       "rows": 1,
       "cols": 57,
-      "written": "2026-11-18T19:41:27",
+      "written": "2026-11-19T23:00:46",
       "config": {
         "part": "verdict",
         "alpha": 0.05,
@@ -454,16 +276,15 @@
       "kind": "csv",
       "rows": 2,
       "cols": 25,
-      "written": "2026-11-18T19:41:27",
+      "written": "2026-11-19T23:00:46",
       "config": {
         "e3_dir": "/home/nicolas/dev/Likelihood-Estimation-of-Markovitz-Models/results_v2_s50/e3"
       }
     }
   },
   "timing": {
-    "pooled_wall_s": 126.93334381599561,
-    "verdict_wall_s": 0.16593015601392835,
-    "wall_compute_s": 127.12783206897439,
-    "wall_outputs_s": 0.2937238599988632
+    "verdict_wall_s": 0.15242682897951454,
+    "wall_compute_s": 0.17045469500590116,
+    "wall_outputs_s": 0.34204078296897933
   }
 }

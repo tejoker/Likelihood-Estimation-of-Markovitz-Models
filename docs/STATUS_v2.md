@@ -1,4 +1,4 @@
-# v2 status: first results (snapshot of 2026-11-19, 20:00)
+# v2 status: first results (snapshot of 2026-11-20, 07:15)
 
 Interim report on the v2 program defined in [`PROTOCOL_v2.md`](PROTOCOL_v2.md). This is a
 snapshot, not the paper: some runs are still going (listed at the end) and the numbers below
@@ -21,10 +21,10 @@ TRAIN 2018-2022, TEST 2023-01-03 to 2025-06-16.
 
 - **GBM is BAD.** It is rejected with p < 0.001 at 10 and at 50 seeds.
 - **No other generator is rejected.** That covers GARCH-t, QuantGAN, Heston and Merton.
-- **Certified tolerance.** The test would catch a volatility error of +40% or more at least
-  92% of the time. So these four generators are GOOD within a ±40% volatility tolerance. This
-  is the directional reading, worked out after the results were seen and labelled post hoc
-  (see below).
+- **Certified tolerance.** With 50 seeds, the test catches a volatility error of +40% in
+  99.5% of replications [97.2, 99.9]; with 10 seeds, in 92%. So these four generators are GOOD
+  within a ±40% volatility tolerance. This is the directional reading, worked out after the
+  results were seen and labelled post hoc (see below).
 - **Pre-registered rule as fixed (amendment A1):** certifies only ±100%.
 - **The pre-specified ±20% tolerance is not certified.** On realistic volatility paths (design
   D2), the rule has power 0.39-0.41, below the required 0.8. That is the INCONCLUSIVE of the
@@ -85,7 +85,21 @@ There are two readings, and both will be reported:
   that is too calm is therefore closer to TEST, and it lies inside the anchored null. Requiring
   power against it was a mis-specification of A1. Dropping that requirement certifies ±40%.
 
-The 50-seed version of E7 finishes tonight (`results_v2_s50/e7tol/`).
+**At 50 seeds** (amendment A2; 200 replications per cell; `results_v2_s50/e7tol/`):
+
+| Volatility error | D2 upward | D1 up / down |
+|---|---|---|
+| 10% | — | 0.985 / 0.99 |
+| 20% | 0.39 | 1.00 / 0.99 |
+| 30% | 0.50 | 1.00 / 0.99 |
+| 35% | 0.685 | 1.00 / 0.99 |
+| **40%** | **0.995** [0.972, 0.999] | 1.00 / 0.99 |
+| 45% and more | 1.00 | 1.00 / 0.99 |
+
+- With 50 seeds, the certified tolerance is still ±40%, but the power at 40% rises from 0.92 to
+  0.995. The 40% cut-off is sharp: power is 0.685 at 35%.
+- Following A2, the 50-seed grid runs only the cells that matter for the directional reading.
+  It has no D2 downward cells, so it gives no pre-registered A1 reading at 50 seeds.
 
 ## 3. Validity: does the test hold its size? (E1, E2, E2-dep)
 
@@ -120,9 +134,20 @@ The anchored relative test is built on this reference comparison.
 - Power is benchmarked against the exact likelihood-ratio oracle (`e2_power.tex`,
   `e2_llr.tex`).
 
-**Pending:** the E1 simulation size table is being recomputed from scratch tonight; the current
-`e1_size_sim.tex` reuses copied blocks. Provisional size: W-critic HAC 0.105 (fixed-b 0.06);
-anchored 0.125 (fixed-b 0.07).
+**Simulated placebo** (E1, fresh run, 200 replications, α = 0.05; `e1_size_sim.tex`). The
+panel has cross-sectionally dependent tickers:
+
+| Test and p-value | Rejection rate |
+|---|---|
+| W-critic, HAC | 0.095 [0.062, 0.144] |
+| W-critic, fixed-b | 0.045 |
+| Anchored relative, HAC | 0.12 |
+| Anchored relative, fixed-b | 0.025 |
+| Permutation | 0.505 |
+| Splitting by ticker | 0.93 |
+
+- With independent synthetic tickers, the W-critic HAC test over-rejects (0.30). That is the
+  known v1 problem, still open (roadmap B10).
 
 ## 4. Robustness (E5)
 
@@ -175,12 +200,13 @@ and real data (`e4_link.tex`, `e4_link_pooled.tex`).
 
 ## Still computing (no action needed)
 
-| Run | Expected |
+| Run | Status |
 |---|---|
-| E7 at 50 seeds: the certified tolerance with 50 seeds | 2026-11-19, ~22:00 |
-| E1 simulation size, fresh run | 2026-11-20, ~01:00 |
-| E5 power-by-setting grid (160 of ~1,700 blocks done) | 2026-11-21, ~06:00 |
-| All v2 tables and figures rebuilt | right after |
+| E7 at 50 seeds | done (2026-11-19, 23:00) |
+| E1 simulation size, fresh run | done (2026-11-20, 00:15) |
+| E5 power by setting, stationary design (`gridpower`, 690 blocks) | done (05:46) |
+| E5 power by setting, real-volatility design (`gridrealvol`, 850 blocks) | running, ~12:30 |
+| All v2 tables and figures rebuilt | right after, ~13:00 |
 
 Control: `bash experiments/v2ctl.sh status|pause|resume|stop`.
 

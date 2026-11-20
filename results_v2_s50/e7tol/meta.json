@@ -1,11 +1,11 @@
 {
   "experiment": "e7tol",
-  "run_id": "20261118T194129-152352",
-  "started": "2026-11-18T19:41:29",
-  "updated": "2026-11-18T19:41:30",
-  "elapsed_s": 0.845,
+  "run_id": "20261119T230048-241193",
+  "started": "2026-11-19T23:00:48",
+  "updated": "2026-11-19T23:00:49",
+  "elapsed_s": 1.04,
   "git": {
-    "commit": "bb6b2e4b6e3eea1b23d2aa88c9a0d1770ee379c6",
+    "commit": "22083719d494cf1150963b9a4451e17a64636efb",
     "dirty": false,
     "dirty_paths": [
       "src",
@@ -49,8 +49,7 @@
   "argv": [
     "experiments/v2.py",
     "e7",
-    "--workers",
-    "1"
+    "--plots-only"
   ],
   "config": {
     "quick": false,
@@ -87,5 +86,26 @@
       1.0
     ],
     "power_min": 0.8
+  },
+  "files": {
+    "e7_curve.csv": {
+      "kind": "csv",
+      "rows": 12,
+      "cols": 8,
+      "written": "2026-11-19T23:00:49",
+      "config": {
+        "part": "curve_summary"
+      }
+    },
+    "e7_tolerance.csv": {
+      "kind": "csv",
+      "rows": 8,
+      "cols": 9,
+      "written": "2026-11-19T23:00:49",
+      "config": {
+        "part": "tolerance",
+        "power_min": 0.8
+      }
+    }
   }
 }

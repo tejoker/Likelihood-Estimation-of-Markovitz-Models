@@ -2,7 +2,7 @@
   "experiment": "e1",
   "part": "sim",
   "quick": false,
-  "written": "2026-11-16T17:08:44",
+  "written": "2026-11-20T00:15:25",
   "config": {
     "part": "sim",
     "root_seed": 20251121,
@@ -75,27 +75,27 @@
     "n_test": 615,
     "L": 20,
     "code": {
-      "synthval": "7f076c37d254e710cfd01f121fb98d078e63619b5406d17bb682245d31c5b931",
+      "synthval": "6c41eff4b05b4cc673ed0a0ebe817e3eb2b863c0d018a72836fd99140987d931",
       "common.py": "e626b45f1bb7eb18afe4928e72590956b6128496ce387e5ba51f0c7db218664c",
       "e1_placebo.py": "40b94d88e7dc7e1f12e0bfb4ddc1253073a56d4b2343a7e3a7e2ef18ddea1229"
     }
   },
-  "config_hash": "0b2fc593bbe0",
+  "config_hash": "1ace325cff2e",
   "timing": {
-    "wall_s": 2882.1250868280003,
+    "wall_s": 4472.213136885024,
     "n_reps": 200
   },
-  "workers": 1,
+  "workers": 3,
   "argv": [
     "experiments/v2.py",
     "e1",
     "--part",
     "sim",
     "--workers",
-    "1"
+    "3"
   ],
   "git": {
-    "commit": "b7f007785f1fc573fd20c178a8b11f17bf84f1e7",
+    "commit": "22083719d494cf1150963b9a4451e17a64636efb",
     "dirty": false,
     "dirty_paths": [
       "src",
@@ -105,8 +105,8 @@
     "dirty_files": []
   },
   "code": {
-    "sha256": "7f076c37d254e710cfd01f121fb98d078e63619b5406d17bb682245d31c5b931",
-    "n_files": 23,
+    "sha256": "6c41eff4b05b4cc673ed0a0ebe817e3eb2b863c0d018a72836fd99140987d931",
+    "n_files": 27,
     "dir": "src/synthval"
   },
   "packages": {
