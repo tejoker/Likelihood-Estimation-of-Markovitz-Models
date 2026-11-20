@@ -186,3 +186,16 @@ parts) -> E4 (all parts). Command for each:
   - **E5:** stays at 10 seeds (robustness grid).
   - **Order:** after the running 10-seed E7, the 50-seed E3 (fit from the copies, power
     designs, pooled), E6 and E7 run; then E1 sim and the E5 grid as planned.
+- 2026-11-20: **handover to a second machine (run-time only, no protocol change).** The original
+  laptop (RTX 5050 Laptop GPU) completed everything up to and including the E5 `gridpower`
+  design and 44 of the 850 blocks of `gridrealvol` (cell `cap_large`, replications 0-43). It
+  was stopped at 07:16. The remaining `gridrealvol` blocks and the final tables run on a
+  teammate's machine (`experiments/run_v2_handover.sh`, `docs/HANDOVER.md`), resuming from the
+  same checkpoints. Requirements for the resumed run:
+  - the same code (branch `paper-v2`);
+  - the locked GPU environment (`envs/gpu/uv.lock`, torch 2.15.0+cu132, Python 3.12);
+  - the same settings (cuda, pooled critics, critic banks).
+  The checkpoint keys are therefore identical. A different GPU changes floating-point rounding,
+  so results are not bit-identical, but the distributions are the same, as for GPU vs CPU.
+  Provenance: the GPU of every run is recorded in `results_v2/v2_runs.jsonl`, and each block
+  is attributable by its file time.

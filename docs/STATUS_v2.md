@@ -205,8 +205,8 @@ and real data (`e4_link.tex`, `e4_link_pooled.tex`).
 | E7 at 50 seeds | done (2026-11-19, 23:00) |
 | E1 simulation size, fresh run | done (2026-11-20, 00:15) |
 | E5 power by setting, stationary design (`gridpower`, 690 blocks) | done (05:46) |
-| E5 power by setting, real-volatility design (`gridrealvol`, 850 blocks) | running, ~12:30 |
-| All v2 tables and figures rebuilt | right after, ~13:00 |
+| E5 power by setting, real-volatility design (`gridrealvol`, 850 blocks) | 44 done; the rest is handed over to a second machine ([`HANDOVER.md`](HANDOVER.md)), ~27 h at the laptop's speed |
+| All v2 tables and figures rebuilt | right after |
 
 Control: `bash experiments/v2ctl.sh status|pause|resume|stop`.
 

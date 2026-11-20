@@ -37,6 +37,7 @@ statistical theory is in [`docs/theory.md`](docs/theory.md) and the literature m
 - **First v2 results:** [`docs/STATUS_v2.md`](docs/STATUS_v2.md). Results are in `results_v2/`
   (10 seeds) and `results_v2_s50/` (50 seeds).
 - **Remaining work** (data, experiments, theory, paper): [`docs/ROADMAP.md`](docs/ROADMAP.md).
+- **Finishing the last v2 run on another machine:** [`docs/HANDOVER.md`](docs/HANDOVER.md).
 
 ## Install
 
