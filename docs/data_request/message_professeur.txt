@@ -1,0 +1,76 @@
+Objet : Demande d'extraction Bloomberg - projet « Is Synthetic Financial Data Good Enough? »
+
+Bonjour [Professeur],
+
+Avec mon coéquipier, nous testons si des rendements boursiers simulés (GBM, Merton, GARCH,
+Heston, QuantGAN) se distinguent statistiquement des vrais. Tous nos résultats reposent sur une
+seule extraction Bloomberg, que vous n'avez pas vue. Je la décris d'abord, puis les extractions
+qui rendraient le papier solide.
+
+A. CE QUE NOUS AVONS DÉJÀ
+- Univers : les 503 actions qui composaient le S&P 500 à la date d'extraction (mi-juin 2025).
+  La liste est en pièce jointe (tickers courts ; dans Bloomberg : « <ticker> US Equity », avec
+  BRK/B et BF/B pour BRK-B et BF-B).
+- Champs : PX_LAST et PX_VOLUME, en USD.
+- Ajustements : PX_LAST est ajusté des splits, mais pas des dividendes, ni ordinaires ni
+  exceptionnels.
+- Période : quotidien, jours de bourse uniquement, du 02/01/2018 au 16/06/2025 (1 874 jours).
+- Limites : une seule période d'évaluation (2023 à mi-2025), un univers figé à la fin de
+  l'échantillon (biais du survivant) et pas de dividendes.
+
+B. FORMAT SOUHAITÉ POUR TOUS LES FICHIERS (celui du fichier actuel)
+- CSV, séparateur « ; », point décimal, encodage UTF-8.
+- Ligne 1 : Date de début;AAAA-MM-JJ
+- Ligne 2 : Date de fin;AAAA-MM-JJ
+- Ligne 3 : Date;TICKER1;TICKER1;TICKER2;TICKER2;...   (le ticker de chaque colonne)
+- Ligne 4 : ;PX_LAST;PX_VOLUME;PX_LAST;PX_VOLUME;...   (le champ de chaque colonne)
+- Lignes suivantes : AAAA-MM-JJ;valeur;valeur;...      (une ligne par jour de bourse)
+- Cellule vide s'il n'y a pas de cotation : ne pas reporter la dernière valeur.
+- Devise de cotation, sans conversion.
+- Un fichier par champ ou les champs côte à côte, comme vous préférez.
+
+C. EXTRACTIONS DEMANDÉES, PAR ORDRE DE PRIORITÉ
+
+1. Mise à jour (petite : environ 2,3 millions de valeurs)
+   - Les 503 mêmes actions, PX_LAST et PX_VOLUME, mêmes réglages qu'en A.
+   - Du 01/01/2018 à la dernière clôture disponible.
+   - But : 17 mois de données jamais analysées, pour un test de confirmation à l'aveugle.
+
+2. Historique long (volumineuse)
+   - Univers : toutes les actions ayant appartenu au S&P 500 à un moment, en remontant le plus
+     loin possible (idéalement 1990 ou avant ; à défaut 2000), y compris celles sorties de
+     l'indice, rachetées ou radiées. Depuis 2000, cela fait environ 1 100 titres.
+   - Période : du début de l'historique disponible à la dernière clôture, quotidien.
+   - Champs : PX_LAST, PX_VOLUME et TOT_RETURN_INDEX_GROSS_DVDS.
+   - Ajustements de PX_LAST : splits et dividendes exceptionnels, mais pas les dividendes
+     ordinaires (options BDH : CapChg=Y, CshAdjAbnormal=Y, CshAdjNormal=N, UseDPDF=N).
+   - Composition historique : pour chaque fin de mois de cette période, la liste des membres
+     de l'indice (BDS sur « SPX Index », champ INDX_MWEIGHT_HIST, override
+     END_DATE_OVERRIDE=AAAAMMJJ), dans un fichier à trois colonnes : date;ticker;poids.
+   - Table de correspondance : pour chaque titre, le ticker Bloomberg complet, NAME,
+     ID_BB_GLOBAL (FIGI), GICS_SECTOR_NAME et CRNCY.
+   - But : plusieurs régimes de marché (1987, 2000-2002, 2008, 2020, 2022), un univers tel qu'il était
+     connu à chaque date, et des rendements dividendes inclus.
+
+3. Indices et taux (très petite)
+   - PX_LAST quotidien, mêmes dates que le point 2, pour : SPX Index, SPXT Index, VIX Index et
+     USGG3M Index.
+   - But : repérer les régimes de marché et disposer du taux sans risque.
+
+4. Second marché (si possible)
+   - La même extraction que le point 2 pour le STOXX Europe 600 (SXXP Index).
+   - But : montrer que les résultats ne sont pas propres au marché américain.
+
+D. DEUX QUESTIONS
+- Avons-nous accès à CRSP via WRDS ? Ce serait préférable pour le point 2 : c'est la base de
+  référence dans les revues, son historique remonte à 1957, elle inclut les rendements de
+  radiation, et cela éviterait les quotas du terminal Bloomberg.
+- La licence nous autorise-t-elle à diffuser ces données avec le papier, ou seulement le code ?
+
+Pour que le point 1 reste un vrai test à l'aveugle, nous n'analyserons pas la période postérieure
+au 16/06/2025 avant d'avoir figé notre protocole par écrit.
+
+Merci beaucoup pour votre aide,
+Armand
+
+Pièce jointe : tickers_sp500_2025-06.txt (les 503 tickers de l'extraction actuelle)
