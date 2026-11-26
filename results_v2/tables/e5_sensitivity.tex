@@ -4,19 +4,19 @@
 \cmidrule(lr){3-4} \cmidrule(lr){5-6} \cmidrule(lr){7-8} \cmidrule(lr){9-10} \cmidrule(lr){11-12} \cmidrule(lr){13-13}
 Factor & Setting & rel. & abs. & rel. & abs. & rel. & abs. & rel. & abs. & rel. & abs. & power \\
 \midrule
-Default & -- & $<$0.001 B & \textbf{$<$0.001} & 0.438 I & \textbf{$<$0.001} & 0.780 I & \textbf{$<$0.001} & 0.556 I & \textbf{$<$0.001} & 0.707$^\ddagger$ & \textbf{$<$0.001} & -- \\
-Window length $L$ & 5 & 0.245 I$^\dagger$ & \textbf{$<$0.001} & 0.519 I & \textbf{$<$0.001} & 0.742 I & \textbf{$<$0.001} & 0.540 I & \textbf{$<$0.001} & 0.705$^\ddagger$ & \textbf{$<$0.001} & -- \\
- & 10 & 0.234 I$^\dagger$ & \textbf{$<$0.001} & 0.501 I & \textbf{$<$0.001} & 0.851 I & \textbf{$<$0.001} & 0.569 I & \textbf{$<$0.001} & 0.740$^\ddagger$ & \textbf{$<$0.001} & -- \\
- & 60 & $<$0.001 B & \textbf{$<$0.001} & 0.474 I & \textbf{$<$0.001} & 1.000 I & \textbf{$<$0.001} & 0.458 I & \textbf{$<$0.001} & 0.877$^\ddagger$ & \textbf{$<$0.001} & -- \\
-Width$\times$depth & $32\times2$ & 0.006 B & \textbf{$<$0.001} & 0.456 I & \textbf{$<$0.001} & 0.843 I & \textbf{0.002} & 0.545 I & \textbf{$<$0.001} & 0.701$^\ddagger$ & \textbf{$<$0.001} & -- \\
- & $256\times4$ & $<$0.001 B & \textbf{$<$0.001} & 0.008 B$^\dagger$ & \textbf{$<$0.001} & 0.828 I & \textbf{$<$0.001} & 0.444 I & \textbf{$<$0.001} & 0.713$^\ddagger$ & \textbf{$<$0.001} & -- \\
-Critic steps & 500 & 0.137 I$^\dagger$ & \textbf{$<$0.001} & 0.483 I & \textbf{$<$0.001} & 0.853 I & \textbf{0.002} & 0.574 I & \textbf{$<$0.001} & 0.704$^\ddagger$ & \textbf{$<$0.001} & -- \\
- & 3000 & $<$0.001 B & \textbf{$<$0.001} & 0.013 B$^\dagger$ & \textbf{$<$0.001} & 0.678 I & \textbf{$<$0.001} & 0.300 I & \textbf{$<$0.001} & 0.693$^\ddagger$ & \textbf{0.004} & -- \\
-Learning rate & $10^{-4}$ & 0.213 I$^\dagger$ & \textbf{$<$0.001} & 0.484 I & \textbf{$<$0.001} & 0.804 I & \textbf{$<$0.001} & 0.581 I & \textbf{$<$0.001} & 0.711$^\ddagger$ & \textbf{$<$0.001} & -- \\
-GP weight $\lambda$ & 1 & 0.010 B & \textbf{$<$0.001} & 0.013 B$^\dagger$ & \textbf{$<$0.001} & 0.270 I & \textbf{$<$0.001} & 0.493 I & \textbf{$<$0.001} & 0.693$^\ddagger$ & \textbf{$<$0.001} & -- \\
-Time blocks & 4 & $<$0.001 B & \textbf{$<$0.001} & 0.082 I & \textbf{0.015} & 0.905 I & 0.380$^\dagger$ & 0.119 I & \textbf{0.019} & 1.000$^\ddagger$ & 0.220$^\dagger$ & -- \\
-Train fraction & 0.3 & $<$0.001 B & \textbf{$<$0.001} & 0.568 I & \textbf{$<$0.001} & 1.000 I & 0.075$^\dagger$ & 0.777 I & \textbf{$<$0.001} & 1.000$^\ddagger$ & 0.051$^\dagger$ & -- \\
- & 0.7 & $<$0.001 B & \textbf{$<$0.001} & 0.006 B$^\dagger$ & \textbf{$<$0.001} & 0.249 I & \textbf{$<$0.001} & 0.034 B$^\dagger$ & \textbf{$<$0.001} & 0.064$^\ddagger$ & \textbf{$<$0.001} & -- \\
-HAC lag rule & Newey-West & $<$0.001 B & \textbf{$<$0.001} & 0.427 I & \textbf{$<$0.001} & 0.776 I & \textbf{$<$0.001} & 0.562 I & \textbf{$<$0.001} & 0.700$^\ddagger$ & \textbf{$<$0.001} & -- \\
+Default & -- & $<$0.001 B & \textbf{$<$0.001} & 0.438 I & \textbf{$<$0.001} & 0.780 I & \textbf{$<$0.001} & 0.556 I & \textbf{$<$0.001} & 0.707$^\ddagger$ & \textbf{$<$0.001} & 81/200 \\
+Window length $L$ & 5 & 0.245 I$^\dagger$ & \textbf{$<$0.001} & 0.519 I & \textbf{$<$0.001} & 0.742 I & \textbf{$<$0.001} & 0.540 I & \textbf{$<$0.001} & 0.705$^\ddagger$ & \textbf{$<$0.001} & 19/50 \\
+ & 10 & 0.234 I$^\dagger$ & \textbf{$<$0.001} & 0.501 I & \textbf{$<$0.001} & 0.851 I & \textbf{$<$0.001} & 0.569 I & \textbf{$<$0.001} & 0.740$^\ddagger$ & \textbf{$<$0.001} & 19/50 \\
+ & 60 & $<$0.001 B & \textbf{$<$0.001} & 0.474 I & \textbf{$<$0.001} & 1.000 I & \textbf{$<$0.001} & 0.458 I & \textbf{$<$0.001} & 0.877$^\ddagger$ & \textbf{$<$0.001} & 19/50 \\
+Width$\times$depth & $32\times2$ & 0.006 B & \textbf{$<$0.001} & 0.456 I & \textbf{$<$0.001} & 0.843 I & \textbf{0.002} & 0.545 I & \textbf{$<$0.001} & 0.701$^\ddagger$ & \textbf{$<$0.001} & 19/50 \\
+ & $256\times4$ & $<$0.001 B & \textbf{$<$0.001} & 0.008 B$^\dagger$ & \textbf{$<$0.001} & 0.828 I & \textbf{$<$0.001} & 0.444 I & \textbf{$<$0.001} & 0.713$^\ddagger$ & \textbf{$<$0.001} & 19/50 \\
+Critic steps & 500 & 0.137 I$^\dagger$ & \textbf{$<$0.001} & 0.483 I & \textbf{$<$0.001} & 0.853 I & \textbf{0.002} & 0.574 I & \textbf{$<$0.001} & 0.704$^\ddagger$ & \textbf{$<$0.001} & 19/50 \\
+ & 3000 & $<$0.001 B & \textbf{$<$0.001} & 0.013 B$^\dagger$ & \textbf{$<$0.001} & 0.678 I & \textbf{$<$0.001} & 0.300 I & \textbf{$<$0.001} & 0.693$^\ddagger$ & \textbf{0.004} & 19/50 \\
+Learning rate & $10^{-4}$ & 0.213 I$^\dagger$ & \textbf{$<$0.001} & 0.484 I & \textbf{$<$0.001} & 0.804 I & \textbf{$<$0.001} & 0.581 I & \textbf{$<$0.001} & 0.711$^\ddagger$ & \textbf{$<$0.001} & 19/50 \\
+GP weight $\lambda$ & 1 & 0.010 B & \textbf{$<$0.001} & 0.013 B$^\dagger$ & \textbf{$<$0.001} & 0.270 I & \textbf{$<$0.001} & 0.493 I & \textbf{$<$0.001} & 0.693$^\ddagger$ & \textbf{$<$0.001} & 19/50 \\
+Time blocks & 4 & $<$0.001 B & \textbf{$<$0.001} & 0.082 I & \textbf{0.015} & 0.905 I & 0.380$^\dagger$ & 0.119 I & \textbf{0.019} & 1.000$^\ddagger$ & 0.220$^\dagger$ & 22/50 \\
+Train fraction & 0.3 & $<$0.001 B & \textbf{$<$0.001} & 0.568 I & \textbf{$<$0.001} & 1.000 I & 0.075$^\dagger$ & 0.777 I & \textbf{$<$0.001} & 1.000$^\ddagger$ & 0.051$^\dagger$ & 6/50 \\
+ & 0.7 & $<$0.001 B & \textbf{$<$0.001} & 0.006 B$^\dagger$ & \textbf{$<$0.001} & 0.249 G$^\S$ & \textbf{$<$0.001} & 0.034 B$^\dagger$ & \textbf{$<$0.001} & 0.064$^\ddagger$ & \textbf{$<$0.001} & 40/50 \\
+HAC lag rule & Newey-West & $<$0.001 B & \textbf{$<$0.001} & 0.427 I & \textbf{$<$0.001} & 0.776 I & \textbf{$<$0.001} & 0.562 I & \textbf{$<$0.001} & 0.700$^\ddagger$ & \textbf{$<$0.001} & 19/50 \\
 \bottomrule
 \end{tabular}

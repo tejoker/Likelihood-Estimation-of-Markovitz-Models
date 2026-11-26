@@ -1,11 +1,11 @@
 {
   "experiment": "e1",
-  "run_id": "20261119T230050-241228",
-  "started": "2026-11-19T23:00:50",
-  "updated": "2026-11-20T00:15:35",
-  "elapsed_s": 4485.615,
+  "run_id": "20261126T055628-6617",
+  "started": "2026-11-26T05:56:28",
+  "updated": "2026-11-26T05:56:40",
+  "elapsed_s": 11.764,
   "git": {
-    "commit": "22083719d494cf1150963b9a4451e17a64636efb",
+    "commit": "805d0fa8d68bd8b823b66b9a10de139ac5024ba0",
     "dirty": false,
     "dirty_paths": [
       "src",
@@ -29,7 +29,7 @@
     "sha256": "ddfd0d23dc274a58f8089e53b3872754005033447d77eb2650a0795382f832dc"
   },
   "packages": {
-    "python": "3.12.16",
+    "python": "3.12.3",
     "numpy": "2.5.5",
     "pandas": "3.1.1",
     "scipy": "1.18.1",
@@ -41,25 +41,24 @@
   },
   "platform": {
     "system": "Linux",
-    "release": "7.0.0-43-generic",
+    "release": "5.15.167.4-microsoft-standard-WSL2",
     "machine": "x86_64",
-    "cpu_count": 16
+    "cpu_count": 24
   },
   "workers": 4,
   "argv": [
     "experiments/v2.py",
     "e1",
-    "--part",
-    "sim",
-    "--workers",
-    "3"
+    "--plots-only"
   ],
   "config": {
     "quick": false,
     "parts": [
-      "sim"
+      "sim",
+      "real",
+      "nonstat"
     ],
-    "plots_only": false,
+    "plots_only": true,
     "cfg": {
       "n_tickers": 100,
       "sim_reps": 200,
@@ -138,135 +137,11 @@
     }
   },
   "files": {
-    "e1_factor_fit.csv": {
-      "kind": "csv",
-      "rows": 101,
-      "cols": 13,
-      "written": "2026-11-19T23:00:52",
-      "config": {
-        "fit_info": {
-          "T": 1258,
-          "N": 100,
-          "resid_corr_mean": -0.007658462895415388,
-          "std_resid_corr_mean": -0.006947715880652555,
-          "resid_corr_baseline": -0.010101010101010102,
-          "resid_corr_rms": 0.14524714317255702,
-          "resid_corr_rms_null": 0.029949006071640343,
-          "resid_top_eig_share": 0.11540277550274598,
-          "resid_top_eig_share_null": 0.01643375130396445,
-          "resid_logvol_corr_mean": 0.4158074123494394,
-          "corr_mean_data": 0.4096940688733714,
-          "corr_mean_implied": 0.4131240224767134,
-          "r2_mean": 0.4316216182067365,
-          "ew_mean_var_excess": 0.013788521182660362,
-          "end_state_gap": 0.0,
-          "seconds": 1.6364717819960788
-        },
-        "summary": {
-          "factor_alpha": 0.21202324404202832,
-          "factor_beta": 0.7664304992831049,
-          "factor_nu": 7.411014182315878,
-          "factor_kurt_z": 4.75900763799415,
-          "factor_m4_cond": 1.1263536159412775,
-          "factor_finite_m4": false,
-          "n_idio_infinite_m4": 72,
-          "n_idio": 100,
-          "idio_persistence_min": 0.4875755766861909,
-          "idio_persistence_median": 0.9309171019822164,
-          "idio_persistence_max": 0.9949999999999999,
-          "n_idio_at_cap": 1,
-          "persistence_cap": 0.995
-        }
-      }
-    },
-    "e1_sim_raw.csv": {
-      "kind": "csv",
-      "rows": 6000,
-      "cols": 53,
-      "written": "2026-11-20T00:15:24",
-      "config": {
-        "part": "sim",
-        "root_seed": 20251121,
-        "pipeline": {
-          "WINDOW_L": 20,
-          "ALPHA": 0.05,
-          "TIME_BLOCKS": 10,
-          "N_PERM": 1000,
-          "N_PERM_KERNEL": 500,
-          "KERNEL_MAX_N": 3000,
-          "N_BOOT": 500,
-          "BURN_IN": 250,
-          "CRITIC_KW": {
-            "n_steps": 1000,
-            "batch_size": 128,
-            "lr": 0.001,
-            "betas": [
-              0.5,
-              0.9
-            ],
-            "gp_lambda": 10.0,
-            "n_perm": 1000
-          },
-          "ABSOLUTE_TESTS": [
-            "critic",
-            "lrcritic",
-            "c2st",
-            "mmd",
-            "sigmmd",
-            "ks"
-          ],
-          "RELATIVE_METHODS": [
-            "anchored",
-            "two_critic"
-          ],
-          "POWER_MODEL": "GARCHt",
-          "POWER_VOL_FACTOR": 1.2,
-          "POWER_N_REPS": 50,
-          "POWER_MIN": 0.8,
-          "TRAIN": [
-            "2018-01-02",
-            "2022-12-30"
-          ],
-          "TEST": [
-            "2023-01-03",
-            "2025-06-17"
-          ],
-          "N_PANEL": 100,
-          "PANEL_SEED": 20251114,
-          "DEVICE": "cuda",
-          "ARCH_1D": "pooled",
-          "ARCH_2D": "pooled",
-          "TORCH": "2.15.0+cu132"
-        },
-        "settings": {
-          "test_kw": {},
-          "base_kw": {},
-          "n_boot": 500,
-          "ticker_split": true,
-          "pastnew": true,
-          "real_relative": true,
-          "burn_in": 1000,
-          "sim_layout": "R_past*+R_new* one contiguous path; G* independent stationary",
-          "inject": []
-        },
-        "panel": "1a64b0eec3df4bcd",
-        "model": "f0db65d11d05b41e",
-        "n_tickers": 100,
-        "n_train": 1258,
-        "n_test": 615,
-        "L": 20,
-        "code": {
-          "synthval": "6c41eff4b05b4cc673ed0a0ebe817e3eb2b863c0d018a72836fd99140987d931",
-          "common.py": "e626b45f1bb7eb18afe4928e72590956b6128496ce387e5ba51f0c7db218664c",
-          "e1_placebo.py": "40b94d88e7dc7e1f12e0bfb4ddc1253073a56d4b2343a7e3a7e2ef18ddea1229"
-        }
-      }
-    },
     "e1_size_sim.csv": {
       "kind": "csv",
       "rows": 60,
       "cols": 16,
-      "written": "2026-11-20T00:15:30",
+      "written": "2026-11-26T05:56:35",
       "config": {
         "fixedb_draws": 80000,
         "note": "hac_fixedb / hac_fixedb_eq are computed after the run from z_hac, T_eval_*, H_* (see fixedb_pvalue in experiments/e1_placebo.py)"
@@ -276,7 +151,7 @@
       "kind": "csv",
       "rows": 30,
       "cols": 19,
-      "written": "2026-11-20T00:15:30",
+      "written": "2026-11-26T05:56:36",
       "config": {
         "note": "joint and indep cells share R_past*, R_new* and the test seeds per rep: paired counts and two-sided exact McNemar p-values on discordant pairs"
       }
@@ -285,7 +160,7 @@
       "kind": "csv",
       "rows": 6,
       "cols": 8,
-      "written": "2026-11-20T00:15:31",
+      "written": "2026-11-26T05:56:37",
       "config": {
         "note": "placebo rows: median and quartiles over replications of the mean pairwise return correlation and of the mean pairwise correlation of rolling 20-day log-volatility"
       }
@@ -294,7 +169,7 @@
       "kind": "csv",
       "rows": 41,
       "cols": 16,
-      "written": "2026-11-20T00:15:35",
+      "written": "2026-11-26T05:56:39",
       "config": {
         "note": "rates are conditional on the one realised market path; the splits are random halves of the same panel and are dependent, so the Wilson columns (lo_*, hi_*), which assume independent splits, do not apply. HAC rows ignore the positive same-date covariance of the halves (near-vacuous by construction); the wild-bootstrap rows model it."
       }
@@ -303,12 +178,11 @@
       "kind": "csv",
       "rows": 17,
       "cols": 21,
-      "written": "2026-11-20T00:15:35"
+      "written": "2026-11-26T05:56:40"
     }
   },
   "timing": {
-    "sim_wall_s": 4472.213136885024,
-    "wall_compute_s": 4474.052150575037,
-    "wall_outputs_s": 10.664227457949892
+    "wall_compute_s": 0.03420299400022486,
+    "wall_outputs_s": 10.795566998996946
   }
 }
